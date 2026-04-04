@@ -6,13 +6,13 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.app.api_clients import OpenAiStructuredLlmClient, StructuredLlmClient
 from backend.app.config import (
     DEFAULT_PLANNER_MODEL,
     PlannerRuntimeConfig,
     load_planner_runtime_config,
 )
 from backend.app.contracts import PlannerOutput
-from backend.app.llm import OpenAiStructuredLlmClient, StructuredLlmClient
 from backend.app.prompts import PLANNER_SYSTEM_PROMPT
 
 

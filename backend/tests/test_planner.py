@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
+from backend.app.api_clients.llm_client import StructuredLlmClient, StructuredOutputT
 from backend.app.config import (
     ENV_OPENAI_API_KEY,
     ENV_PLANNER_MODE,
@@ -10,7 +11,6 @@ from backend.app.config import (
     load_planner_runtime_config,
 )
 from backend.app.contracts import PipelineRequest, PlannerOutput
-from backend.app.llm.client import StructuredLlmClient, StructuredOutputT
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages.planner import LlmPlannerStage, PlannerModelOutput
 
