@@ -484,4 +484,15 @@ class PipelineOrchestrator:
             key=lambda gap: gap.mention_count,
             reverse=True,
         )
-        return [gap.suggested_query for gap in ordered_gaps[:remaining]]
+
+        selected_queries: list[str] = []
+        seen_queries: set[str] = set()
+        for gap in ordered_gaps:
+            normalized_query = " ".join(gap.suggested_query.split()).strip()
+            if not normalized_query or normalized_query in seen_queries:
+                continue
+            seen_queries.add(normalized_query)
+            selected_queries.append(normalized_query)
+            if len(selected_queries) >= remaining:
+                break
+        return selected_queries
