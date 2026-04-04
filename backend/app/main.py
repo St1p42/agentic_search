@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from backend.app.config import (
     load_assessor_runtime_config,
     load_brave_context_runtime_config,
+    load_extractor_light_runtime_config,
     load_jina_fetcher_runtime_config,
     load_planner_runtime_config,
     load_searcher_runtime_config,
@@ -27,7 +28,12 @@ from backend.app.contracts import (
 )
 from backend.app.helpers import build_brave_context_fetcher, build_jina_fetcher
 from backend.app.orchestrator import PipelineOrchestrator
-from backend.app.stages import build_assessor_stage, build_planner_stage, build_searcher_stage
+from backend.app.stages import (
+    build_assessor_stage,
+    build_extractor_light_stage,
+    build_planner_stage,
+    build_searcher_stage,
+)
 
 
 app = FastAPI(title="Agentic Search", version="0.1.0")
@@ -44,6 +50,13 @@ class AssessorTestRequest(BaseModel):
     pass_type: AssessorPass = AssessorPass.FIRST_PASS
     evidence_store: EvidenceStore | None = None
     remaining_fetch_budget: int = Field(default=0, ge=0)
+
+
+class ExtractorLightTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    planner_output: PlannerOutput
+    brave_context_output: BraveContextOutput
 
 
 class JinaFetcherTestRequest(BaseModel):
@@ -96,6 +109,17 @@ def run_brave_context_test(searcher_output: SearcherOutput) -> BraveContextOutpu
         runtime_config=brave_context_config,
     )
     return brave_context_fetcher.run(searcher_output=searcher_output)
+
+
+@app.post("/api/v1/extractor-light/test", response_model=ExtractorLightOutput)
+def run_extractor_light_test(request: ExtractorLightTestRequest) -> ExtractorLightOutput:
+    extractor_light_config = load_extractor_light_runtime_config()
+    extractor_light = build_extractor_light_stage(runtime_config=extractor_light_config)
+    return extractor_light.run(
+        planner_output=request.planner_output,
+        brave_context_output=request.brave_context_output,
+    )
+
 
 @app.post("/api/v1/assessor/test", response_model=AssessorOutput)
 def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:

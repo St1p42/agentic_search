@@ -186,6 +186,36 @@ def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
     ] == "Acme Health develops clinical AI."
 
 
+def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> None:
+    extractor_light_output = _extractor_light_output()
+
+    class FakeEndpointExtractorLight:
+        def run(
+            self,
+            planner_output: PlannerOutput,
+            brave_context_output: BraveContextOutput,
+        ) -> ExtractorLightOutput:
+            _ = planner_output
+            _ = brave_context_output
+            return extractor_light_output
+
+    monkeypatch.setattr(
+        "backend.app.main.build_extractor_light_stage",
+        lambda runtime_config: FakeEndpointExtractorLight(),
+    )
+
+    response = client.post(
+        "/api/v1/extractor-light/test",
+        json={
+            "planner_output": _planner_output().model_dump(mode="json"),
+            "brave_context_output": _brave_context_output().model_dump(mode="json"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["candidate_names"] == ["Acme Health"]
+
+
 def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
     assessor_output = _assessor_output()
 

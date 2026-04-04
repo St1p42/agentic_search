@@ -24,6 +24,7 @@ class StructuredLlmClient(ABC):
         system_prompt: str,
         user_content: str,
         response_model: type[StructuredOutputT],
+        reasoning_effort: str | None = None,
     ) -> StructuredOutputT:
         """Parse one isolated request into one structured output object."""
 
@@ -44,6 +45,7 @@ class OpenAiStructuredLlmClient(StructuredLlmClient):
         system_prompt: str,
         user_content: str,
         response_model: type[StructuredOutputT],
+        reasoning_effort: str | None = None,
     ) -> StructuredOutputT:
         system_message: EasyInputMessageParam = {
             "type": "message",
@@ -60,6 +62,7 @@ class OpenAiStructuredLlmClient(StructuredLlmClient):
             model=model,
             input=request_input,
             text_format=response_model,
+            reasoning={"effort": reasoning_effort} if reasoning_effort else None,
         )
 
         for output_item in response.output:

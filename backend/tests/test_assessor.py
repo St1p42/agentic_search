@@ -39,7 +39,9 @@ class FakeAssessorClient:
         system_prompt: str,
         user_content: str,
         response_model: type[StructuredOutputT],
+        reasoning_effort: str | None = None,
     ) -> StructuredOutputT:
+        _ = reasoning_effort
         self.calls.append(
             {
                 "model": model,

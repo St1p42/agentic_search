@@ -14,6 +14,8 @@ DEFAULT_ENV_PATH = REPO_ROOT / ".env"
 
 DEFAULT_PLANNER_MODEL = "gpt-5-mini"
 DEFAULT_PLANNER_MODE = "llm"
+DEFAULT_EXTRACTOR_LIGHT_MODEL = "gpt-5-mini"
+DEFAULT_EXTRACTOR_LIGHT_MODE = "llm"
 DEFAULT_ASSESSOR_MODEL = "gpt-5-mini"
 DEFAULT_ASSESSOR_MODE = "llm"
 DEFAULT_SEARCHER_MODE = "brave"
@@ -25,6 +27,7 @@ DEFAULT_BRAVE_SEARCH_LANG = "en"
 DEFAULT_BRAVE_CONTEXT_MAX_URLS = DEFAULT_MAX_SHORTLISTED_URLS
 DEFAULT_BRAVE_CONTEXT_MAX_TOKENS = 2048
 DEFAULT_BRAVE_CONTEXT_MAX_SNIPPETS_PER_URL = 2
+DEFAULT_BRAVE_CONTEXT_MAX_PASSAGE_CHARS = 2048
 DEFAULT_BRAVE_INITIAL_COUNT_BY_QUERY_COUNT = {1: 20, 2: 15, 3: 12, 4: 10}
 DEFAULT_BRAVE_RETRY_COUNT_BY_QUERY_COUNT = {1: 32, 2: 21, 3: 16, 4: 13}
 DEFAULT_SEARCHER_SHORTLIST_CAP = DEFAULT_MAX_SHORTLISTED_URLS
@@ -38,6 +41,8 @@ ENV_BRAVE_SEARCH_API_KEY = "BRAVE_SEARCH_API_KEY"
 ENV_ASSESSOR_MODE = "ASSESSOR_MODE"
 ENV_ASSESSOR_MODEL = "ASSESSOR_MODEL"
 ENV_BRAVE_CONTEXT_MODE = "BRAVE_CONTEXT_MODE"
+ENV_EXTRACTOR_LIGHT_MODE = "EXTRACTOR_LIGHT_MODE"
+ENV_EXTRACTOR_LIGHT_MODEL = "EXTRACTOR_LIGHT_MODEL"
 ENV_JINA_API_KEY = "JINA_API_KEY"
 ENV_JINA_FETCHER_MODE = "JINA_FETCHER_MODE"
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
@@ -50,6 +55,13 @@ ENV_SEARCHER_MODE = "SEARCHER_MODE"
 class PlannerRuntimeConfig:
     model: str = DEFAULT_PLANNER_MODEL
     mode: str = DEFAULT_PLANNER_MODE
+    openai_api_key: str | None = None
+
+
+@dataclass(frozen=True)
+class ExtractorLightRuntimeConfig:
+    model: str = DEFAULT_EXTRACTOR_LIGHT_MODEL
+    mode: str = DEFAULT_EXTRACTOR_LIGHT_MODE
     openai_api_key: str | None = None
 
 
@@ -80,6 +92,7 @@ class BraveContextRuntimeConfig:
     max_urls: int = DEFAULT_BRAVE_CONTEXT_MAX_URLS
     max_tokens: int = DEFAULT_BRAVE_CONTEXT_MAX_TOKENS
     max_snippets_per_url: int = DEFAULT_BRAVE_CONTEXT_MAX_SNIPPETS_PER_URL
+    max_passage_chars: int = DEFAULT_BRAVE_CONTEXT_MAX_PASSAGE_CHARS
 
 
 @dataclass(frozen=True)
@@ -128,6 +141,19 @@ def load_searcher_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> SearcherR
     return SearcherRuntimeConfig(
         mode=os.getenv(ENV_SEARCHER_MODE, DEFAULT_SEARCHER_MODE).strip() or DEFAULT_SEARCHER_MODE,
         brave_search_api_key=os.getenv(ENV_BRAVE_SEARCH_API_KEY),
+    )
+
+
+def load_extractor_light_runtime_config(
+    env_path: Path = DEFAULT_ENV_PATH,
+) -> ExtractorLightRuntimeConfig:
+    _load_env_file(env_path)
+    return ExtractorLightRuntimeConfig(
+        model=os.getenv(ENV_EXTRACTOR_LIGHT_MODEL, DEFAULT_EXTRACTOR_LIGHT_MODEL).strip()
+        or DEFAULT_EXTRACTOR_LIGHT_MODEL,
+        mode=os.getenv(ENV_EXTRACTOR_LIGHT_MODE, DEFAULT_EXTRACTOR_LIGHT_MODE).strip()
+        or DEFAULT_EXTRACTOR_LIGHT_MODE,
+        openai_api_key=os.getenv(ENV_OPENAI_API_KEY),
     )
 
 

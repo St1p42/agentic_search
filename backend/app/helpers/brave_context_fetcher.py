@@ -82,7 +82,7 @@ class DefaultBraveContextFetcher:
         passages = [
             BraveContextPassage(
                 source_url=HttpUrl(fetched.source_url),
-                passage_text=cleaned_passage_text,
+                passage_text=_truncate_passage_text(cleaned_passage_text, config.max_passage_chars),
                 metadata={
                     "title": fetched.title,
                     **fetched.metadata,
@@ -99,7 +99,7 @@ class DefaultBraveContextFetcher:
         if passages:
             return passages
 
-        return [_fallback_passage_for_result(result)]
+        return [_fallback_passage_for_result(result, config.max_passage_chars)]
 
 
 def build_brave_context_fetcher(
@@ -131,13 +131,28 @@ def _url_matches_result(source_url: str, result: SearchResultItem) -> bool:
     return source_url == str(result.url)
 
 
-def _fallback_passage_for_result(result: SearchResultItem) -> BraveContextPassage:
+def _fallback_passage_for_result(
+    result: SearchResultItem,
+    max_passage_chars: int,
+) -> BraveContextPassage:
     return BraveContextPassage(
         source_url=result.url,
-        passage_text=result.snippet,
+        passage_text=_truncate_passage_text(result.snippet, max_passage_chars),
         metadata={
             "title": result.title,
             "hostname": result.domain,
             "fallback": True,
         },
     )
+
+
+def _truncate_passage_text(text: str, max_passage_chars: int) -> str:
+    normalized_text = text.strip()
+    if max_passage_chars <= 0 or len(normalized_text) <= max_passage_chars:
+        return normalized_text
+
+    truncated = normalized_text[:max_passage_chars].rstrip()
+    last_space = truncated.rfind(" ")
+    if last_space >= max_passage_chars // 2:
+        truncated = truncated[:last_space].rstrip()
+    return truncated.rstrip(".,;:-")

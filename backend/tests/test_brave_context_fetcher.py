@@ -189,3 +189,51 @@ def test_default_brave_context_fetcher_cleans_passage_text_and_falls_back_if_onl
         "Beta AI develops healthcare copilots"
     )
     assert output.passages_by_url[HttpUrl("https://beta.ai")][0].metadata["fallback"] is True
+
+
+def test_default_brave_context_fetcher_truncates_passages_to_configured_char_limit() -> None:
+    result = _search_result(
+        url="https://acmehealth.com/about",
+        title="Acme Health",
+        snippet="Acme Health builds clinical AI tools",
+        domain="acmehealth.com",
+    )
+    long_sentence = (
+        "Acme Health builds clinical AI tooling for hospital systems with decision support, "
+        "workflow automation, and quality assurance features across multiple care settings."
+    )
+    fake_client = FakeBraveContextClient(
+        passages_by_query={
+            "Acme Health Acme Health builds clinical AI tools site:acmehealth.com": [
+                BraveLlmContextPassage(
+                    source_url="https://acmehealth.com/about",
+                    title="About Acme",
+                    snippets=[long_sentence],
+                    metadata={"hostname": "acmehealth.com"},
+                )
+            ]
+        }
+    )
+    fetcher = DefaultBraveContextFetcher(
+        runtime_config=BraveContextRuntimeConfig(
+            mode="brave",
+            brave_search_api_key="fake-key",
+            max_urls=5,
+            max_tokens=1024,
+            max_snippets_per_url=2,
+            max_passage_chars=80,
+        ),
+        brave_context_client=fake_client,
+    )
+
+    output = fetcher.run(
+        SearcherOutput(
+            executed_queries=["AI startups in healthcare"],
+            raw_results=[result],
+            shortlisted_results=[result],
+        )
+    )
+
+    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
+        "Acme Health builds clinical AI tooling for hospital systems with decision"
+    )
