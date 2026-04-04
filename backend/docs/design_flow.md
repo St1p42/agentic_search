@@ -34,7 +34,7 @@ Your submission will be compared against other candidates on:
 
 ## 0. Core Architectural Stance
 
-- The system uses a **deterministic orchestration/controller module in code**, not an LLM orchestrator.
+- The system uses a **deterministic orchestration/orchestrator module in code**, not an LLM orchestrator.
 - The main pipeline is fixed.
 - The system allows **one bounded feedback / repair round**.
 - There is **no open-ended recursive agent loop**.
@@ -45,7 +45,7 @@ Your submission will be compared against other candidates on:
 
 ## 1. Runtime Components
 
-### 1.1 Controller Module
+### 1.1 Orchestrator Module
 
 Owns:
 
@@ -59,7 +59,7 @@ Owns:
 
 ### 1.2 Mostly Deterministic / Code-Driven Components
 
-- **Controller**
+- **Orchestrator**
 - **Searcher**
   - executes Brave Web Search queries
   - collects ranked results, titles, snippets, domains, metadata
@@ -92,7 +92,7 @@ Owns:
 
 ### 2.1 Deterministic Stage Order
 
-The controller always runs stages in this order:
+The orchestrator always runs stages in this order:
 
 1. Planner
 2. Searcher
@@ -102,7 +102,7 @@ The controller always runs stages in this order:
 6. Targeted verification queries (bounded)
 7. Brave LLM Context on verification URLs
 8. Assessor (light second pass on new URLs)
-9. Controller builds evidence store
+9. Orchestrator builds evidence store
 10. Assessor decides Jina fetches
 11. Extractor
 12. Canonicalizer+Verifier+Evaluator
@@ -125,7 +125,7 @@ The controller always runs stages in this order:
 
 ## 3. Request Initialization
 
-The controller initializes:
+The orchestrator initializes:
 
 - request ID
 - raw query
@@ -419,11 +419,11 @@ Using the candidate name list from ExtractorLight and source role classification
 
 ---
 
-## 12. Controller Builds Evidence Store
+## 12. Orchestrator Builds Evidence Store
 
 **Purpose:** construct the entity-centric in-memory evidence store before full extraction.
 
-This is **deterministic controller logic**, not a separate agent.
+This is **deterministic orchestrator logic**, not a separate agent.
 
 ### Evidence Store Structure
 ```python
@@ -689,7 +689,7 @@ Greedy MMR-style selector:
 **Boundary ownership:**
 
 - **Canonicalizer+Verifier+Evaluator** generates `suggested_followup_queries`
-- **Controller** decides whether repair is allowed and executed
+- **Orchestrator** decides whether repair is allowed and executed
 
 **Repair triggers:**
 
@@ -703,7 +703,7 @@ Greedy MMR-style selector:
 
 ---
 
-## 16. Controller-Level Repair Gating
+## 16. Orchestrator-Level Repair Gating
 
 Repair happens only if **all** are true:
 
@@ -722,13 +722,13 @@ Repair happens only if **all** are true:
 
 ### Repair Behavior
 
-Controller runs:
+Orchestrator runs:
 
 1. **Searcher** — 1–2 targeted follow-up queries from `suggested_followup_queries`
 2. **Brave LLM Context** on new URLs
 3. **ExtractorLight** on new LLM Context output (name extraction + URL mapping on new results only)
 4. **Assessor** — classify + quality check new URLs
-5. **Controller** merges new evidence into existing evidence store
+5. **Orchestrator** merges new evidence into existing evidence store
 6. **Assessor** decides Jina fetches for new URLs
 7. **Extractor** enriches existing entities + adds new ones from augmented evidence store
 8. **Canonicalizer+Verifier+Evaluator** runs again on full augmented candidate pool
@@ -749,7 +749,7 @@ Controller runs:
 
 ## 18. Stop Conditions
 
-Controller stops when any of these are true:
+Orchestrator stops when any of these are true:
 
 - first-pass result is good enough and repair not triggered
 - repair round already used
@@ -779,4 +779,131 @@ Return:
 
 ## 20. Final One-Paragraph System Summary
 
-The system is a **deterministically orchestrated, bounded multi-stage pipeline**. The **Planner** infers entity type, schema, and aspects from the query, lightly normalizing slightly non-topic inputs only when a conservative topic interpretation is obvious. The **Searcher** executes Planner-provided queries against Brave Web Search, applies mechanical URL pruning, dedupes exact duplicates, merges multi-query result lists by rank, and builds a bounded shortlist. **Brave LLM Context** is run on this bounded shortlist to acquire richer first-pass evidence. **ExtractorLight** makes one lightweight LLM call over the LLM Context output to produce a flat candidate name list and a name-to-URL mention map — no fields, no provenance. The **Assessor** uses heuristic pre-signals plus one batched LLM assessment to classify source roles, assess quality, and detect per-entity verification gaps; targeted verification queries are then run for flagged entities, bounded to 5–7 maximum, with batching preferred over one-query-per-entity. The **Controller** builds an entity-centric in-memory evidence store from all accumulated Brave LLM Context chunks tagged with source role and quality, with ambiguous chunks attached to all matching entities rather than dropped; the **Assessor** then makes Jina deep-fetch decisions over the full evidence store. The **Extractor** consumes the evidence store per entity, resolves field contradictions using source role priority, and produces fully structured candidate rows with field-level provenance from day one. **Canonicalizer+Verifier+Evaluator** merges remaining duplicates, resolves fields, applies eligibility filtering, ranks entities by evidence strength and aspect coverage, selects a diversified top-10 via MMR, and emits structured repair diagnostics including suggested follow-up queries. The **Controller** enforces all budgets and may launch **one targeted repair round** if diagnostics show insufficient coverage, weak evidence, or poor diversity. No open-ended agentic loop is allowed.
+The system is a **deterministically orchestrated, bounded multi-stage pipeline**. The **Planner** infers entity type, schema, and aspects from the query, lightly normalizing slightly non-topic inputs only when a conservative topic interpretation is obvious. The **Searcher** executes Planner-provided queries against Brave Web Search, applies mechanical URL pruning, dedupes exact duplicates, merges multi-query result lists by rank, and builds a bounded shortlist. **Brave LLM Context** is run on this bounded shortlist to acquire richer first-pass evidence. **ExtractorLight** makes one lightweight LLM call over the LLM Context output to produce a flat candidate name list and a name-to-URL mention map — no fields, no provenance. The **Assessor** uses heuristic pre-signals plus one batched LLM assessment to classify source roles, assess quality, and detect per-entity verification gaps; targeted verification queries are then run for flagged entities, bounded to 5–7 maximum, with batching preferred over one-query-per-entity. The **Orchestrator** builds an entity-centric in-memory evidence store from all accumulated Brave LLM Context chunks tagged with source role and quality, with ambiguous chunks attached to all matching entities rather than dropped; the **Assessor** then makes Jina deep-fetch decisions over the full evidence store. The **Extractor** consumes the evidence store per entity, resolves field contradictions using source role priority, and produces fully structured candidate rows with field-level provenance from day one. **Canonicalizer+Verifier+Evaluator** merges remaining duplicates, resolves fields, applies eligibility filtering, ranks entities by evidence strength and aspect coverage, selects a diversified top-10 via MMR, and emits structured repair diagnostics including suggested follow-up queries. The **Orchestrator** enforces all budgets and may launch **one targeted repair round** if diagnostics show insufficient coverage, weak evidence, or poor diversity. No open-ended agentic loop is allowed.
+
+---
+
+## 21. Pipeline Flow Cheatsheet
+```
+Planner
+  → entity_type, schema, core_aspects, base_query, initial_rewrites
+  ↓
+
+Searcher
+  → executes base_query + initial_rewrites against Brave Web Search
+  → applies mechanical pruning (drop social/video/boilerplate/empty/zero-overlap)
+  → dedupes exact URLs, merges multi-query lists by rank
+  → hard cap: 12–15 URLs
+  ↓
+
+Brave LLM Context — first pass
+  → run on bounded shortlist only (not all returned URLs)
+  → produces richer passages per URL
+  ↓
+
+ExtractorLight
+  → one LLM call over all LLM Context output
+  → produces flat candidate name list only
+  → produces name → [source URLs] mention map
+  → no fields, no schema, no provenance
+  ↓
+
+Assessor — first pass
+  → heuristic pre-signals in code (relevance, officiality, snippet quality, rank)
+  → one batched LLM assessment over shortlisted URLs:
+       source_role (discovery / verification / corroboration)
+       source_quality (high / medium / low)
+       officiality (official / near-official / third-party / low-quality)
+       estimated_aspect_coverage
+       evidence_sufficiency
+  → per-entity verification gap detection:
+       for each candidate name: is there ≥1 verification-role URL?
+       if not: flag entity, suggest targeted verification query
+  ↓
+
+Targeted verification queries (bounded)
+  → batch flagged entities into as few queries as possible
+  → hard cap: 5–7 queries total
+  → prioritize by mention count if cap forces selection
+  ↓
+
+Brave LLM Context — second pass
+  → run only on new verification URLs
+  ↓
+
+Assessor — light second pass
+  → same batched assessment, new URLs only
+  → merged into overall source assessment map
+  ↓
+
+Controller builds evidence store
+  → entity_name → [EvidenceChunk]
+  → primary attribution: ExtractorLight name → URL map
+  → fallback: conservative string matching
+  → ambiguous chunks attached to all matching entities (not dropped)
+  ↓
+
+Assessor decides Jina fetches
+  → over full evidence store + per-URL assessments + remaining budget
+  → should_deep_fetch = true if:
+       official/near-official page
+       core missing field for strong candidate
+       resolves important conflict
+       LLM Context too thin for reliable extraction
+       under-covered aspect
+       only verification-role source for an entity
+  → fetch at most 5–7 pages total
+  → prioritize: officiality > source quality > aspect gap > missing field impact
+  → large pages: light in-memory chunking only, no persistent index
+  ↓
+
+Extractor
+  → consumes evidence store slice per entity (LLM Context + Jina chunks)
+  → uses candidate name list as prior
+  → extracts full schema with field-level provenance from day one
+  → resolves contradictions by source role priority:
+       1. verification source
+       2. independent corroboration
+       3. discovery source
+  → adds new entities freely if evidence reveals them
+  → only contradicts existing candidates if evidence is strongly contradicting
+  ↓
+
+Canonicalizer+Verifier+Evaluator
+  → 5A: merge duplicates (cheap signals first, inline LLM only for hard cases)
+         resolve field values by source role priority
+         null out unresolvable conflicts
+  → 5B: eligibility filter (must meet minimum evidence threshold)
+         score evidence_strength (0/1/2/3)
+         score aspect_coverage (count of planner aspects covered)
+         greedy MMR top-10 selection
+         emit repair diagnostics + suggested_followup_queries
+  ↓
+
+Controller repair gating (deterministic)
+  → repair only if: repair_recommended=true AND repair_used=false AND budget remains
+  ↓
+
+  [if repair allowed]
+  → Searcher: 1–2 targeted follow-up queries
+  → Brave LLM Context on new URLs
+  → ExtractorLight on new results (name + URL mapping only)
+  → Assessor: classify + quality check new URLs
+  → Controller: merge new evidence into existing evidence store
+  → Assessor: decide Jina fetches for new URLs
+  → Extractor: enrich existing entities + add new ones
+  → Canonicalizer+Verifier+Evaluator: re-run on full augmented pool
+  → repair_used = true, no further repair allowed
+  ↓
+
+  [if repair not allowed]
+  → return current best result
+
+Final output
+  → original_query
+  → normalized_query + normalization_note (if converted)
+  → inferred_schema
+  → final_top_10_rows with field-level provenance
+  → row_level_confidence
+  → diagnostics: queries used, URLs considered, Jina fetches, repair used, aspect coverage
+```

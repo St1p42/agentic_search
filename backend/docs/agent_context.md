@@ -14,7 +14,7 @@ You are implementing one stage of a bounded, deterministic multi-stage system. T
 
 ## Non-Negotiable Global Rules
 
-- The system uses a deterministic controller in code, not an LLM orchestrator.
+- The system uses a deterministic orchestrator in code, not an LLM orchestrator.
 - There is at most one repair round.
 - There is no open-ended loop, no recursive orchestration, and no free-form agent-to-agent calling.
 - Provenance is part of the field model, not optional metadata.
@@ -25,9 +25,9 @@ You are implementing one stage of a bounded, deterministic multi-stage system. T
 - ExtractorLight produces candidate names and a name→URL mention map only — no fields, no provenance, no schema.
 - Assessor owns source role classification, source quality assessment, per-entity verification gap detection, and Jina fetch decisions.
 - Extractor consumes the evidence store — it does not decide what to fetch.
-- Controller owns evidence store construction and merging.
+- Orchestrator owns evidence store construction and merging.
 - Canonicalizer+Verifier+Evaluator owns repair-time suggested follow-up queries.
-- Controller decides whether repair is allowed.
+- Orchestrator decides whether repair is allowed.
 - Query normalization is only a small guardrail, not a major subsystem.
 - Prefer null over hallucinated values.
 - Keep all stage I/O typed and explicit.
@@ -70,11 +70,11 @@ If a needed field is missing from the shared contracts, do not invent a private 
 
 ---
 
-## Agent 1 — Contracts + Controller Skeleton + App Shell
+## Agent 1 — Contracts + Orchestrator Skeleton + App Shell
 
 ### Your Job
 
-Own the shared contracts and the app/controller skeleton that unblock all other agents.
+Own the shared contracts and the app/orchestrator skeleton that unblock all other agents.
 
 ### You Own
 
@@ -83,7 +83,7 @@ Own the shared contracts and the app/controller skeleton that unblock all other 
 - stage I/O contracts
 - SSE event schema
 - error schema
-- controller skeleton
+- orchestrator skeleton
 - FastAPI shell
 - minimal seed fixtures
 
@@ -91,7 +91,7 @@ Own the shared contracts and the app/controller skeleton that unblock all other 
 
 - shared model package
 - short stage-contract doc
-- controller skeleton with full stage order, repair gating, budget tracker, evidence store structure
+- orchestrator skeleton with full stage order, repair gating, budget tracker, evidence store structure
 - API shell
 - SSE shell
 - minimal seed fixtures sufficient to unblock others
@@ -123,7 +123,7 @@ Own the shared contracts and the app/controller skeleton that unblock all other 
 - `SourceQuality` enum: `high` / `medium` / `low`
 - `Officiality` enum: `official` / `near-official` / `third-party` / `low-quality`
 
-### Full Pipeline Stage Order the Controller Must Implement
+### Full Pipeline Stage Order the Orchestrator Must Implement
 
 1. Planner
 2. Searcher
@@ -133,7 +133,7 @@ Own the shared contracts and the app/controller skeleton that unblock all other 
 6. Targeted verification queries (bounded, max 5–7)
 7. Brave LLM Context — second pass (verification URLs only)
 8. Assessor — light second pass (verification URLs only)
-9. Controller builds/merges evidence store
+9. Orchestrator builds/merges evidence store
 10. Assessor decides Jina fetches
 11. Extractor
 12. Canonicalizer+Verifier+Evaluator
@@ -285,7 +285,7 @@ Implement the hybrid assessment stage: Brave LLM Context acquisition, heuristic 
 - Source role classification happens here, not in ExtractorLight or Extractor.
 - Verification gap detection requires the candidate name list from ExtractorLight — do not run this before ExtractorLight has produced output.
 - Verification queries are bounded to max 5–7 regardless of how many entities are flagged — prioritize by mention count from ExtractorLight.
-- Jina fetch decisions are made over the full evidence store after it is built by the Controller — not per-URL in isolation.
+- Jina fetch decisions are made over the full evidence store after it is built by the Orchestrator — not per-URL in isolation.
 - Do not extract entities here.
 - Do not rank final rows here.
 - No persistent index or vector DB.
@@ -309,7 +309,7 @@ Implement the hybrid assessment stage: Brave LLM Context acquisition, heuristic 
 - no entity extraction
 - no canonicalization
 - no repair gating
-- no evidence store construction (that belongs to Controller)
+- no evidence store construction (that belongs to Orchestrator)
 
 ---
 
@@ -504,7 +504,7 @@ Absence of a verification-role source is not an automatic hard fail — it reduc
 
 ### Anti-Goals
 
-- no controller budget management
+- no orchestrator budget management
 - no actual repair execution
 - no SSE handling
 - no Jina fetch decisions
@@ -544,7 +544,7 @@ Build the UI against frozen response shapes and SSE event schemas.
 - Do not reconstruct provenance shape client-side.
 - Do not implement business logic already owned by backend stages.
 - Render normalization notes and planner errors cleanly.
-- SSE progress events should map to named pipeline stages from the controller stage order.
+- SSE progress events should map to named pipeline stages from the orchestrator stage order.
 
 ### Implementation Priorities
 
@@ -571,7 +571,7 @@ Wire the stage implementations together, validate handoffs, expand fixtures wher
 
 ### You Own
 
-- controller-stage wiring for full 14-step pipeline
+- orchestrator-stage wiring for full 14-step pipeline
 - evidence store construction and merging validation
 - interface validation at every stage boundary
 - richer fixtures built incrementally
@@ -607,7 +607,7 @@ Wire the stage implementations together, validate handoffs, expand fixtures wher
 
 ### Implementation Priorities
 
-1. stage wiring in correct controller order
+1. stage wiring in correct orchestrator order
 2. evidence store construction validation
 3. happy-path run
 4. repair-path run
