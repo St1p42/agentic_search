@@ -15,6 +15,7 @@ Ownership:
 - Performs only conservative query normalization
 - Never asks the user for clarification at runtime
 - May reject the query by setting `error=true`
+- Typical shape: `schema_columns` has 4-6 entries and always includes `name`; `core_aspects` has 1-5 entries
 
 ## Searcher
 

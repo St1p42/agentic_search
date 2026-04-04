@@ -201,8 +201,8 @@ This is a **thin robustness layer**, not a major feature.
 
 ### Typical Constraints
 
-- schema: **5–7 columns**
-- aspects: **2–5**
+- schema: **4–6 columns**
+- aspects: **1–5**
 - initial rewrites: **0–3**
 - planner runs **once per request**
 

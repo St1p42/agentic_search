@@ -5,8 +5,10 @@ from __future__ import annotations
 from fastapi import FastAPI
 from sse_starlette.sse import EventSourceResponse
 
-from backend.app.contracts import PipelineRequest, PipelineResponse
+from backend.app.config import load_planner_runtime_config
+from backend.app.contracts import PipelineRequest, PipelineResponse, PlannerOutput
 from backend.app.orchestrator import PipelineOrchestrator
+from backend.app.stages import build_planner_stage
 
 
 app = FastAPI(title="Agentic Search", version="0.1.0")
@@ -35,3 +37,9 @@ def stream_search(query: str, request_id: str | None = None) -> EventSourceRespo
             }
 
     return EventSourceResponse(event_generator())
+
+@app.post("/api/v1/planner/test", response_model=PlannerOutput)
+def run_planner_test(request: PipelineRequest) -> PlannerOutput:
+    planner_config = load_planner_runtime_config()
+    planner = build_planner_stage(runtime_config=planner_config)
+    return planner.run(request.query)

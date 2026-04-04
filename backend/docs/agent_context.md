@@ -170,8 +170,8 @@ Implement the planning stage and the deterministic retrieval execution stage.
 
 - topic-query check and conservative normalization
 - entity type inference
-- schema generation (5–7 columns)
-- aspect generation (2–5 aspects)
+- schema generation (4–6 columns, always including `name`)
+- aspect generation (1–5 aspects)
 - base query generation
 - initial rewrite generation (0–3 rewrites)
 
