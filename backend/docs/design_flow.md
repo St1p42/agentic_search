@@ -284,6 +284,19 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 **Purpose:** acquire richer first-pass evidence on shortlisted URLs before semantic assessment.
 
+### Current Fetch Policy
+
+- run one Brave LLM Context request per shortlisted URL, using a narrow query built from that result's title, snippet prefix, and `site:<hostname>`
+- inspect only a small bounded response slice per request (`count=3`, `max_urls=3`)
+- attach passages only when Brave returns the exact same source URL as the shortlisted result
+- if no exact-URL passage survives, fall back to the original Brave Web Search snippet for that URL and mark it as fallback metadata
+- apply deterministic line-level passage cleanup before storing text:
+  - drop pure JSON / JSON-LD lines
+  - drop markdown image lines and table scaffolding lines
+  - drop obvious navigation / UI boilerplate lines after normalizing markdown wrappers and HTML entities
+  - collapse excessive blank lines
+- current runtime defaults: max 15 shortlisted URLs, max 2 snippets per URL, max 2048 Brave Context tokens
+
 ### What It Is Used For
 
 - provide richer content than raw Brave snippets
@@ -301,6 +314,7 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 - URL-linked passages and content
 - source metadata per URL
+- fallback passages are allowed when exact Brave Context passages are unavailable
 
 ---
 

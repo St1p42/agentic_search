@@ -131,6 +131,10 @@ Output:
 
 Ownership:
 - Fetches URL-linked Brave LLM Context passages for the bounded shortlist
+- Runs one narrow context query per shortlisted result using title + snippet prefix + `site:<hostname>`
+- Retains only passages whose `source_url` exactly matches the shortlisted URL
+- Falls back to the original Searcher snippet when no exact-URL Brave Context passage survives
+- Applies deterministic passage cleanup before returning text
 - Provides shallow evidence and provisional source metadata only
 
 ### Evidence Store Builder

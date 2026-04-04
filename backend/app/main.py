@@ -88,3 +88,34 @@ def run_searcher_test(planner_output: PlannerOutput) -> SearcherOutput:
     searcher_config = load_searcher_runtime_config()
     searcher = build_searcher_stage(runtime_config=searcher_config)
     return searcher.run(planner_output=planner_output)
+
+@app.post("/api/v1/brave-context/test", response_model=BraveContextOutput)
+def run_brave_context_test(searcher_output: SearcherOutput) -> BraveContextOutput:
+    brave_context_config = load_brave_context_runtime_config()
+    brave_context_fetcher = build_brave_context_fetcher(
+        runtime_config=brave_context_config,
+    )
+    return brave_context_fetcher.run(searcher_output=searcher_output)
+
+@app.post("/api/v1/assessor/test", response_model=AssessorOutput)
+def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:
+    assessor_config = load_assessor_runtime_config()
+    assessor = build_assessor_stage(runtime_config=assessor_config)
+    return assessor.run(
+        planner_output=request.planner_output,
+        searcher_output=request.searcher_output,
+        brave_context_output=request.brave_context_output,
+        extractor_light_output=request.extractor_light_output,
+        pass_type=request.pass_type,
+        evidence_store=request.evidence_store,
+        remaining_fetch_budget=request.remaining_fetch_budget,
+    )
+
+@app.post("/api/v1/jina-fetcher/test", response_model=JinaFetcherOutput)
+def run_jina_fetcher_test(request: JinaFetcherTestRequest) -> JinaFetcherOutput:
+    jina_fetcher_config = load_jina_fetcher_runtime_config()
+    jina_fetcher = build_jina_fetcher(runtime_config=jina_fetcher_config)
+    return jina_fetcher.run(
+        assessor_output=request.assessor_output,
+        remaining_fetch_budget=request.remaining_fetch_budget,
+    )

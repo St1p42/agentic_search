@@ -253,6 +253,9 @@ Implement the hybrid assessment stage: Brave LLM Context acquisition, heuristic 
 ### You Own
 
 - Brave LLM Context calls (first pass on shortlist, second pass on verification URLs)
+- exact-URL-only attachment of Brave Context passages to the originating shortlisted URL
+- snippet fallback when no exact-URL Brave Context passage is returned
+- deterministic line-level cleanup of Brave Context passage text before downstream use
 - heuristic pre-signals (computed in code)
 - batched LLM assessment prompt and parser
 - source role classification (`discovery` / `verification` / `corroboration`)
@@ -285,6 +288,9 @@ Implement the hybrid assessment stage: Brave LLM Context acquisition, heuristic 
 
 - This stage is hybrid: heuristics in code, one batched LLM assessment per pass.
 - Brave LLM Context is run only on the bounded shortlist, not on all Brave results.
+- For each shortlisted URL, Brave Context is queried narrowly using title + snippet prefix + `site:<hostname>`, but only exact same-URL passages are retained.
+- If that exact-URL match is unavailable, reuse the Searcher snippet as fallback shallow evidence and mark it in passage metadata.
+- Before storing Brave Context passages, remove obvious JSON / image / table / navigation boilerplate with deterministic line-level cleanup.
 - Source role classification happens here, not in ExtractorLight or Extractor.
 - Verification gap detection requires the candidate name list from ExtractorLight — do not run this before ExtractorLight has produced output.
 - Verification queries are bounded to max 5–7 regardless of how many entities are flagged — prioritize by mention count from ExtractorLight.
