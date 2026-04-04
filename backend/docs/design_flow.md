@@ -237,7 +237,7 @@ This is a **thin robustness layer**, not a major feature.
 - collect ranked results, titles, snippets, domains, and metadata
 - apply mechanical URL pruning
 - dedupe exact duplicate URLs across query result lists
-- merge multi-query result lists by rank
+- merge multi-query result lists by best rank, with multi-query support as a deterministic tie-breaker
 - build bounded shortlist for Brave LLM Context
 
 ### Nature of This Stage
@@ -262,7 +262,10 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 - dedupe across all query result lists
 - if the same URL appears in multiple lists, keep it once at its best rank position
-- apply hard cap after dedup: top N by Brave rank (target **12–15 URLs**)
+- when best ranks are equal, mildly prefer URLs that appear in more query result lists
+- apply a soft round-robin reserved-slot policy so planner rewrites can contribute to the shortlist without making shortlist construction overly biased toward the base query first, then fill remaining slots globally
+- cap same-domain over-representation at 3 URLs, but do not dedupe by domain
+- apply hard cap after dedup and quota-aware selection: target **12–15 URLs**
 
 ### Search Policy
 

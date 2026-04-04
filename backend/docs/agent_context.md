@@ -181,7 +181,9 @@ Implement the planning stage and the deterministic retrieval execution stage.
 - result collection with metadata (title, snippet, domain, rank, query source)
 - mechanical URL pruning (see rules below)
 - exact URL deduplication across query result lists
-- multi-query result merge by rank (simple: keep URL at best rank position across lists)
+- multi-query result merge by best rank, with number of query sources as a deterministic tie-breaker
+- soft round-robin reserved slots so planner rewrites can contribute to the shortlist without over-bias toward the base query first
+- cap each domain to at most 3 shortlisted URLs, but do not dedupe by domain
 - hard cap at top 12–15 URLs after pruning and dedup
 - early retry fallback if result pool is clearly weak
 
@@ -220,6 +222,7 @@ Drop URLs matching any of:
 - Normalization must be conservative.
 - If the query requires strong reinterpretation, return planner error rather than guessing aggressively.
 - Domain-level deduplication is forbidden — different pages on the same domain (Wikipedia, Arxiv, Crunchbase) are distinct and must not be collapsed.
+- A small per-domain cap in the final shortlist is allowed to reduce over-representation, as long as URLs are still not deduped by domain.
 
 ### Implementation Priorities
 

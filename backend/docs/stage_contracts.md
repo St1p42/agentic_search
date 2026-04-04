@@ -28,7 +28,7 @@ Output:
 
 Ownership:
 - Executes supplied queries
-- Applies mechanical URL pruning, exact-URL deduplication, and multi-query rank merging
+- Applies mechanical URL pruning, exact-URL deduplication, multi-query rank merging, query-source tie-breaking, soft round-robin rewrite-slot reservation to avoid over-bias toward the base query first, and a small per-domain shortlist cap
 - Returns Brave result metadata needed downstream, including domain, rank, query source, and provider metadata
 - Does not generate new semantic queries
 
