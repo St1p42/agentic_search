@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from pydantic import HttpUrl
 
 from backend.app.api_clients import BraveLlmContextClient, BraveLlmContextPassage
@@ -31,6 +32,26 @@ class FakeBraveContextClient(BraveLlmContextClient):
         _ = max_snippets_per_url
         self.calls.append(query)
         return self._passages_by_query.get(query, [])
+
+
+class ErroringBraveContextClient(BraveLlmContextClient):
+    def fetch_context(
+        self,
+        *,
+        query: str,
+        count: int,
+        max_urls: int,
+        max_tokens: int,
+        max_snippets_per_url: int,
+    ) -> list[BraveLlmContextPassage]:
+        _ = query
+        _ = count
+        _ = max_urls
+        _ = max_tokens
+        _ = max_snippets_per_url
+        request = httpx.Request("GET", "https://api.search.brave.com/res/v1/llm/context")
+        response = httpx.Response(422, request=request)
+        raise httpx.HTTPStatusError("422 from Brave Context", request=request, response=response)
 
 
 def _search_result(
@@ -237,3 +258,35 @@ def test_default_brave_context_fetcher_truncates_passages_to_configured_char_lim
     assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
         "Acme Health builds clinical AI tooling for hospital systems with decision"
     )
+
+
+def test_default_brave_context_fetcher_falls_back_to_snippet_on_client_error() -> None:
+    result = _search_result(
+        url="https://acmehealth.com/about",
+        title="Acme Health",
+        snippet="Acme Health builds clinical AI tools",
+        domain="acmehealth.com",
+    )
+    fetcher = DefaultBraveContextFetcher(
+        runtime_config=BraveContextRuntimeConfig(
+            mode="brave",
+            brave_search_api_key="fake-key",
+            max_urls=5,
+            max_tokens=2048,
+            max_snippets_per_url=2,
+        ),
+        brave_context_client=ErroringBraveContextClient(),
+    )
+
+    output = fetcher.run(
+        SearcherOutput(
+            executed_queries=["AI startups in healthcare"],
+            raw_results=[result],
+            shortlisted_results=[result],
+        )
+    )
+
+    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
+        "Acme Health builds clinical AI tools"
+    )
+    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].metadata["fallback"] is True

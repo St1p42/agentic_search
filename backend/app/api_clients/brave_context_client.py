@@ -56,15 +56,14 @@ class HttpBraveLlmContextClient(BraveLlmContextClient):
         max_tokens: int,
         max_snippets_per_url: int,
     ) -> list[BraveLlmContextPassage]:
-        response = httpx.post(
+        response = httpx.get(
             self._endpoint,
             headers={
                 "Accept": "application/json",
                 "Accept-Encoding": "gzip",
-                "Content-Type": "application/json",
                 "X-Subscription-Token": self._api_key,
             },
-            json={
+            params={
                 "q": query,
                 "count": count,
                 "country": self._country,

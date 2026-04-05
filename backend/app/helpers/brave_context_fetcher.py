@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 from urllib.parse import urlparse
 
+import httpx
 from pydantic import HttpUrl
 
 from backend.app.api_clients import BraveLlmContextClient, HttpBraveLlmContextClient
@@ -71,13 +72,16 @@ class DefaultBraveContextFetcher:
         config: BraveContextRuntimeConfig,
     ) -> list[BraveContextPassage]:
         query = _context_query_for_result(result)
-        fetched_passages = self._client().fetch_context(
-            query=query,
-            count=3,
-            max_urls=3,
-            max_tokens=config.max_tokens,
-            max_snippets_per_url=config.max_snippets_per_url,
-        )
+        try:
+            fetched_passages = self._client().fetch_context(
+                query=query,
+                count=3,
+                max_urls=3,
+                max_tokens=config.max_tokens,
+                max_snippets_per_url=config.max_snippets_per_url,
+            )
+        except httpx.HTTPError:
+            return [_fallback_passage_for_result(result, config.max_passage_chars)]
 
         passages = [
             BraveContextPassage(
