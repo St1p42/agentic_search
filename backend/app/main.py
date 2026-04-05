@@ -27,6 +27,7 @@ from backend.app.contracts import (
     SearcherOutput,
 )
 from backend.app.helpers import build_brave_context_fetcher, build_jina_fetcher
+from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
     build_extractor_light_stage,
@@ -64,6 +65,15 @@ class JinaFetcherTestRequest(BaseModel):
 
     assessor_output: AssessorOutput
     remaining_fetch_budget: int = Field(default=0, ge=0)
+
+
+class EvidenceStoreTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    brave_context_output: BraveContextOutput
+    extractor_light_output: ExtractorLightOutput
+    assessor_output: AssessorOutput
+    evidence_store: EvidenceStore | None = None
 
 
 @app.get("/health")
@@ -134,6 +144,18 @@ def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:
         evidence_store=request.evidence_store,
         remaining_fetch_budget=request.remaining_fetch_budget,
     )
+
+
+@app.post("/api/v1/evidence-store/test", response_model=EvidenceStore)
+def run_evidence_store_test(request: EvidenceStoreTestRequest) -> EvidenceStore:
+    evidence_store_builder = build_evidence_store_builder()
+    return evidence_store_builder.run(
+        brave_context_output=request.brave_context_output,
+        extractor_light_output=request.extractor_light_output,
+        assessor_output=request.assessor_output,
+        existing_store=request.evidence_store,
+    )
+
 
 @app.post("/api/v1/jina-fetcher/test", response_model=JinaFetcherOutput)
 def run_jina_fetcher_test(request: JinaFetcherTestRequest) -> JinaFetcherOutput:

@@ -123,7 +123,9 @@ def _brave_context_output() -> BraveContextOutput:
             search_result.url: [
                 BraveContextPassage(
                     source_url=search_result.url,
-                    passage_text="Acme Health develops clinical AI.",
+                    passage_text=(
+                        "Acme Health develops clinical AI systems for hospitals and care teams."
+                    ),
                     metadata={"title": "About Acme Health"},
                 )
             ]
@@ -183,7 +185,7 @@ def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["passages_by_url"]["https://acmehealth.com/about"][0][
         "passage_text"
-    ] == "Acme Health develops clinical AI."
+    ] == "Acme Health develops clinical AI systems for hospitals and care teams."
 
 
 def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> None:
@@ -259,6 +261,23 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["assessed_sources"][0]["source_role"] == "verification"
+
+
+def test_evidence_store_test_endpoint_returns_entity_chunks() -> None:
+    response = client.post(
+        "/api/v1/evidence-store/test",
+        json={
+            "brave_context_output": _brave_context_output().model_dump(mode="json"),
+            "extractor_light_output": _extractor_light_output().model_dump(mode="json"),
+            "assessor_output": _assessor_output().model_dump(mode="json"),
+            "evidence_store": None,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["chunks_by_entity"]["Acme Health"][0]["text"] == (
+        "Acme Health develops clinical AI systems for hospitals and care teams."
+    )
 
 
 def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> None:

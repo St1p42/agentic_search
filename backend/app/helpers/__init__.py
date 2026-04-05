@@ -7,8 +7,10 @@ from backend.app.helpers.brave_context_fetcher import (
     build_brave_context_fetcher,
 )
 from backend.app.helpers.evidence_store_builder import (
+    DefaultEvidenceStoreBuilder,
     EvidenceStoreBuilder,
     PlaceholderEvidenceStoreBuilder,
+    build_evidence_store_builder,
 )
 from backend.app.helpers.jina_fetcher import (
     DefaultJinaFetcher,
@@ -22,6 +24,7 @@ __all__ = [
     "BraveContextFetcher",
     "DefaultBraveContextFetcher",
     "DefaultOutputMerger",
+    "DefaultEvidenceStoreBuilder",
     "DefaultJinaFetcher",
     "EvidenceStoreBuilder",
     "JinaFetcher",
@@ -30,5 +33,6 @@ __all__ = [
     "PlaceholderEvidenceStoreBuilder",
     "PlaceholderJinaFetcher",
     "build_brave_context_fetcher",
+    "build_evidence_store_builder",
     "build_jina_fetcher",
 ]

@@ -34,10 +34,10 @@ from backend.app.contracts import (
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
+    DefaultEvidenceStoreBuilder,
     EvidenceStoreBuilder,
     JinaFetcher,
     PlaceholderBraveContextFetcher,
-    PlaceholderEvidenceStoreBuilder,
     PlaceholderJinaFetcher,
 )
 from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
@@ -102,7 +102,7 @@ class PipelineOrchestrator:
         self.extractor = extractor or PlaceholderExtractorStage()
         self.finalizer = finalizer or PlaceholderCanonicalizerVerifierEvaluatorStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
-        self.evidence_store_builder = evidence_store_builder or PlaceholderEvidenceStoreBuilder()
+        self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
         self.jina_fetcher = jina_fetcher or PlaceholderJinaFetcher()
         self.output_merger = output_merger or DefaultOutputMerger()
         self.budget_factory = budget_factory or BudgetState
