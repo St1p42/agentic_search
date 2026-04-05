@@ -2,7 +2,11 @@ from __future__ import annotations
 
 """FastAPI shell for request/response and SSE streaming endpoints."""
 
+from functools import lru_cache
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -43,7 +47,28 @@ from backend.app.stages import (
 
 
 app = FastAPI(title="Agentic Search", version="0.1.0")
-orchestrator = PipelineOrchestrator()
+DEMO_HTML_PATH = Path(__file__).with_name("templates") / "demo.html"
+
+
+@lru_cache(maxsize=1)
+def get_orchestrator() -> PipelineOrchestrator:
+    planner_config = load_planner_runtime_config()
+    searcher_config = load_searcher_runtime_config()
+    brave_context_config = load_brave_context_runtime_config()
+    extractor_light_config = load_extractor_light_runtime_config()
+    assessor_config = load_assessor_runtime_config()
+    extractor_config = load_extractor_runtime_config()
+
+    return PipelineOrchestrator(
+        planner=build_planner_stage(runtime_config=planner_config),
+        searcher=build_searcher_stage(runtime_config=searcher_config),
+        brave_context_fetcher=build_brave_context_fetcher(runtime_config=brave_context_config),
+        extractor_light=build_extractor_light_stage(runtime_config=extractor_light_config),
+        assessor=build_source_assessor_stage(runtime_config=assessor_config),
+        evidence_store_builder=build_evidence_store_builder(),
+        extractor=build_extractor_stage(runtime_config=extractor_config),
+        finalizer=ThinFinalizerStage(),
+    )
 
 
 class AssessorTestRequest(BaseModel):
@@ -96,18 +121,36 @@ class FinalizerTestRequest(BaseModel):
     extractor_output: ExtractorOutput
 
 
+@lru_cache(maxsize=1)
+def load_demo_html() -> str:
+    return DEMO_HTML_PATH.read_text(encoding="utf-8")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/demo", response_class=HTMLResponse)
+def demo() -> HTMLResponse:
+    return HTMLResponse(load_demo_html())
+
+
+@app.get("/api/v1/search", response_model=PipelineResponse)
+def run_search(query: str, request_id: str | None = None) -> PipelineResponse:
+    orchestrator = get_orchestrator()
+    return orchestrator.run(PipelineRequest(query=query, request_id=request_id))
+
+
 @app.post("/api/v1/search", response_model=PipelineResponse)
-def run_search(request: PipelineRequest) -> PipelineResponse:
+def run_search_post(request: PipelineRequest) -> PipelineResponse:
+    orchestrator = get_orchestrator()
     return orchestrator.run(request)
 
 
 @app.get("/api/v1/search/stream")
 def stream_search(query: str, request_id: str | None = None) -> EventSourceResponse:
+    orchestrator = get_orchestrator()
     request = PipelineRequest(query=query, request_id=request_id)
 
     def event_generator():

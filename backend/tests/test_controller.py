@@ -17,7 +17,6 @@ from backend.app.contracts import (
 from backend.app.helpers import (
     PlaceholderBraveContextFetcher,
     PlaceholderEvidenceStoreBuilder,
-    PlaceholderJinaFetcher,
 )
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
@@ -139,30 +138,6 @@ class NoopEvidenceStoreBuilder(PlaceholderEvidenceStoreBuilder):
         return existing_store or EvidenceStore(chunks_by_entity={})
 
 
-class NoopJinaFetcher(PlaceholderJinaFetcher):
-    def run(
-        self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
-    ) -> JinaFetcherOutput:
-        _ = assessor_output
-        _ = remaining_fetch_budget
-        return JinaFetcherOutput(fetched_documents=[])
-
-
-class CountingJinaFetcher(NoopJinaFetcher):
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def run(
-        self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
-    ) -> JinaFetcherOutput:
-        self.calls += 1
-        return super().run(assessor_output, remaining_fetch_budget)
-
-
 class NoopExtractor(PlaceholderExtractorStage):
     def run(
         self,
@@ -186,7 +161,6 @@ def test_controller_runs_single_retrieval_round_without_repair() -> None:
         extractor_light=NoopExtractorLight(),
         assessor=NoopAssessor(),
         evidence_store_builder=NoopEvidenceStoreBuilder(),
-        jina_fetcher=NoopJinaFetcher(),
         extractor=NoopExtractor(),
         finalizer=PlaceholderCanonicalizerVerifierEvaluatorStage(),
     )
@@ -208,7 +182,6 @@ def test_orchestrator_caps_initial_search_queries_to_remaining_budget() -> None:
         extractor_light=NoopExtractorLight(),
         assessor=NoopAssessor(),
         evidence_store_builder=NoopEvidenceStoreBuilder(),
-        jina_fetcher=NoopJinaFetcher(),
         extractor=NoopExtractor(),
         finalizer=PlaceholderCanonicalizerVerifierEvaluatorStage(),
         budget_factory=lambda: BudgetState(max_total_search_queries=2),
@@ -218,24 +191,3 @@ def test_orchestrator_caps_initial_search_queries_to_remaining_budget() -> None:
 
     assert response.budget.used_search_queries == 2
     assert searcher.calls == [["open source database tools", "rewrite 1"]]
-
-
-def test_orchestrator_skips_jina_fetch_when_fetch_budget_is_exhausted() -> None:
-    jina_fetcher = CountingJinaFetcher()
-    orchestrator = PipelineOrchestrator(
-        planner=RepairPlanner(),
-        searcher=RepairSearcher(),
-        brave_context_fetcher=NoopBraveContextFetcher(),
-        extractor_light=NoopExtractorLight(),
-        assessor=NoopAssessor(),
-        evidence_store_builder=NoopEvidenceStoreBuilder(),
-        jina_fetcher=jina_fetcher,
-        extractor=NoopExtractor(),
-        finalizer=PlaceholderCanonicalizerVerifierEvaluatorStage(),
-        budget_factory=lambda: BudgetState(max_deep_fetches=0),
-    )
-
-    response = orchestrator.run(PipelineRequest(query="open source database tools", request_id="test-3"))
-
-    assert response.budget.used_deep_fetches == 0
-    assert jina_fetcher.calls == 0

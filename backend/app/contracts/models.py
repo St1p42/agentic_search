@@ -23,7 +23,7 @@ class StageName(str, Enum):
     EXTRACTOR_LIGHT = "extractor_light"
     ASSESSOR = "assessor"
     EXTRACTOR = "extractor"
-    CANONICALIZER_VERIFIER_EVALUATOR = "canonicalizer_verifier_evaluator"
+    FINALIZER = "finalizer"
 
 
 class AssessorPass(str, Enum):

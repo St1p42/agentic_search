@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Deterministic pipeline orchestrator with one bounded repair round."""
+"""Deterministic pipeline orchestrator for the active single-pass flow."""
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -10,7 +10,6 @@ from typing import Callable, TypeVar
 from uuid import uuid4
 
 from backend.app.contracts import (
-    AssessorOutput,
     AssessorPass,
     BraveContextOutput,
     BudgetState,
@@ -20,12 +19,10 @@ from backend.app.contracts import (
     EvidenceStore,
     ExtractorLightOutput,
     ExtractorOutput,
-    JinaFetcherOutput,
     PipelineError,
     PipelineRequest,
     PipelineResponse,
     PlannerOutput,
-    SearcherOutput,
     SseEvent,
     SseEventName,
     StageName,
@@ -35,11 +32,8 @@ from backend.app.helpers import (
     BraveContextFetcher,
     DefaultEvidenceStoreBuilder,
     EvidenceStoreBuilder,
-    JinaFetcher,
     PlaceholderBraveContextFetcher,
-    PlaceholderJinaFetcher,
 )
-from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
 from backend.app.stages import (
     CanonicalizerVerifierEvaluatorStage,
     ExtractorLightStage,
@@ -49,8 +43,8 @@ from backend.app.stages import (
     PlaceholderPlannerStage,
     PlaceholderSearcherStage,
     PlannerStage,
-    SearcherStage,
     PlaceholderSourceAssessorStage,
+    SearcherStage,
     SourceAssessorStage,
     ThinFinalizerStage,
 )
@@ -72,7 +66,6 @@ class PipelineState:
     extractor_light_output: ExtractorLightOutput | None = None
     assessor_output: AssessorOutput | None = None
     evidence_store: EvidenceStore = field(default_factory=EvidenceStore)
-    jina_fetcher_output: JinaFetcherOutput | None = None
     extractor_output: ExtractorOutput | None = None
     finalizer_output: CanonicalizerVerifierEvaluatorOutput | None = None
     repair_used: bool = False
@@ -89,8 +82,6 @@ class PipelineOrchestrator:
         finalizer: CanonicalizerVerifierEvaluatorStage | None = None,
         brave_context_fetcher: BraveContextFetcher | None = None,
         evidence_store_builder: EvidenceStoreBuilder | None = None,
-        jina_fetcher: JinaFetcher | None = None,
-        output_merger: OutputMerger | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
     ) -> None:
@@ -102,8 +93,6 @@ class PipelineOrchestrator:
         self.finalizer = finalizer or ThinFinalizerStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
-        self.jina_fetcher = jina_fetcher or PlaceholderJinaFetcher()
-        self.output_merger = output_merger or DefaultOutputMerger()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
 
@@ -162,8 +151,6 @@ class PipelineOrchestrator:
             finalizer=self.finalizer,
             brave_context_fetcher=self.brave_context_fetcher,
             evidence_store_builder=self.evidence_store_builder,
-            jina_fetcher=self.jina_fetcher,
-            output_merger=self.output_merger,
             budget_factory=self.budget_factory,
             event_emitter=PipelineEventEmitter(event_queue.put),
         )
@@ -262,7 +249,6 @@ class PipelineOrchestrator:
             ),
         )
 
-        remaining_fetch_budget = max(0, state.budget.max_deep_fetches - state.budget.used_deep_fetches)
         state.assessor_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.ASSESSOR,
@@ -274,25 +260,10 @@ class PipelineOrchestrator:
                 extractor_light_output=state.extractor_light_output,
                 pass_type=AssessorPass.FIRST_PASS,
                 evidence_store=state.evidence_store,
-                remaining_fetch_budget=remaining_fetch_budget,
+                remaining_fetch_budget=0,
             ),
         )
-
-        verification_queries = self._select_verification_queries(state.assessor_output, state.budget)
-        if verification_queries:
-            self._run_verification_subpass(
-                state=state,
-                verification_queries=verification_queries,
-                remaining_fetch_budget=remaining_fetch_budget,
-            )
-
         self._build_and_merge_evidence_store(state=state, jina_fetcher_output=None)
-        self._run_jina_selection_and_fetch(state=state, remaining_fetch_budget=remaining_fetch_budget)
-        self._build_and_merge_evidence_store(
-            state=state,
-            jina_fetcher_output=state.jina_fetcher_output,
-            message="merging Jina evidence into evidence store",
-        )
 
         state.extractor_output = self._run_stage(
             request_id=state.request_id,
@@ -307,63 +278,12 @@ class PipelineOrchestrator:
         )
         state.finalizer_output = self._run_stage(
             request_id=state.request_id,
-            stage_name=StageName.CANONICALIZER_VERIFIER_EVALUATOR,
-            message="canonicalizing and evaluating final rows",
+            stage_name=StageName.FINALIZER,
+            message="shaping final rows",
             action=lambda: self.finalizer.run(
                 planner_output=state.planner_output,
                 extractor_output=state.extractor_output,
             ),
-        )
-
-    def _run_verification_subpass(
-        self,
-        state: PipelineState,
-        verification_queries: list[str],
-        remaining_fetch_budget: int,
-    ) -> None:
-        verification_searcher_output = self._run_stage(
-            request_id=state.request_id,
-            stage_name=StageName.SEARCHER,
-            message="running bounded verification queries",
-            action=lambda: self.searcher.run(
-                state.planner_output,
-                followup_queries=verification_queries,
-                max_search_queries=len(verification_queries),
-            ),
-        )
-        state.budget.used_verification_queries += len(verification_queries)
-
-        verification_brave_context_output = self._run_stage(
-            request_id=state.request_id,
-            stage_name=StageName.SEARCHER,
-            message="fetching Brave LLM Context for verification URLs",
-            action=lambda: self.brave_context_fetcher.run(verification_searcher_output),
-        )
-        verification_assessor_output = self._run_stage(
-            request_id=state.request_id,
-            stage_name=StageName.ASSESSOR,
-            message="assessing verification URLs",
-            action=lambda: self.assessor.run(
-                planner_output=state.planner_output,
-                searcher_output=verification_searcher_output,
-                brave_context_output=verification_brave_context_output,
-                extractor_light_output=state.extractor_light_output,
-                pass_type=AssessorPass.VERIFICATION_PASS,
-                evidence_store=state.evidence_store,
-                remaining_fetch_budget=remaining_fetch_budget,
-            ),
-        )
-        state.searcher_output = self.output_merger.merge_searcher_outputs(
-            state.searcher_output,
-            verification_searcher_output,
-        )
-        state.brave_context_output = self.output_merger.merge_brave_context_outputs(
-            state.brave_context_output,
-            verification_brave_context_output,
-        )
-        state.assessor_output = self.output_merger.merge_assessor_outputs(
-            state.assessor_output,
-            verification_assessor_output,
         )
 
     def _build_and_merge_evidence_store(
@@ -385,43 +305,6 @@ class PipelineOrchestrator:
             ),
         )
 
-    def _run_jina_selection_and_fetch(
-        self,
-        state: PipelineState,
-        remaining_fetch_budget: int,
-    ) -> None:
-        jina_selection_output = self._run_stage(
-            request_id=state.request_id,
-            stage_name=StageName.ASSESSOR,
-            message="selecting Jina fetches",
-            action=lambda: self.assessor.run(
-                planner_output=state.planner_output,
-                searcher_output=state.searcher_output,
-                brave_context_output=state.brave_context_output,
-                extractor_light_output=state.extractor_light_output,
-                pass_type=AssessorPass.JINA_SELECTION,
-                evidence_store=state.evidence_store,
-                remaining_fetch_budget=remaining_fetch_budget,
-            ),
-        )
-        state.assessor_output = self.output_merger.merge_assessor_outputs(
-            state.assessor_output,
-            jina_selection_output,
-        )
-        if remaining_fetch_budget <= 0:
-            state.jina_fetcher_output = JinaFetcherOutput(fetched_documents=[])
-            return
-        state.jina_fetcher_output = self._run_stage(
-            request_id=state.request_id,
-            stage_name=StageName.ASSESSOR,
-            message="fetching selected Jina pages",
-            action=lambda: self.jina_fetcher.run(
-                assessor_output=jina_selection_output,
-                remaining_fetch_budget=remaining_fetch_budget,
-            ),
-        )
-        state.budget.used_deep_fetches += len(state.jina_fetcher_output.fetched_documents)
-
     def _run_stage(
         self,
         request_id: str,
@@ -441,29 +324,3 @@ class PipelineOrchestrator:
             message=f"{message} completed",
         )
         return result
-
-    @staticmethod
-    def _select_verification_queries(
-        assessor_output: AssessorOutput,
-        budget: BudgetState,
-    ) -> list[str]:
-        if not budget.can_verify:
-            return []
-        remaining = max(0, budget.max_verification_queries - budget.used_verification_queries)
-        ordered_gaps = sorted(
-            assessor_output.verification_gaps,
-            key=lambda gap: gap.mention_count,
-            reverse=True,
-        )
-
-        selected_queries: list[str] = []
-        seen_queries: set[str] = set()
-        for gap in ordered_gaps:
-            normalized_query = " ".join(gap.suggested_query.split()).strip()
-            if not normalized_query or normalized_query in seen_queries:
-                continue
-            seen_queries.add(normalized_query)
-            selected_queries.append(normalized_query)
-            if len(selected_queries) >= remaining:
-                break
-        return selected_queries

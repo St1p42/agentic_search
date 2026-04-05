@@ -38,8 +38,31 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_demo_endpoint_serves_html() -> None:
+    response = client.get("/demo")
+    assert response.status_code == 200
+    assert "Agentic Search Demo" in response.text
+    assert "/api/v1/search/stream" in response.text
+    assert "EventSource" in response.text
+
+
 def test_search_endpoint_returns_contract_shape() -> None:
-    response = client.post("/api/v1/search", json={"query": "AI startups in healthcare"})
+    app.dependency_overrides = {}
+    from backend.app.main import get_orchestrator
+
+    app_orchestrator = PipelineOrchestrator()
+    original = get_orchestrator
+    try:
+        import backend.app.main as main_module
+
+        main_module.get_orchestrator.cache_clear()
+        main_module.get_orchestrator = lambda: app_orchestrator
+        response = client.get("/api/v1/search", params={"query": "AI startups in healthcare"})
+    finally:
+        import backend.app.main as main_module
+
+        main_module.get_orchestrator = original
+
     assert response.status_code == 200
     body = response.json()
     assert body["original_query"] == "AI startups in healthcare"
@@ -50,7 +73,21 @@ def test_search_endpoint_returns_contract_shape() -> None:
 
 
 def test_stream_endpoint_emits_stage_lifecycle_events() -> None:
-    response = client.get("/api/v1/search/stream", params={"query": "AI startups in healthcare"})
+    from backend.app.main import get_orchestrator
+
+    app_orchestrator = PipelineOrchestrator()
+    original = get_orchestrator
+    try:
+        import backend.app.main as main_module
+
+        main_module.get_orchestrator.cache_clear()
+        main_module.get_orchestrator = lambda: app_orchestrator
+        response = client.get("/api/v1/search/stream", params={"query": "AI startups in healthcare"})
+    finally:
+        import backend.app.main as main_module
+
+        main_module.get_orchestrator = original
+
     assert response.status_code == 200
     body = response.text
     assert "run_started" in body
