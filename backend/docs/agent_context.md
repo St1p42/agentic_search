@@ -1,32 +1,31 @@
 # Agent Context
 
-This is the active implementation context for the current reduced pipeline.
+This is the active implementation context for the current downscoped pipeline.
 
-The `north_star_*` docs remain as the broader historical design reference. They are useful for future direction, but they are not the source of truth for current scope.
+The north-star design remains broader future reference. It is useful for direction, but it is not the source of truth for current behavior.
 
 ---
 
 ## Global Context for All Agents
 
-You are implementing one stage of a bounded, deterministic multi-stage system. The challenge description and the active business/design flow are provided separately. Follow the active docs as the source of truth for current behavior, contracts, and ownership.
+You are implementing part of a bounded deterministic multi-stage system. Follow the active docs and shared contracts. Do not silently implement north-star features unless the scope is explicitly being expanded.
 
 ---
 
 ## Non-Negotiable Global Rules
 
 - The system uses a deterministic orchestrator in code, not an LLM orchestrator.
-- There is no open-ended loop, no recursive orchestration, and no free-form agent-to-agent calling.
+- There is no open-ended loop, recursive orchestration, or free-form agentic control flow.
 - Provenance is part of the field model, not optional metadata.
-- Do not implement a weighted-sum final ranker.
-- Planner owns the initial semantic query generation including all initial rewrites.
-- Searcher only executes queries and builds result pools; it does not generate semantic rewrites.
-- Brave LLM Context is run only on the bounded pruned shortlist, not on all returned URLs.
-- ExtractorLight produces candidate names and a name→URL mention map only; no fields, no schema decisions, no ranking.
-- Assessor currently owns source triage only.
-- Extractor consumes the evidence store; it does not decide what to fetch.
-- Orchestrator owns evidence store construction and merging.
-- Query normalization is only a small guardrail, not a major subsystem.
-- Prefer null over hallucinated values.
+- Planner owns semantic query generation, including bounded rewrites.
+- Searcher executes queries and builds result pools; it does not invent semantic rewrites.
+- Brave LLM Context runs only on a bounded shortlist.
+- ExtractorLight exists to establish candidate entities before full extraction.
+- Assessor owns source-level semantic triage.
+- Evidence Store Builder owns entity-centric evidence construction and per-entity evidence scoring.
+- Extractor consumes the evidence store and owns structured field extraction.
+- Finalizer is a thin response shaper in the active flow.
+- Prefer null over unsupported values.
 - Keep all stage I/O typed and explicit.
 
 ---
@@ -35,41 +34,46 @@ You are implementing one stage of a bounded, deterministic multi-stage system. T
 
 1. Planner
 2. Searcher
-3. Brave LLM Context on bounded shortlist
+3. Brave LLM Context Helper
 4. ExtractorLight
-5. Assessor first pass
-6. Evidence store build
+5. Assessor
+6. Evidence Store Builder
 7. Extractor
-8. Final row selection / response
+8. Finalizer
 
 ---
 
-## Explicitly Out of Scope for the Active Flow
+## Active Downscope
 
-- no verification-query sub-pass
-- no Brave second pass
-- no Jina selection in the active orchestrated flow
-- no repair round
-- no post-extraction replanning
+The current implementation is intentionally narrower than the north-star design.
 
-These ideas may remain in the north-star docs, but they are not current implementation scope.
+Out of scope in active behavior:
+
+- verification-query sub-pass
+- Jina selection/fetch orchestration
+- repair diagnostics
+- repair round execution
+- MMR/diversity final selection
+- evaluator-style final ranking
+
+If you touch active code, do not partially reintroduce these features by accident.
 
 ---
 
 ## Shared Engineering Expectations
 
-- Build against the shared model package only. Do not invent ad hoc payloads.
-- Preserve stage boundaries. Do not silently absorb neighboring-stage responsibilities.
-- Keep functions modular and inspectable.
-- Add lightweight tests for your stage.
-- If you need to make a small assumption, document it in code comments or a short note.
-- Do not rewrite shared schemas unless you are the contract owner or explicitly coordinating through one owner.
+- Build against the shared contract package only.
+- Preserve stage boundaries.
+- Keep deterministic parts deterministic.
+- Keep prompts structured and bounded.
+- Prefer explicit small decisions over implicit cleverness.
+- Add or update tests when changing behavior.
 
 ---
 
 ## Shared Contract Assumptions
 
-All agents should assume there is a shared package containing:
+Agents should assume the shared contract package contains:
 
 - request/response models
 - stage input/output models
@@ -78,17 +82,7 @@ All agents should assume there is a shared package containing:
 - SSE event models
 - error models
 
-If a needed field is missing from the shared contracts, do not invent a private alternative shape. Raise it explicitly or add it through the shared package.
-
----
-
-## Practical Implementation Stance
-
-- optimize for reliability and debuggability over cleverness
-- avoid overengineering
-- keep prompt outputs structured and parseable
-- keep side effects localized
-- prefer explicit bounded behavior over flexible but ambiguous architecture
+If a needed field is missing, add it through the shared contract package rather than inventing a private payload.
 
 ---
 
@@ -98,18 +92,25 @@ If a needed field is missing from the shared contracts, do not invent a private 
 
 Owns:
 
-- topic-query check and conservative normalization
+- conservative topic-query normalization
 - entity type inference
 - schema generation
-- aspect generation
+- core aspect generation
 - base query generation
-- initial rewrite generation
+- initial query rewrites based on likely user intent slices
+
+Important implementation stance:
+
+- rewrites are semantic coverage, not query spam
+- if the input is slightly off but clearly convertible, normalize conservatively
+- if the input is non-topic or would require strong reinterpretation, return planner error
+- planner should reject aggressively ambiguous inputs rather than over-guess
 
 Does not own:
 
 - retrieval execution
-- source triage
-- evidence merging
+- source assessment
+- evidence construction
 - extraction
 
 ### Searcher
@@ -123,12 +124,17 @@ Owns:
 - multi-query merge
 - shortlist construction
 
+Important implementation stance:
+
+- use soft rewrite-slot reservation so rewrites contribute
+- use a small per-domain cap
+- keep merge/tie-break logic deterministic
+
 Does not own:
 
 - semantic rewrite generation
-- deep-fetch decisions
+- source semantics
 - extraction
-- final ranking
 
 ### Brave LLM Context Helper
 
@@ -136,48 +142,51 @@ Owns:
 
 - shortlist-only Brave context calls
 - exact-URL-only passage attachment
-- snippet fallback when Brave does not return an exact-URL passage
-- deterministic line-level cleanup of passage text
+- snippet fallback when exact-URL context is missing
+- deterministic passage cleanup
 
 Does not own:
 
-- full-page retrieval
+- deep fetch
 - entity extraction
-- source triage
+- source assessment
 
 ### ExtractorLight
 
 Owns:
 
 - candidate name extraction only
-- `name -> source URLs` mention mapping
+- `name_to_source_urls`
 - mention counts
+
+Why it matters:
+
+- it creates the candidate entity prior for the rest of the pipeline
+- it prevents direct uncontrolled field extraction from raw URL text
 
 Does not own:
 
 - field extraction
-- canonicalization
-- row ranking
-- final eligibility decisions
+- ranking
+- final row decisions
 
 ### Assessor
 
 Owns:
 
 - heuristic source signals
-- batched semantic source assessment
+- batched source assessment
 - `source_role`
 - `source_quality`
 - `officiality`
 - rough aspect coverage
 - evidence sufficiency
 
-Does not own in the active flow:
+Does not own in active flow:
 
 - verification-gap generation
-- verification-query planning
-- Jina fetch selection
-- second-pass reassessment
+- verification queries
+- Jina selection
 - repair decisions
 
 ### Evidence Store Builder
@@ -185,26 +194,44 @@ Does not own in the active flow:
 Owns:
 
 - entity-centric evidence-store construction and merging
-- evidence attribution using name-to-URL mapping first
-- conservative string-matching fallback
-- provenance carry-through
+- evidence attribution using `name_to_source_urls` first
+- conservative string-match fallback
+- chunk provenance carry-through
+- per-entity evidence score computation
 
 Important attribution policy:
 
-- primary attribution: ExtractorLight name → URL mapping
-- fallback: conservative string matching within chunk text
-- ambiguous chunks that match multiple entity names should remain attached to all matching entities until Extractor resolves them
-- do not drop ambiguous chunks during evidence store construction
-- over-eager attribution is worse than multi-attachment
+- do not drop ambiguous chunks too early
+- use distinct source URLs for score calculation
+- do not confuse chunk count with source breadth
+
+Current score policy:
+
+- high-quality source URL => `+1.0`
+- medium-quality source URL => `+0.5`
+- low-quality source URL => `+0.0`
 
 ### Extractor
 
 Owns:
 
-- structured candidate extraction from evidence
-- field-level provenance
-- conservative contradiction handling
-- null-default behavior for unsupported values
+- structured extraction over entity evidence slices
+- planner-schema field filling
+- field-level evidence
+- conservative null-default behavior
+- pre-extraction top-10 gating
+
+Active ranking before extraction:
+
+1. higher entity score
+2. more distinct supporting source URLs
+3. more total supporting chunk text length
+4. alphabetical entity name
+
+Why this is important:
+
+- extractor cost is dominated by per-entity LLM calls
+- top-10 filtering is a latency and quality control mechanism
 
 Does not own:
 
@@ -212,37 +239,43 @@ Does not own:
 - source triage
 - evidence-store construction
 
-### Final Row Selection / Response
+### Finalizer
 
 Owns:
 
-- candidate filtering
-- row eligibility decisions
-- final row selection
-- response assembly
+- user-facing row shaping only
+
+Current behavior:
+
+- returns only `final_rows`
+- each row has `name`, `fields`, and `source_urls`
+- no diagnostics
+- no extra ranking logic
 
 Does not own:
 
 - retrieval
 - source triage
-- evidence-store building
+- evidence-store construction
+- evaluator-style scoring
 
 ---
 
-## Implementation Priorities by Risk
+## Practical Implementation Priorities
 
 1. keep contracts stable
-2. keep source attribution traceable
-3. keep stage boundaries strict
-4. keep deterministic parts deterministic
-5. use LLMs only where they materially improve semantic judgment
+2. keep provenance traceable
+3. keep stage ownership strict
+4. keep deterministic policies explicit
+5. use LLMs only where they provide real semantic value
 
 ---
 
 ## Anti-Goals
 
-- no hidden stage coupling
-- no private payload shapes that bypass shared contracts
-- no speculative extraction unsupported by evidence
+- no hidden coupling between stages
+- no private payload shapes
+- no speculative field extraction without evidence
 - no uncontrolled query expansion
-- no partial implementation of descoped verification or repair features inside active stages
+- no accidental reintroduction of verification/repair logic
+- no user-facing leakage of internal pipeline diagnostics

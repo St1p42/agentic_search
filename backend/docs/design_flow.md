@@ -26,120 +26,71 @@ Build a system that takes a topic query such as "AI startups in healthcare", "to
 ## 0. Core Architectural Stance
 
 - The system uses a deterministic orchestrator in code, not an LLM orchestrator.
-- The main pipeline is fixed.
-- There is no second-pass verification loop in the active flow.
-- There is no repair loop in the active flow.
-- There is no open-ended recursive agent loop.
-- LLM-backed reasoning is used only where semantic judgment is worth the cost.
-- Query normalization is a thin guardrail, not a major subsystem.
+- The active pipeline is fixed and bounded.
 - Provenance is part of the core data model, not optional metadata.
+- LLMs are used only where semantic judgment materially helps.
+- The active implementation is intentionally downscoped from the north-star design.
+- The north-star design remains future reference, but it is not the source of truth for current behavior.
+
+Downscoped out of the active flow:
+
+- no verification-query sub-pass
+- no Jina fetch decision pass in the active orchestrated flow
+- no repair round
+- no MMR/diversity final selector
+- no evaluator-style diagnostics in the final user response
 
 ---
 
 ## 1. Runtime Components
 
-### 1.1 Orchestrator Module
+### 1.1 Deterministic Orchestrator
 
 Owns:
 
 - stage order
-- state passing
+- request-scoped state
 - request-scoped budgets
 - evidence store construction and merging
 - final response assembly
 
-### 1.2 Mostly Deterministic / Code-Driven Components
-
-- **Orchestrator**
-- **Searcher**
-  - executes Brave Web Search queries
-  - collects ranked results, titles, snippets, domains, and provider metadata
-  - applies mechanical pruning
-  - dedupes exact duplicate URLs
-  - merges multi-query result lists
-  - builds the bounded shortlist
-- **Brave LLM Context helper**
-  - fetches shallow URL-linked context for the bounded shortlist
-  - filters passages to exact URL matches only
-  - falls back to the original Searcher snippet when needed
-  - performs deterministic line-level cleanup
-- **Evidence Store Builder**
-  - merges shallow evidence chunks into an entity-centric evidence store
-
-### 1.3 Hybrid Components
-
-- **Assessor**
-  - computes heuristic pre-signals in code
-  - runs one batched LLM source assessment over shortlisted sources
-  - classifies source role, source quality, officiality, rough aspect coverage, and evidence sufficiency
-- **ExtractorLight**
-  - lightweight LLM call over Brave LLM Context output
-  - candidate-name extraction only
-  - name → URL mention mapping
-  - mention counts
-
-### 1.4 Mostly LLM-Backed Components
-
-- **Planner**
-- **Extractor**
-- **Final row selection / response shaping**
-  - may still contain deterministic filtering around the final extractor output
-
----
-
-## 2. Global Execution Policy
-
-### 2.1 Deterministic Stage Order
-
-The orchestrator always runs stages in this order:
+### 1.2 Active Stage Order
 
 1. Planner
 2. Searcher
-3. Brave LLM Context on bounded shortlist
+3. Brave LLM Context helper
 4. ExtractorLight
-5. Assessor (first pass only)
-6. Orchestrator builds evidence store
+5. Assessor
+6. Evidence Store Builder
 7. Extractor
-8. Final row selection / response
+8. Finalizer
 
-### 2.2 Forbidden Behavior
-
-- no open-ended self-looping
-- no verification-query sub-pass in the active pipeline
-- no Jina deep-fetch orchestration in the active pipeline
-- no repair round in the active pipeline
-- no full replanning after extraction
-- no unlimited query expansion
-- no arbitrary agent-to-agent recursion
+This order is sequential and fixed.
 
 ---
 
-## 3. Request Initialization
+## 2. Request Initialization
 
-The orchestrator initializes:
+At the start of a request, the orchestrator initializes:
 
 - request ID
-- raw query
-- empty candidate name list
-- empty evidence store: `entity_name -> [evidence chunks]`
-- empty candidate entity store
+- original query
+- normalized query placeholder
+- empty evidence store
+- empty extractor output placeholder
+- request budgets
 
-### Recommended Budgets
+The active budgets are conservative and bounded. The important practical caps are:
 
-| Budget | Value |
-|---|---|
-| max Brave Web Search queries (initial) | 4 |
-| max shortlisted URLs for Brave LLM Context | 12–15 |
-| max Brave context passages per URL kept downstream | 2–3 |
-| max final rows returned | 10 |
-
-These are operating targets, not hard-coded universal constants.
+- up to 4 initial search queries
+- a bounded shortlist for Brave LLM Context
+- top 10 final entities returned
 
 ---
 
-## 4. Stage 1 — Planner
+## 3. Planner
 
-**Purpose:** convert the raw query into a concrete retrieval and extraction plan.
+**Purpose:** turn the user query into a bounded retrieval and extraction plan.
 
 ### Inputs
 
@@ -158,135 +109,126 @@ These are operating targets, not hard-coded universal constants.
 - `normalization_note`
 - `error`
 
-### Responsibilities
+### What the Planner owns
 
-- assess whether the input is already a topic query suitable for entity discovery
-- if slightly non-topic but clearly convertible, normalize it conservatively
-- if no reasonable topic interpretation exists, return `error = true` and stop the pipeline
-- infer what kind of entities the user wants
-- define the table columns
-- define the main aspects that matter for downstream extraction and comparison
-- generate the base query and any initial rewrites
+- deciding whether the query is already a topic-entity discovery query
+- conservative query normalization when the user phrasing is slightly off but still clearly convertible to a topic query
+- deciding the entity type
+- deciding the user-facing schema columns
+- deciding the main query aspects behind the user intent
+- generating the base query and bounded rewrites
 
-### Query Normalization Policy
+### Normalization and rejection policy
 
-This is a thin robustness layer, not a major feature.
+- if the input is already a topic query, keep it as-is
+- if the input is slightly off but the intended topic query is obvious, normalize it conservatively and continue
+- if the input is a non-topic query or would require strong reinterpretation, return `error = true` and stop the pipeline
 
-**If already a topic query:**
-- `is_topic_query = true`
-- `normalized_query = raw query`
-- `normalization_note = null`
+### Query rewrites and user intent
 
-**If slightly non-topic but clearly convertible:**
-- `is_topic_query = false`
-- produce a conservative `normalized_query`
-- set a short `normalization_note`
-- continue with the normalized query
+The first semantic decision in the system is not retrieval. It is query framing.
 
-**If conversion would require strong reinterpretation:**
-- `error = true`
-- stop the pipeline
-- return a clear message
+The Planner infers the likely aspects behind the request and uses them in two ways:
 
-### Typical Constraints
+- to define `core_aspects` for downstream extraction context
+- to generate a small number of query rewrites that cover likely user intent slices
 
-- schema: **4–6 columns**
-- aspects: **1–5**
-- initial rewrites: **0–3**
-- planner runs **once per request**
+Example intent slices:
 
-### Important Ownership Rule
+- quality or “best overall”
+- price sensitivity
+- camera or photography emphasis
+- portability, foldable form factor, or premium flagship focus
 
-- **Planner** owns the base query and initial rewrites
-- **Searcher** only executes them
+These rewrites are not searcher-generated. They are planner-owned because they are semantic, not mechanical.
 
-### If the Query is Ambiguous
+### Constraints
 
-- never ask the user
-- choose a conservative interpretation if possible
-- if not, stop and return a structured error
+- schema is usually 4 to 6 columns
+- rewrites are usually 0 to 3
+- Planner runs once
+- if the query is non-topic or requires strong reinterpretation, the Planner should reject it instead of guessing
 
 ---
 
-## 5. Stage 2 — Searcher
+## 4. Searcher
 
-**Purpose:** produce a strong but bounded candidate URL pool using Brave Web Search.
+**Purpose:** build a strong but bounded candidate URL pool from Brave Web Search.
 
 ### Inputs
 
 - `normalized_query`
 - `base_query`
 - `initial_query_rewrites`
-- `query_mode`
 
-### Responsibilities
+### What the Searcher owns
 
-- execute the base query and planner-provided rewrites against Brave Web Search
-- collect ranked results, titles, snippets, domains, and metadata
-- apply mechanical URL pruning
-- dedupe exact duplicate URLs across query result lists
-- merge multi-query result lists by best rank, with multi-query support as a deterministic tie-breaker
-- use soft round-robin reserved slots so planner rewrites can contribute to the shortlist without over-bias toward the base query
-- keep a small per-domain shortlist cap without doing domain-level deduplication
-- build the bounded shortlist for Brave LLM Context
+- executing planner-supplied queries
+- collecting ranked results, titles, snippets, domains, and metadata
+- mechanical pruning
+- exact-URL deduplication
+- bounded shortlist construction
 
-### Nature of This Stage
+### Important design choices
 
-- mostly deterministic / code-driven
-- does not generate semantics itself
-- only executes planner-provided queries
+The Searcher is deliberately not semantic. It does not invent new queries. It only executes the Planner’s base query plus rewrites.
 
-### Mechanical Pruning Rules
+To avoid over-bias toward the base query, the Searcher uses a bounded merge strategy:
 
-Applied in code before any LLM call. Drop URLs matching any of:
+- exact duplicate URLs are removed
+- multi-query results are merged deterministically
+- the best rank wins first
+- multi-query support helps as a tie-break
+- soft reserved slots let rewrite results contribute to the shortlist
+- a small per-domain cap prevents shortlist collapse into one site
 
-- exact duplicate URLs appearing across multiple query results
-- social media post URLs such as `twitter.com/status/`, `facebook.com/posts/`, `instagram.com/p/`
-- video URLs such as `youtube.com`, `vimeo.com`
-- file-extension URLs such as `.pdf`, `.ppt`, `.doc` in the URL string
-- clearly navigational/boilerplate snippets
-- results with empty snippets
-- results with zero keyword overlap with the query and zero keyword overlap with planner aspects
+### Mechanical pruning
 
-### Important Ownership Rule
+Before any LLM call, the Searcher removes obviously weak or irrelevant URLs, including:
 
-- Searcher must not generate semantic rewrites on its own
-- Searcher must not decide deep fetch
-- Searcher must not rank final entities
+- duplicate URLs
+- clearly low-value social/video URLs
+- file-extension URLs such as PDF-like documents in the URL
+- empty-snippet results
+- clearly navigational/boilerplate results
+- results with no lexical overlap with either the query or planner aspects
+
+This keeps the expensive semantic stages working over a better pool.
 
 ---
 
-## 6. Stage 3 — Brave LLM Context on Shortlist
+## 5. Brave LLM Context Helper
 
-**Purpose:** enrich the bounded shortlist with shallow, URL-linked textual evidence before extraction.
+**Purpose:** enrich shortlisted URLs with shallow URL-linked text before extraction.
 
 ### Inputs
 
 - `SearcherOutput.shortlisted_results`
 
-### Outputs
+### What it owns
 
-- `BraveContextOutput`
+- running Brave LLM Context only on the bounded shortlist
+- keeping only passages that match the exact shortlisted URL
+- falling back to the original Brave search snippet when no exact-URL passage survives
+- light cleanup of returned passage text
 
-### Responsibilities
+### Why this stage exists
 
-- call Brave LLM Context only for the shortlisted URLs
-- run a narrow query per shortlisted result using title, snippet prefix, and `site:<hostname>`
-- retain only passages whose `source_url` exactly matches the shortlisted URL
-- fall back to the original Searcher snippet when no exact-URL Brave passage survives
-- clean passage text deterministically before returning it downstream
+Brave search snippets are often too thin, but full-page retrieval is too expensive for the active downscoped pipeline.
 
-### Important Constraints
+This helper gives the system a middle layer:
 
-- this is shallow evidence, not full-page retrieval
-- exact-URL attachment is strict
-- cleanup must remain deterministic and conservative
+- richer than raw snippets
+- cheaper than deep fetch
+- still URL-linked for provenance
+
+This is shallow evidence, not full-page retrieval.
 
 ---
 
-## 7. Stage 4 — ExtractorLight
+## 6. ExtractorLight
 
-**Purpose:** discover candidate entity names from shallow context without attempting full extraction.
+**Purpose:** get candidate entity names before doing any full field extraction.
 
 ### Inputs
 
@@ -299,25 +241,29 @@ Applied in code before any LLM call. Drop URLs matching any of:
 - `name_to_source_urls`
 - `mention_counts`
 
-### Responsibilities
+### Why this stage exists
 
-- extract likely candidate names only
-- build a name → source URL mention map
-- count coarse mentions
+This stage is the entity-anchor for the rest of the pipeline.
 
-### Important Constraints
+It is needed because the system should not jump directly from URL passages to fully structured rows. The intermediate name-extraction step gives:
 
-- no schema field extraction
-- no provenance synthesis beyond the name-to-URL mapping
-- no canonicalization
-- no row ranking
-- no eligibility decisions
+- a bounded candidate list
+- name-to-URL mention mapping
+- mention counts for rough prominence
+- a cleaner boundary between “who are the entities?” and “what fields do they have?”
+
+### What it does not do
+
+- no field extraction
+- no ranking
+- no alias resolution beyond pragmatic name extraction
+- no final eligibility decisions
 
 ---
 
-## 8. Stage 5 — Assessor (First Pass Only)
+## 7. Assessor
 
-**Purpose:** classify shortlisted sources for downstream evidence use.
+**Purpose:** classify shortlisted sources before they become evidence.
 
 ### Inputs
 
@@ -328,36 +274,34 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 ### Outputs
 
-- `AssessorOutput`
+- per-URL assessed source records
 
-### Responsibilities
+### What it owns
 
-- compute heuristic source signals in code
-- perform one batched semantic source assessment
-- classify:
+- heuristic pre-signals in code
+- one batched semantic assessment pass over shortlisted sources
+- classification of:
   - `source_role`
   - `source_quality`
   - `officiality`
   - `estimated_aspect_coverage`
   - `evidence_sufficiency`
 
-### Nature of This Stage
+### Why it exists
 
-- hybrid: code-generated heuristics plus one LLM judgment pass
-- source triage only
+Not all URLs should contribute equally to extraction. The Assessor provides the source-level semantics the deterministic pipeline needs later:
 
-### Important Constraints
+- official vs third-party vs low-quality
+- high vs medium vs low source quality
+- whether a URL is discovery-like, verification-like, or corroborative
 
-- no verification-gap generation in the active flow
-- no second-pass reassessment
-- no Jina URL selection
-- no repair-time decisions
+This stage is where source semantics enter the pipeline.
 
 ---
 
-## 9. Stage 6 — Evidence Store Build
+## 8. Evidence Store Builder
 
-**Purpose:** build the orchestrator-owned entity-centric evidence store.
+**Purpose:** build an entity-centric evidence store from shallow evidence plus source assessments.
 
 ### Inputs
 
@@ -370,23 +314,51 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 - `EvidenceStore`
 
-### Responsibilities
+### Evidence attachment policy
 
-- merge evidence chunks into `entity_name -> [evidence chunks]`
-- attach chunks using ExtractorLight name-to-URL mapping first
-- use conservative string matching as fallback
-- preserve source URL, source labels, origin, and aspect coverage
-- allow ambiguous chunks to remain attached to multiple candidate entities until later resolution
+Evidence is attached to entities using:
 
-### Important Constraint
+1. ExtractorLight name-to-URL mapping first
+2. conservative fallback string matching second
 
-- over-eager attribution is worse than multi-attachment
+The builder is intentionally conservative:
+
+- ambiguous evidence can remain attached to more than one entity
+- unsupported evidence is not converted into structured fields here
+- provenance is preserved on every chunk
+
+### Interesting design decisions
+
+The builder does more than just store text. It also computes per-entity evidence strength signals used for extraction-time filtering.
+
+Per entity, it stores a deterministic `entity_score`:
+
+- each distinct high-quality source URL contributes `+1.0`
+- each distinct medium-quality source URL contributes `+0.5`
+- low-quality sources contribute `+0.0`
+
+Important detail:
+
+- scoring is by distinct source URL, not chunk count
+
+This avoids over-rewarding one source that happens to produce many chunks.
+
+### Chunk construction
+
+The builder uses anchored sentence-window extraction around entity mentions:
+
+- it expands from an anchor sentence
+- respects paragraph boundaries
+- stops at configured length bounds
+- avoids over-expanding into other-entity material
+
+This gives cleaner entity-specific evidence slices than whole-passage attachment.
 
 ---
 
-## 10. Stage 7 — Extractor
+## 9. Extractor
 
-**Purpose:** convert entity-centric evidence into structured candidate rows.
+**Purpose:** convert entity-centric evidence into structured rows with field-level provenance.
 
 ### Inputs
 
@@ -398,22 +370,55 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 - `ExtractorOutput`
 
-### Responsibilities
+### What it owns
 
-- produce structured candidate entities
-- attach field-level provenance
-- resolve straightforward contradictions where evidence allows it
-- prefer null over unsupported values
+- field extraction for planner-defined schema columns
+- conservative null-default behavior
+- field-level evidence carry-through
+- per-entity structured output
 
-### Important Constraint
+### Important active design decisions
 
-- Extractor consumes the evidence store; it does not decide what to fetch
+The Extractor is intentionally anchored and bounded.
+
+It does not extract over every candidate entity blindly. Before any LLM calls, it ranks entities and keeps only the top 10.
+
+Entity ordering is deterministic:
+
+1. higher `entity_score`
+2. more distinct supporting source URLs
+3. more total supporting chunk text length
+4. alphabetical entity name
+
+This is one of the main latency-control choices in the active system.
+
+### Why top-10 happens here
+
+The expensive part is per-entity extraction. Filtering before extraction saves cost and latency more than filtering after extraction.
+
+### Extraction behavior
+
+For each retained entity:
+
+- consume its evidence-store slice
+- extract planner-schema fields only
+- prefer null to unsupported values
+- attach evidence to every non-null field
+
+The active Extractor is one LLM call per retained entity and uses minimal reasoning effort because this task is bounded extraction, not open-ended reasoning.
+
+### What is intentionally not in the active Extractor
+
+- no new-entity discovery beyond the ExtractorLight candidate set
+- no repair-time enrichment
+- no global reranking logic
+- no MMR/diversity pass
 
 ---
 
-## 11. Stage 8 — Final Row Selection / Response
+## 10. Finalizer
 
-**Purpose:** turn extracted candidates into the final response.
+**Purpose:** shape the extracted rows into the final user-facing response.
 
 ### Inputs
 
@@ -422,39 +427,76 @@ Applied in code before any LLM call. Drop URLs matching any of:
 
 ### Outputs
 
-- final response object with inferred schema and selected rows
+- `final_rows`
 
-### Responsibilities
+### Active behavior
 
-- filter weak candidates
-- resolve remaining duplication or row-eligibility issues
-- choose the final row set
-- preserve source traceability in the returned structure
+The Finalizer is intentionally thin in the current implementation.
 
-### Important Constraint
+It does not do evaluator-style ranking or diagnostics anymore. It simply converts extracted entities into the user-facing row shape:
 
-- do not rely on a weighted-sum final ranker
+- `name`
+- `fields`
+- `source_urls`
+
+This is a deliberate downscope. The real value now is already in the Extractor output; the Finalizer is a response shaper, not an evaluation engine.
+
+### Why this downscope was chosen
+
+- the product only needs top 10 rows
+- extractor already performs the meaningful gating
+- evaluator-style diagnostics were not user-facing
+- repair logic and richer final ranking were not justified for the current scope
 
 ---
 
-## 12. Why This Reduced Flow
+## 11. Final Response Shape
 
-This flow is intentionally narrower than the original north-star design.
+The active user-facing response is intentionally simple:
 
-It keeps:
+- one row per final entity
+- planner-driven fields
+- field-level evidence
+- row-level `source_urls`
 
-- deterministic orchestration
-- bounded retrieval
-- shallow evidence enrichment
-- lightweight candidate discovery
-- source-quality triage
-- entity-centric evidence merging
-- structured extraction
+Internal scoring and diagnostics are not returned.
 
-It removes, for now:
+---
 
-- verification-query sub-passes
-- Jina-based deep-fetch orchestration
-- repair loops
+## 12. What Was Left Out
 
-That makes the system easier to finish cleanly and easier to test end-to-end without carrying partially implemented complexity.
+The active implementation is intentionally smaller than the north-star system.
+
+Not implemented in the active flow:
+
+- verification-query generation and a verification sub-pass
+- Jina deep-fetch selection over the evidence store
+- second evidence merge from deep fetches
+- evaluator-style final ranking with evidence-strength scoring
+- MMR/diversification in final selection
+- repair diagnostics and a single repair round
+- more ambitious canonicalization / duplicate merge logic
+
+These are valid future extensions, but they were excluded to keep the current system:
+
+- inspectable
+- bounded
+- fast enough to iterate
+- aligned to the minimum challenge requirements
+
+---
+
+## 13. Summary
+
+The active system is a bounded deterministic pipeline where:
+
+- the Planner turns a raw query into entity type, schema, aspects, and intent-covering rewrites
+- the Searcher turns those rewrites into a bounded URL pool
+- Brave LLM Context provides shallow URL-linked evidence
+- ExtractorLight establishes entity anchors early
+- the Assessor adds source semantics
+- the Evidence Store Builder converts URL evidence into an entity-centric store and computes entity scores
+- the Extractor performs the real top-10 gating and field extraction with provenance
+- the Finalizer returns only the user-facing rows
+
+That is the source of truth for the current implementation.

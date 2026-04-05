@@ -1,6 +1,19 @@
 # Stage Contracts
 
-This document records the active ownership and typed I/O boundaries for the reduced pipeline. The `north_star_*` docs remain historical reference only.
+This document records the active ownership and typed I/O boundaries for the current downscoped pipeline. The north-star design remains future-oriented reference only.
+
+## Active Pipeline Order
+
+1. Planner
+2. Searcher
+3. Brave LLM Context Helper
+4. ExtractorLight
+5. Assessor
+6. Evidence Store Builder
+7. Extractor
+8. Finalizer
+
+---
 
 ## Planner
 
@@ -10,17 +23,30 @@ Input:
 Output:
 - `PlannerOutput`
 
-Ownership:
-- infers `entity_type`, `schema_columns`, `core_aspects`, `base_query`, and `initial_query_rewrites`
-- performs only conservative query normalization
-- never asks the user for clarification at runtime
-- may reject the query by setting `error=true`
-- typical shape: `schema_columns` has 4–6 entries and always includes `name`; `core_aspects` has 1–5 entries
+Owns:
+- conservative query normalization
+- `entity_type`
+- `query_mode`
+- `schema_columns`
+- `core_aspects`
+- `base_query`
+- `initial_query_rewrites`
+- topic-query acceptance vs rejection
+
+Important active behavior:
+- query rewrites are planner-owned and reflect likely user-intent slices
+- typical shape is 4 to 6 schema columns and 0 to 3 rewrites
+- Planner runs once
+- if the input is slightly off but clearly convertible to a topic query, Planner normalizes it conservatively
+- if the input is non-topic or requires strong reinterpretation, Planner returns `error=true`
 
 Does not own:
 - retrieval execution
-- evidence merging
+- source assessment
+- evidence construction
 - extraction
+
+---
 
 ## Searcher
 
@@ -30,20 +56,28 @@ Input:
 Output:
 - `SearcherOutput`
 
-Ownership:
-- executes supplied queries
-- applies mechanical URL pruning
-- performs exact-URL deduplication
-- merges multi-query results
-- applies query-source tie-breaking
-- uses soft round-robin rewrite-slot reservation to avoid over-bias toward the base query first
-- applies a small per-domain shortlist cap without doing domain-level deduplication
-- returns Brave result metadata needed downstream, including domain, rank, query source, and provider metadata
+Owns:
+- executing planner-provided queries
+- collecting Brave result metadata
+- mechanical URL pruning
+- exact URL deduplication
+- multi-query merge
+- bounded shortlist construction
+
+Important active behavior:
+- merge ordering is deterministic
+- best rank wins first
+- multi-query support acts as a tie-break
+- soft rewrite-slot reservation prevents collapse into only base-query results
+- a small per-domain cap improves shortlist variety
 
 Does not own:
 - semantic query generation
+- source semantics
 - deep-fetch decisions
 - extraction
+
+---
 
 ## Brave LLM Context Helper
 
@@ -53,18 +87,22 @@ Input:
 Output:
 - `BraveContextOutput`
 
-Ownership:
-- fetches URL-linked Brave LLM Context passages for the bounded shortlist
-- runs one narrow context query per shortlisted result using title + snippet prefix + `site:<hostname>`
-- retains only passages whose `source_url` exactly matches the shortlisted URL
-- falls back to the original Searcher snippet when no exact-URL Brave Context passage survives
-- applies deterministic passage cleanup before returning text
-- provides shallow evidence only
+Owns:
+- shortlist-only Brave LLM Context retrieval
+- exact-URL passage filtering
+- snippet fallback when no exact-URL passage survives
+- deterministic passage cleanup
+
+Important active behavior:
+- provides shallow URL-linked evidence only
+- does not do full-page retrieval
 
 Does not own:
-- full-page retrieval
-- source triage
-- extraction
+- source assessment
+- candidate extraction
+- field extraction
+
+---
 
 ## ExtractorLight
 
@@ -75,16 +113,22 @@ Input:
 Output:
 - `ExtractorLightOutput`
 
-Ownership:
-- extracts candidate names only
-- builds `name -> source URLs` mention mapping
-- records coarse mention counts
+Owns:
+- candidate-name extraction only
+- `name_to_source_urls`
+- `mention_counts`
+
+Why it exists:
+- separates entity discovery from field extraction
+- gives the pipeline a stable candidate list and URL attachment prior
 
 Does not own:
 - field extraction
-- alias resolution
-- row scoring
-- eligibility decisions
+- row ranking
+- eligibility filtering
+- final response shaping
+
+---
 
 ## Assessor
 
@@ -93,31 +137,32 @@ Input:
 - `SearcherOutput`
 - `BraveContextOutput`
 - `ExtractorLightOutput`
-- optional existing `EvidenceStore`
-- remaining fetch budget field may still exist in the request contract but is currently unused in active behavior
+- optional `EvidenceStore`
 
 Output:
 - `AssessorOutput`
 
-Ownership:
-- computes heuristic source signals
-- carries Brave LLM Context passages as shallow evidence context
-- performs one batched semantic source assessment
-- classifies:
+Owns:
+- heuristic source signals
+- one batched semantic source assessment
+- classification of:
   - `source_role`
   - `source_quality`
   - `officiality`
   - `estimated_aspect_coverage`
   - `evidence_sufficiency`
 
-Current scope:
-- first-pass source triage only
+Important active behavior:
+- this is source triage only
+- source semantics are decided here, not in the Searcher or Extractor
 
-Current non-ownership:
-- verification-gap generation
-- verification-query planning
-- Jina URL selection
-- second-pass reassessment
+Does not own in the active flow:
+- verification-gap planning
+- verification-query generation
+- Jina selection
+- repair decisions
+
+---
 
 ## Evidence Store Builder
 
@@ -130,11 +175,29 @@ Input:
 Output:
 - `EvidenceStore`
 
-Ownership:
-- deterministically builds and merges the orchestrator-owned entity-centric `entity_name -> evidence chunks` store
-- uses ExtractorLight name-to-URL mapping first, then conservative string matching as fallback
-- preserves source URL, source labels, origin, and aspect coverage on evidence chunks
-- permits ambiguous chunks to remain attached to multiple entity names until later resolution
+Owns:
+- entity-centric evidence-store construction
+- evidence merging
+- source/provenance carry-through on chunks
+- per-entity scoring for extraction-time filtering
+
+Important active behavior:
+- primary attribution uses `name_to_source_urls`
+- conservative string matching is fallback only
+- ambiguous chunks may stay attached to multiple entities
+- chunk construction uses anchored sentence windows
+
+Entity score policy:
+- distinct high-quality source URL => `+1.0`
+- distinct medium-quality source URL => `+0.5`
+- low-quality source URL => `+0.0`
+- score is based on distinct source URLs, not chunk count
+
+Does not own:
+- structured field extraction
+- row selection
+
+---
 
 ## Extractor
 
@@ -146,36 +209,67 @@ Input:
 Output:
 - `ExtractorOutput`
 
-Ownership:
-- produces structured candidate entities from entity-centric evidence chunks
-- stores field-level provenance through `FieldValue.evidence`
-- resolves contradictions conservatively where possible
-- prefers null over unsupported values
+Owns:
+- planner-schema field extraction
+- field-level provenance
+- conservative contradiction handling
+- null-default behavior for unsupported values
+
+Important active behavior:
+- entity extraction is anchored to `ExtractorLightOutput.candidate_names`
+- pre-extraction gating happens here
+- only top 10 entities are extracted
+
+Active extraction ordering:
+1. higher `entity_score`
+2. more distinct supporting source URLs
+3. more total supporting chunk text length
+4. alphabetical entity name
+
+Why this matters:
+- extractor latency is driven by per-entity LLM calls
+- filtering before extraction is the main practical latency lever
 
 Does not own:
 - retrieval
-- source triage
-- evidence-store construction
+- source assessment
+- evidence construction
+- final response shaping
 
-## Final Row Selection / Response
+---
+
+## Finalizer
 
 Input:
 - `PlannerOutput`
 - `ExtractorOutput`
 
 Output:
-- `PipelineResponse`
+- `CanonicalizerVerifierEvaluatorOutput`
 
-Ownership:
-- merges or drops weak duplicates if needed
-- applies final row eligibility logic
-- selects the final rows
-- returns the user-facing structured response with inferred schema and traceable support
+Active output shape:
+- `final_rows`
+
+Owns:
+- final user-facing row shaping
+- mapping extracted entities into:
+  - `name`
+  - `fields`
+  - `source_urls`
+
+Important active behavior:
+- the Finalizer is intentionally thin
+- it does not emit diagnostics
+- it does not do repair suggestions
+- it does not do extra ranking beyond what Extractor already decided
 
 Does not own:
 - retrieval
-- evidence-store construction
 - source triage
+- evidence construction
+- additional ranking logic
+
+---
 
 ## Orchestrator
 
@@ -185,19 +279,30 @@ Input:
 Output:
 - `PipelineResponse`
 
-Ownership:
-- runs the fixed active stage order
-- tracks request-scoped budgets and state
-- owns entity-centric evidence-store construction and merging
-- assembles the final response
-- emits lifecycle events if SSE is present in the app shell
+Owns:
+- the fixed stage order
+- request-scoped state and budgets
+- evidence-store construction and merging
+- final response assembly
+- SSE lifecycle event emission when using the streaming shell
 
-Active stage order:
-1. Planner
-2. Searcher
-3. Brave LLM Context on shortlist
-4. ExtractorLight
-5. Assessor first pass
-6. Evidence store build
-7. Extractor
-8. Final row selection / response
+Important active behavior:
+- the active flow is single-pass
+- there is no repair gating in current behavior
+- there is no diagnostics-dependent second retrieval pass
+
+Does not own:
+- stage-local semantic decisions that already belong to Planner, Assessor, or Extractor
+
+---
+
+## Explicitly Out of Scope in Current Contracts
+
+- repair diagnostics
+- repair follow-up queries
+- verification-query sub-pass ownership
+- Jina selection/fetch ownership in the active flow
+- MMR/diversity selection in Finalizer
+- evaluator-style final ranking
+
+Those belong to the north-star design, not the current active contract set.
