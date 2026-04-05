@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from backend.app.config import (
     load_assessor_runtime_config,
     load_brave_context_runtime_config,
+    load_extractor_runtime_config,
     load_extractor_light_runtime_config,
     load_jina_fetcher_runtime_config,
     load_planner_runtime_config,
@@ -20,6 +21,7 @@ from backend.app.contracts import (
     BraveContextOutput,
     EvidenceStore,
     ExtractorLightOutput,
+    ExtractorOutput,
     JinaFetcherOutput,
     PipelineRequest,
     PipelineResponse,
@@ -31,6 +33,7 @@ from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
     build_extractor_light_stage,
+    build_extractor_stage,
     build_planner_stage,
     build_searcher_stage,
     build_source_assessor_stage,
@@ -65,6 +68,14 @@ class JinaFetcherTestRequest(BaseModel):
 
     assessor_output: AssessorOutput
     remaining_fetch_budget: int = Field(default=0, ge=0)
+
+
+class ExtractorTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    planner_output: PlannerOutput
+    extractor_light_output: ExtractorLightOutput
+    evidence_store: EvidenceStore
 
 
 class EvidenceStoreTestRequest(BaseModel):
@@ -154,6 +165,17 @@ def run_evidence_store_test(request: EvidenceStoreTestRequest) -> EvidenceStore:
         extractor_light_output=request.extractor_light_output,
         assessor_output=request.assessor_output,
         existing_store=request.evidence_store,
+    )
+
+
+@app.post("/api/v1/extractor/test", response_model=ExtractorOutput)
+def run_extractor_test(request: ExtractorTestRequest) -> ExtractorOutput:
+    extractor_config = load_extractor_runtime_config()
+    extractor = build_extractor_stage(runtime_config=extractor_config)
+    return extractor.run(
+        planner_output=request.planner_output,
+        extractor_light_output=request.extractor_light_output,
+        evidence_store=request.evidence_store,
     )
 
 

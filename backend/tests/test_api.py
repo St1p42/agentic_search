@@ -11,7 +11,10 @@ from backend.app.contracts import (
     BraveContextPassage,
     DeepFetchedDocument,
     EvidenceStore,
+    ExtractedEntity,
     ExtractorLightOutput,
+    ExtractorOutput,
+    FieldValue,
     HeuristicSourceSignals,
     JinaFetcherOutput,
     OfficialityLevel,
@@ -164,6 +167,25 @@ def _assessor_output() -> AssessorOutput:
     )
 
 
+def _evidence_store() -> EvidenceStore:
+    return EvidenceStore(
+        chunks_by_entity={
+            "Acme Health": [
+                {
+                    "text": "Acme Health develops clinical AI systems for hospitals and care teams.",
+                    "source_url": "https://acmehealth.com/about",
+                    "source_title": "About Acme Health",
+                    "source_role": "verification",
+                    "source_quality": "high",
+                    "officiality": "official",
+                    "origin": "brave_llm",
+                    "aspect_coverage": ["focus_area"],
+                }
+            ]
+        }
+    )
+
+
 def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
     brave_context_output = _brave_context_output()
 
@@ -278,6 +300,83 @@ def test_evidence_store_test_endpoint_returns_entity_chunks() -> None:
     assert response.json()["chunks_by_entity"]["Acme Health"][0]["text"] == (
         "Acme Health develops clinical AI systems for hospitals and care teams."
     )
+
+
+def test_extractor_test_endpoint_returns_entity_rows(monkeypatch) -> None:
+    extractor_output = ExtractorOutput(
+        entities=[
+            ExtractedEntity(
+                candidate_id="Acme Health",
+                entity_name="Acme Health",
+                fields={
+                    "name": FieldValue(
+                        value="Acme Health",
+                        confidence=1.0,
+                        evidence=[
+                            {
+                                "source_url": "https://acmehealth.com/about",
+                                "source_title": "About Acme Health",
+                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
+                                "source_role": "verification",
+                                "source_quality": "high",
+                                "officiality": "official",
+                            }
+                        ],
+                    ),
+                    "website": FieldValue(value=None, confidence=0.0, evidence=[]),
+                    "location": FieldValue(value=None, confidence=0.0, evidence=[]),
+                    "focus_area": FieldValue(
+                        value="clinical AI systems for hospitals and care teams",
+                        confidence=0.84,
+                        evidence=[
+                            {
+                                "source_url": "https://acmehealth.com/about",
+                                "source_title": "About Acme Health",
+                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
+                                "source_role": "verification",
+                                "source_quality": "high",
+                                "officiality": "official",
+                            }
+                        ],
+                    ),
+                },
+                source_urls=[HttpUrl("https://acmehealth.com/about")],
+                provisional=False,
+            )
+        ]
+    )
+
+    class FakeEndpointExtractor:
+        def run(
+            self,
+            planner_output: PlannerOutput,
+            extractor_light_output: ExtractorLightOutput,
+            evidence_store: EvidenceStore,
+            prior_output: ExtractorOutput | None = None,
+        ) -> ExtractorOutput:
+            _ = planner_output
+            _ = extractor_light_output
+            _ = evidence_store
+            _ = prior_output
+            return extractor_output
+
+    monkeypatch.setattr(
+        "backend.app.main.build_extractor_stage",
+        lambda runtime_config: FakeEndpointExtractor(),
+    )
+
+    response = client.post(
+        "/api/v1/extractor/test",
+        json={
+            "planner_output": _planner_output().model_dump(mode="json"),
+            "extractor_light_output": _extractor_light_output().model_dump(mode="json"),
+            "evidence_store": _evidence_store().model_dump(mode="json"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["entities"][0]["entity_name"] == "Acme Health"
+    assert response.json()["entities"][0]["fields"]["name"]["value"] == "Acme Health"
 
 
 def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> None:

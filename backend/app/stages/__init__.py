@@ -10,7 +10,12 @@ from backend.app.stages.canonicalizer_verifier_evaluator import (
     CanonicalizerVerifierEvaluatorStage,
     PlaceholderCanonicalizerVerifierEvaluatorStage,
 )
-from backend.app.stages.extractor import ExtractorStage, PlaceholderExtractorStage
+from backend.app.stages.extractor import (
+    ExtractorStage,
+    LlmExtractorStage,
+    PlaceholderExtractorStage,
+    build_extractor_stage,
+)
 from backend.app.stages.extractor_light import (
     ExtractorLightStage,
     LlmExtractorLightStage,
@@ -35,6 +40,7 @@ __all__ = [
     "BraveSearcherStage",
     "ExtractorLightStage",
     "ExtractorStage",
+    "LlmExtractorStage",
     "SourceAssessorStage",
     "PlaceholderSourceAssessorStage",
     "PlaceholderCanonicalizerVerifierEvaluatorStage",
@@ -49,6 +55,7 @@ __all__ = [
     "SearcherStage",
     "build_source_assessor_stage",
     "build_extractor_light_stage",
+    "build_extractor_stage",
     "build_planner_stage",
     "build_searcher_stage",
 ]

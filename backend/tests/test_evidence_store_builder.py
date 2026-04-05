@@ -113,6 +113,7 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
     assert len(chunks) == 2
     assert {chunk.source_url for chunk in chunks} == {mapped_url, fallback_url}
     assert all(chunk.origin == EvidenceOrigin.BRAVE_LLM for chunk in chunks)
+    assert output.entity_scores["Acme Phone"] == 2.0
     assert any(chunk.text == "Acme Phone is a strong all-rounder. It has excellent battery life." for chunk in chunks)
     assert any(
         chunk.text == "Other phones exist. Acme Phone has great battery life for creators. It charges quickly."

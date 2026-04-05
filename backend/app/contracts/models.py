@@ -211,6 +211,7 @@ class EvidenceStore(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     chunks_by_entity: dict[str, list[EvidenceChunk]] = Field(default_factory=dict)
+    entity_scores: dict[str, float] = Field(default_factory=dict)
 
 
 class JinaFetcherOutput(BaseModel):

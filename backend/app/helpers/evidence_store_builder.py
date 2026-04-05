@@ -106,7 +106,10 @@ class DefaultEvidenceStoreBuilder:
                 stop_entities=stop_entities,
             )
 
-        return EvidenceStore(chunks_by_entity=chunks_by_entity)
+        return EvidenceStore(
+            chunks_by_entity=chunks_by_entity,
+            entity_scores=_entity_scores(chunks_by_entity),
+        )
 
 
 class PlaceholderEvidenceStoreBuilder:
@@ -122,7 +125,7 @@ class PlaceholderEvidenceStoreBuilder:
         _ = extractor_light_output
         _ = assessor_output
         _ = jina_fetcher_output
-        return existing_store or EvidenceStore(chunks_by_entity={})
+        return existing_store or EvidenceStore(chunks_by_entity={}, entity_scores={})
 
 
 def build_evidence_store_builder() -> EvidenceStoreBuilder:
@@ -548,6 +551,32 @@ def _append_chunk(
         return
     chunks_by_entity.setdefault(entity_name, []).append(chunk)
     seen_keys_by_entity[entity_name].add(chunk_key)
+
+
+def _entity_scores(chunks_by_entity: dict[str, list[EvidenceChunk]]) -> dict[str, float]:
+    return {
+        entity_name: _entity_score(chunks)
+        for entity_name, chunks in chunks_by_entity.items()
+    }
+
+
+def _entity_score(chunks: list[EvidenceChunk]) -> float:
+    best_score_by_url: dict[str, float] = {}
+    for chunk in chunks:
+        source_url = str(chunk.source_url)
+        source_score = _source_score(chunk)
+        previous_score = best_score_by_url.get(source_url, 0.0)
+        if source_score > previous_score:
+            best_score_by_url[source_url] = source_score
+    return sum(best_score_by_url.values())
+
+
+def _source_score(chunk: EvidenceChunk) -> float:
+    if chunk.source_quality == SourceQuality.HIGH and chunk.officiality != OfficialityLevel.LOW_QUALITY:
+        return 1.0
+    if chunk.source_quality == SourceQuality.MEDIUM and chunk.officiality != OfficialityLevel.LOW_QUALITY:
+        return 0.5
+    return 0.0
 
 
 def _chunk_key(chunk: EvidenceChunk) -> tuple[str, str, str]:
