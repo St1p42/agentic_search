@@ -12,7 +12,6 @@ from backend.app.contracts import (
     JinaFetcherOutput,
     PipelineRequest,
     PlannerOutput,
-    RepairDiagnostics,
     SearcherOutput,
 )
 from backend.app.helpers import (
@@ -178,48 +177,7 @@ class NoopExtractor(PlaceholderExtractorStage):
         return prior_output or ExtractorOutput(entities=[])
 
 
-class OneRepairFinalizer(PlaceholderCanonicalizerVerifierEvaluatorStage):
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def run(
-        self,
-        planner_output: PlannerOutput,
-        extractor_output: ExtractorOutput,
-    ) -> CanonicalizerVerifierEvaluatorOutput:
-        _ = planner_output
-        _ = extractor_output
-        self.calls += 1
-        if self.calls == 1:
-            return CanonicalizerVerifierEvaluatorOutput(
-                final_rows=[],
-                diagnostics=RepairDiagnostics(
-                    num_strong_entities=0,
-                    aspect_coverage_by_aspect={},
-                    missing_key_fields_rate=1.0,
-                    redundancy_score=0.0,
-                    verification_source_coverage=0.0,
-                    repair_recommended=True,
-                    repair_reason="insufficient coverage",
-                    suggested_followup_queries=["company official site"],
-                ),
-            )
-        return CanonicalizerVerifierEvaluatorOutput(
-            final_rows=[],
-                diagnostics=RepairDiagnostics(
-                    num_strong_entities=0,
-                    aspect_coverage_by_aspect={},
-                    missing_key_fields_rate=1.0,
-                    redundancy_score=0.0,
-                    verification_source_coverage=0.0,
-                    repair_recommended=True,
-                repair_reason="should not trigger twice",
-                suggested_followup_queries=["another query"],
-            ),
-        )
-
-
-def test_controller_runs_at_most_one_repair_round() -> None:
+def test_controller_runs_single_retrieval_round_without_repair() -> None:
     searcher = RepairSearcher()
     orchestrator = PipelineOrchestrator(
         planner=RepairPlanner(),
@@ -230,15 +188,15 @@ def test_controller_runs_at_most_one_repair_round() -> None:
         evidence_store_builder=NoopEvidenceStoreBuilder(),
         jina_fetcher=NoopJinaFetcher(),
         extractor=NoopExtractor(),
-        finalizer=OneRepairFinalizer(),
+        finalizer=PlaceholderCanonicalizerVerifierEvaluatorStage(),
     )
 
     response = orchestrator.run(PipelineRequest(query="open source database tools", request_id="test-1"))
 
-    assert response.repair_used is True
-    assert response.budget.used_repair_rounds == 1
-    assert response.budget.used_search_rounds == 2
-    assert searcher.calls == [["open source database tools"], ["company official site"]]
+    assert response.repair_used is False
+    assert response.budget.used_repair_rounds == 0
+    assert response.budget.used_search_rounds == 1
+    assert searcher.calls == [["open source database tools"]]
 
 
 def test_orchestrator_caps_initial_search_queries_to_remaining_budget() -> None:

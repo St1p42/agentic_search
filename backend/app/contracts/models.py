@@ -239,35 +239,15 @@ class ExtractorOutput(BaseModel):
 class CanonicalEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    entity_id: str
     name: str
     fields: dict[str, FieldValue]
-    row_confidence: float = Field(ge=0.0, le=1.0)
-    evidence_strength: int = Field(ge=0, le=3)
-    aspect_coverage: int = Field(ge=0)
     source_urls: list[HttpUrl] = Field(default_factory=list)
-
-
-class RepairDiagnostics(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    num_strong_entities: int = Field(ge=0)
-    aspect_coverage_by_aspect: dict[str, int] = Field(default_factory=dict)
-    missing_key_fields_rate: float = Field(ge=0.0, le=1.0)
-    redundancy_score: float = Field(ge=0.0, le=1.0)
-    verification_source_coverage: float = Field(ge=0.0, le=1.0)
-    repair_recommended: bool = False
-    repair_reason: str | None = None
-    missing_aspects: list[str] = Field(default_factory=list)
-    weak_fields: list[str] = Field(default_factory=list)
-    suggested_followup_queries: list[str] = Field(default_factory=list, max_length=2)
 
 
 class CanonicalizerVerifierEvaluatorOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     final_rows: list[CanonicalEntity]
-    diagnostics: RepairDiagnostics
 
 
 class BudgetState(BaseModel):
@@ -328,7 +308,6 @@ class PipelineResponse(BaseModel):
         validation_alias=AliasChoices("final_top_10_rows", "final_rows"),
         serialization_alias="final_top_10_rows",
     )
-    diagnostics: RepairDiagnostics
     budget: BudgetState
     repair_used: bool
     status: Literal["completed", "failed"] = "completed"

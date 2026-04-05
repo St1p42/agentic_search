@@ -9,6 +9,7 @@ from backend.app.stages.source_assessor import (
 from backend.app.stages.canonicalizer_verifier_evaluator import (
     CanonicalizerVerifierEvaluatorStage,
     PlaceholderCanonicalizerVerifierEvaluatorStage,
+    ThinFinalizerStage,
 )
 from backend.app.stages.extractor import (
     ExtractorStage,
@@ -44,6 +45,7 @@ __all__ = [
     "SourceAssessorStage",
     "PlaceholderSourceAssessorStage",
     "PlaceholderCanonicalizerVerifierEvaluatorStage",
+    "ThinFinalizerStage",
     "PlaceholderExtractorLightStage",
     "PlaceholderExtractorStage",
     "PlaceholderPlannerStage",

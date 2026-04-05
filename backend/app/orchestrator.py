@@ -25,7 +25,6 @@ from backend.app.contracts import (
     PipelineRequest,
     PipelineResponse,
     PlannerOutput,
-    RepairDiagnostics,
     SearcherOutput,
     SseEvent,
     SseEventName,
@@ -45,7 +44,6 @@ from backend.app.stages import (
     CanonicalizerVerifierEvaluatorStage,
     ExtractorLightStage,
     ExtractorStage,
-    PlaceholderCanonicalizerVerifierEvaluatorStage,
     PlaceholderExtractorLightStage,
     PlaceholderExtractorStage,
     PlaceholderPlannerStage,
@@ -54,6 +52,7 @@ from backend.app.stages import (
     SearcherStage,
     PlaceholderSourceAssessorStage,
     SourceAssessorStage,
+    ThinFinalizerStage,
 )
 
 
@@ -100,7 +99,7 @@ class PipelineOrchestrator:
         self.extractor_light = extractor_light or PlaceholderExtractorLightStage()
         self.assessor = assessor or PlaceholderSourceAssessorStage()
         self.extractor = extractor or PlaceholderExtractorStage()
-        self.finalizer = finalizer or PlaceholderCanonicalizerVerifierEvaluatorStage()
+        self.finalizer = finalizer or ThinFinalizerStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
         self.jina_fetcher = jina_fetcher or PlaceholderJinaFetcher()
@@ -129,20 +128,6 @@ class PipelineOrchestrator:
         )
 
         self._run_retrieval_pass(state, followup_queries=None)
-        diagnostics = state.finalizer_output.diagnostics if state.finalizer_output else None
-
-        if self._repair_allowed(state, diagnostics):
-            state.repair_used = True
-            state.budget.used_repair_rounds += 1
-            self.event_emitter.repair_started(
-                request_id=state.request_id,
-                followup_queries=diagnostics.suggested_followup_queries,
-            )
-            self._run_retrieval_pass(
-                state,
-                followup_queries=diagnostics.suggested_followup_queries,
-            )
-
         return PipelineResponse(
             request_id=state.request_id,
             original_query=state.original_query,
@@ -150,7 +135,6 @@ class PipelineOrchestrator:
             normalization_note=state.normalization_note,
             inferred_schema=state.planner_output.schema_columns,
             final_top_10_rows=(state.finalizer_output.final_rows if state.finalizer_output else []),
-            diagnostics=state.finalizer_output.diagnostics,
             budget=state.budget,
             repair_used=state.repair_used,
             status="completed",
@@ -457,19 +441,6 @@ class PipelineOrchestrator:
             message=f"{message} completed",
         )
         return result
-
-    @staticmethod
-    def _repair_allowed(
-        state: PipelineState,
-        diagnostics: RepairDiagnostics | None,
-    ) -> bool:
-        if diagnostics is None:
-            return False
-        if state.repair_used or not state.budget.can_repair:
-            return False
-        if not diagnostics.repair_recommended or not diagnostics.suggested_followup_queries:
-            return False
-        return state.budget.can_search
 
     @staticmethod
     def _select_verification_queries(

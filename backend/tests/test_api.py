@@ -379,6 +379,63 @@ def test_extractor_test_endpoint_returns_entity_rows(monkeypatch) -> None:
     assert response.json()["entities"][0]["fields"]["name"]["value"] == "Acme Health"
 
 
+def test_finalizer_test_endpoint_returns_final_rows() -> None:
+    extractor_output = ExtractorOutput(
+        entities=[
+            ExtractedEntity(
+                candidate_id="Acme Health",
+                entity_name="Acme Health",
+                fields={
+                    "name": FieldValue(
+                        value="Acme Health",
+                        confidence=1.0,
+                        evidence=[
+                            {
+                                "source_url": "https://acmehealth.com/about",
+                                "source_title": "About Acme Health",
+                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
+                                "source_role": "verification",
+                                "source_quality": "high",
+                                "officiality": "official",
+                            }
+                        ],
+                    ),
+                    "website": FieldValue(value=None, confidence=0.0, evidence=[]),
+                    "location": FieldValue(value=None, confidence=0.0, evidence=[]),
+                    "focus_area": FieldValue(
+                        value="clinical AI systems",
+                        confidence=0.84,
+                        evidence=[
+                            {
+                                "source_url": "https://acmehealth.com/about",
+                                "source_title": "About Acme Health",
+                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
+                                "source_role": "verification",
+                                "source_quality": "high",
+                                "officiality": "official",
+                            }
+                        ],
+                    ),
+                },
+                source_urls=[HttpUrl("https://acmehealth.com/about")],
+                provisional=False,
+            )
+        ]
+    )
+
+    response = client.post(
+        "/api/v1/finalizer/test",
+        json={
+            "planner_output": _planner_output().model_dump(mode="json"),
+            "extractor_output": extractor_output.model_dump(mode="json"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["final_rows"][0]["name"] == "Acme Health"
+    assert "diagnostics" not in response.json()
+
+
 def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> None:
     class FakeEndpointJinaFetcher:
         def run(

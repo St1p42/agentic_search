@@ -19,7 +19,6 @@ from backend.app.contracts import (
     PipelineRequest,
     PipelineResponse,
     PlannerOutput,
-    RepairDiagnostics,
     SourceQuality,
     SourceRole,
     SseEvent,
@@ -95,7 +94,6 @@ EXAMPLE_FINAL_RESPONSE = PipelineResponse(
     inferred_schema=["name", "description", "website", "focus_area", "location"],
     final_top_10_rows=[
         CanonicalEntity(
-            entity_id="entity-1",
             name="Example Health AI",
             fields={
                 "description": FieldValue(
@@ -113,20 +111,9 @@ EXAMPLE_FINAL_RESPONSE = PipelineResponse(
                     ],
                 )
             },
-            row_confidence=0.91,
-            evidence_strength=3,
-            aspect_coverage=2,
             source_urls=[EXAMPLE_ABOUT_URL],
         )
     ],
-    diagnostics=RepairDiagnostics(
-        num_strong_entities=1,
-        aspect_coverage_by_aspect={"clinical_focus": 1, "product": 1},
-        missing_key_fields_rate=0.2,
-        redundancy_score=0.0,
-        verification_source_coverage=1.0,
-        repair_recommended=False,
-    ),
     budget=BudgetState(used_search_rounds=1, used_search_queries=3, used_deep_fetches=1),
     repair_used=False,
 )

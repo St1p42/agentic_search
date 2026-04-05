@@ -27,11 +27,13 @@ from backend.app.contracts import (
     PipelineResponse,
     PlannerOutput,
     SearcherOutput,
+    CanonicalizerVerifierEvaluatorOutput,
 )
 from backend.app.helpers import build_brave_context_fetcher, build_jina_fetcher
 from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
+    ThinFinalizerStage,
     build_extractor_light_stage,
     build_extractor_stage,
     build_planner_stage,
@@ -85,6 +87,13 @@ class EvidenceStoreTestRequest(BaseModel):
     extractor_light_output: ExtractorLightOutput
     assessor_output: AssessorOutput
     evidence_store: EvidenceStore | None = None
+
+
+class FinalizerTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    planner_output: PlannerOutput
+    extractor_output: ExtractorOutput
 
 
 @app.get("/health")
@@ -176,6 +185,15 @@ def run_extractor_test(request: ExtractorTestRequest) -> ExtractorOutput:
         planner_output=request.planner_output,
         extractor_light_output=request.extractor_light_output,
         evidence_store=request.evidence_store,
+    )
+
+
+@app.post("/api/v1/finalizer/test", response_model=CanonicalizerVerifierEvaluatorOutput)
+def run_finalizer_test(request: FinalizerTestRequest) -> CanonicalizerVerifierEvaluatorOutput:
+    finalizer = ThinFinalizerStage()
+    return finalizer.run(
+        planner_output=request.planner_output,
+        extractor_output=request.extractor_output,
     )
 
 
