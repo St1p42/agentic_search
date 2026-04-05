@@ -29,10 +29,10 @@ from backend.app.contracts import (
 from backend.app.helpers import build_brave_context_fetcher, build_jina_fetcher
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
-    build_assessor_stage,
     build_extractor_light_stage,
     build_planner_stage,
     build_searcher_stage,
+    build_source_assessor_stage,
 )
 
 
@@ -124,7 +124,7 @@ def run_extractor_light_test(request: ExtractorLightTestRequest) -> ExtractorLig
 @app.post("/api/v1/assessor/test", response_model=AssessorOutput)
 def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:
     assessor_config = load_assessor_runtime_config()
-    assessor = build_assessor_stage(runtime_config=assessor_config)
+    assessor = build_source_assessor_stage(runtime_config=assessor_config)
     return assessor.run(
         planner_output=request.planner_output,
         searcher_output=request.searcher_output,

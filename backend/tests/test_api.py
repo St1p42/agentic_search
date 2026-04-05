@@ -240,7 +240,7 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
             return assessor_output
 
     monkeypatch.setattr(
-        "backend.app.main.build_assessor_stage",
+        "backend.app.main.build_source_assessor_stage",
         lambda runtime_config: FakeEndpointAssessor(),
     )
 

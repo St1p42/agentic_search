@@ -22,12 +22,12 @@ from backend.app.helpers import (
 )
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
-    PlaceholderAssessorStage,
     PlaceholderCanonicalizerVerifierEvaluatorStage,
     PlaceholderExtractorLightStage,
     PlaceholderExtractorStage,
     PlaceholderPlannerStage,
     PlaceholderSearcherStage,
+    PlaceholderSourceAssessorStage,
 )
 
 
@@ -98,7 +98,7 @@ class NoopExtractorLight(PlaceholderExtractorLightStage):
         return ExtractorLightOutput(candidate_names=[], name_to_source_urls={}, mention_counts={})
 
 
-class NoopAssessor(PlaceholderAssessorStage):
+class NoopAssessor(PlaceholderSourceAssessorStage):
     def run(
         self,
         planner_output: PlannerOutput,

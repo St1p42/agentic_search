@@ -42,11 +42,9 @@ from backend.app.helpers import (
 )
 from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
 from backend.app.stages import (
-    AssessorStage,
     CanonicalizerVerifierEvaluatorStage,
     ExtractorLightStage,
     ExtractorStage,
-    PlaceholderAssessorStage,
     PlaceholderCanonicalizerVerifierEvaluatorStage,
     PlaceholderExtractorLightStage,
     PlaceholderExtractorStage,
@@ -54,6 +52,8 @@ from backend.app.stages import (
     PlaceholderSearcherStage,
     PlannerStage,
     SearcherStage,
+    PlaceholderSourceAssessorStage,
+    SourceAssessorStage,
 )
 
 
@@ -85,7 +85,7 @@ class PipelineOrchestrator:
         planner: PlannerStage | None = None,
         searcher: SearcherStage | None = None,
         extractor_light: ExtractorLightStage | None = None,
-        assessor: AssessorStage | None = None,
+        assessor: SourceAssessorStage | None = None,
         extractor: ExtractorStage | None = None,
         finalizer: CanonicalizerVerifierEvaluatorStage | None = None,
         brave_context_fetcher: BraveContextFetcher | None = None,
@@ -98,7 +98,7 @@ class PipelineOrchestrator:
         self.planner = planner or PlaceholderPlannerStage()
         self.searcher = searcher or PlaceholderSearcherStage()
         self.extractor_light = extractor_light or PlaceholderExtractorLightStage()
-        self.assessor = assessor or PlaceholderAssessorStage()
+        self.assessor = assessor or PlaceholderSourceAssessorStage()
         self.extractor = extractor or PlaceholderExtractorStage()
         self.finalizer = finalizer or PlaceholderCanonicalizerVerifierEvaluatorStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()

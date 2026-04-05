@@ -1,10 +1,10 @@
 """Stage interfaces and concrete/placeholder implementations."""
 
-from backend.app.stages.assessor import (
-    AssessorStage,
-    LlmAssessorStage,
-    PlaceholderAssessorStage,
-    build_assessor_stage,
+from backend.app.stages.source_assessor import (
+    LlmSourceAssessorStage,
+    PlaceholderSourceAssessorStage,
+    SourceAssessorStage,
+    build_source_assessor_stage,
 )
 from backend.app.stages.canonicalizer_verifier_evaluator import (
     CanonicalizerVerifierEvaluatorStage,
@@ -31,23 +31,23 @@ from backend.app.stages.searcher import (
 )
 
 __all__ = [
-    "AssessorStage",
     "CanonicalizerVerifierEvaluatorStage",
     "BraveSearcherStage",
     "ExtractorLightStage",
     "ExtractorStage",
-    "PlaceholderAssessorStage",
+    "SourceAssessorStage",
+    "PlaceholderSourceAssessorStage",
     "PlaceholderCanonicalizerVerifierEvaluatorStage",
     "PlaceholderExtractorLightStage",
     "PlaceholderExtractorStage",
     "PlaceholderPlannerStage",
     "PlaceholderSearcherStage",
-    "LlmAssessorStage",
+    "LlmSourceAssessorStage",
     "LlmExtractorLightStage",
     "LlmPlannerStage",
     "PlannerStage",
     "SearcherStage",
-    "build_assessor_stage",
+    "build_source_assessor_stage",
     "build_extractor_light_stage",
     "build_planner_stage",
     "build_searcher_stage",
