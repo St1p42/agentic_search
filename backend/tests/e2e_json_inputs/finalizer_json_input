@@ -1,0 +1,830 @@
+{
+    "planner_output": {
+      "entity_type": "smartphone_model",
+      "query_mode": "topic_entity_discovery",
+      "schema_columns": [
+        "name",
+        "manufacturer",
+        "release_date",
+        "standout_features",
+        "price_range"
+      ],
+      "core_aspects": [
+        "form_factor",
+        "target_use_case",
+        "price_segment"
+      ],
+      "base_query": "best phone models in 2026",
+      "initial_query_rewrites": [
+        "best foldable phones in 2026",
+        "best phones in 2026 for photography",
+        "best phones in 2026 across flagship and midrange segments"
+      ],
+      "is_topic_query": true,
+      "normalized_query": "best phone models in 2026",
+      "normalization_note": null,
+      "error": false,
+      "error_message": null
+    },
+    "extractor_output": {
+      "entities": [
+        {
+          "candidate_id": "Xiaomi 17 Ultra",
+          "entity_name": "Xiaomi 17 Ultra",
+          "fields": {
+            "name": {
+              "value": "Xiaomi 17 Ultra",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+                  "source_title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+                  "supporting_snippet": "Despite the hefty price tag, which is even higher than last year, the Xiaomi 17 Ultra is one of the best flagship cameraphones you can get right now. Just like the rest of the flagship phones, the 17 Ultra has an excellent display, fast chipset, snappy charging and long battery life, although that last bit isn't a given.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Xiaomi 17 Ultra (buy now)** is the ultimate camera phone, with seriously impressive sensors, Leica-backed image processing, and optional accessories that add physical controls.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Xiaomi",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+                  "source_title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+                  "supporting_snippet": "Despite the hefty price tag, which is even higher than last year, the Xiaomi 17 Ultra is one of the best flagship cameraphones you can get right now. Just like the rest of the flagship phones, the 17 Ultra has an excellent display, fast chipset, snappy charging and long battery life, although that last bit isn't a given.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "1-inch main sensor",
+                "Leica color tuning / Leica-backed image processing",
+                "200MP mechanical zoom",
+                "optional accessories with physical controls",
+                "excellent display, fast chipset, snappy charging, long battery life"
+              ],
+              "confidence": 0.85,
+              "evidence": [
+                {
+                  "source_url": "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+                  "source_title": "The best camera phone in 2026: what's the best smartphone for ...",
+                  "supporting_snippet": "The Xiaomi 17 Ultra is one of the boldest camera phones around, with a huge 1-inch main sensor, Leica color tuning, and a new 200MP mechanical zoom aimed at serious photographers. It is not flawless, but for sheer photographic ambition, it is one of the most exciting flagship phones you can buy.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Xiaomi 17 Ultra (buy now)** is the ultimate camera phone, with seriously impressive sensors, Leica-backed image processing, and optional accessories that add physical controls.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+                  "source_title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+                  "supporting_snippet": "Despite the hefty price tag, which is even higher than last year, the Xiaomi 17 Ultra is one of the best flagship cameraphones you can get right now. Just like the rest of the flagship phones, the 17 Ultra has an excellent display, fast chipset, snappy charging and long battery life, although that last bit isn't a given.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": "hefty / high-priced flagship",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+                  "source_title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+                  "supporting_snippet": "Despite the hefty price tag, which is even higher than last year, the Xiaomi 17 Ultra is one of the best flagship cameraphones you can get right now. Just like the rest of the flagship phones, the 17 Ultra has an excellent display, fast chipset, snappy charging and long battery life, although that last bit isn't a given.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+                  "source_title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+                  "supporting_snippet": "All in all, the Xiaomi 17 Ultra is one of the most capable flagship phones with little to no drawbacks. The exceptionally hefty price tag is the only thing you'd have to deal with. And on whether the Leica edition is worth the extra cost, it depends on how useful the",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Xiaomi 17 Ultra (buy now)** is the ultimate camera phone, with seriously impressive sensors, Leica-backed image processing, and optional accessories that add physical controls.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            }
+          },
+          "source_urls": [
+            "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+            "https://www.stuff.tv/features/best-phone/",
+            "https://www.digitalcameraworld.com/buying-guides/best-camera-phone"
+          ],
+          "provisional": false
+        },
+        {
+          "candidate_id": "Google Pixel 10",
+          "entity_name": "Google Pixel 10",
+          "fields": {
+            "name": {
+              "value": "Google Pixel 10",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Google Pixel 10 (buy now)** delivers nearly all the flagship experience of the Pro model, with a refined design, a bright 6.3in display, strong performance, and versatile cameras, all at a more accessible price.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Google",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Google Pixel 10 (buy now)** delivers nearly all the flagship experience of the Pro model, with a refined design, a bright 6.3in display, strong performance, and versatile cameras, all at a more accessible price.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "Nearly all flagship experience of Pro model",
+                "Refined design",
+                "Bright 6.3in display",
+                "Strong performance",
+                "Versatile cameras"
+              ],
+              "confidence": 0.7,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Google Pixel 10 (buy now)** delivers nearly all the flagship experience of the Pro model, with a refined design, a bright 6.3in display, strong performance, and versatile cameras, all at a more accessible price.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The Google Pixel 10 Pro is the \"phone that makes life easier,\" delivering the most useful and integrated AI experience on any smartphone. While other brands focus on flashy tricks, Google provides \"useful tools that actually work,\" like call screening that takes notes and a seamless voice translator. It is the",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": "more accessible than Pro / mid-to-flagship price segment",
+              "confidence": 0.6,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Google Pixel 10 (buy now)** delivers nearly all the flagship experience of the Pro model, with a refined design, a bright 6.3in display, strong performance, and versatile cameras, all at a more accessible price.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The Google Pixel 10 Pro is the \"phone that makes life easier,\" delivering the most useful and integrated AI experience on any smartphone. While other brands focus on flashy tricks, Google provides \"useful tools that actually work,\" like call screening that takes notes and a seamless voice translator. It is the",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            }
+          },
+          "source_urls": [
+            "https://www.stuff.tv/features/best-phone/",
+            "https://www.techradar.com/news/best-phone"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Samsung Galaxy S26 Ultra",
+          "entity_name": "Samsung Galaxy S26 Ultra",
+          "fields": {
+            "name": {
+              "value": "Samsung Galaxy S26 Ultra",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The Samsung Galaxy S26 Ultra builds upon its predecessor's superb camera capabilities, improving low-light performance for stills and video, but also adds in more AI features, and upgraded performance. If you want an no-compromise Android phone, and one that offers a lot of photography flexibility, the S26 Ultra is hard to beat.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Samsung Galaxy S26 Ultra (buy now)** is still the Android power user go-to, with an integrated S-Pen stylus, clever AI additions and a unique Privacy Display – on top of rapid performance and capable cameras.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Samsung",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The Samsung Galaxy S26 Ultra builds upon its predecessor's superb camera capabilities, improving low-light performance for stills and video, but also adds in more AI features, and upgraded performance. If you want an no-compromise Android phone, and one that offers a lot of photography flexibility, the S26 Ultra is hard to beat.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "improved low-light camera performance",
+                "more AI features",
+                "upgraded performance",
+                "integrated S-Pen stylus",
+                "Privacy Display"
+              ],
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The Samsung Galaxy S26 Ultra builds upon its predecessor's superb camera capabilities, improving low-light performance for stills and video, but also adds in more AI features, and upgraded performance. If you want an no-compromise Android phone, and one that offers a lot of photography flexibility, the S26 Ultra is hard to beat.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Samsung Galaxy S26 Ultra (buy now)** is still the Android power user go-to, with an integrated S-Pen stylus, clever AI additions and a unique Privacy Display – on top of rapid performance and capable cameras.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.techradar.com/news/best-phone",
+            "https://www.stuff.tv/features/best-phone/"
+          ],
+          "provisional": false
+        },
+        {
+          "candidate_id": "OnePlus 15",
+          "entity_name": "OnePlus 15",
+          "fields": {
+            "name": {
+              "value": "OnePlus 15",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The OnePlus 15 is the \"cure for the common phone,\" earning a rare perfect score for its ability to grant every smartphone wish a user could have. It delivers an unbelievable mix of endurance, performance, and durability that exceeds the capabilities of flagships costing hundreds more. If you want the absolute best Android experience available today, this is the phone to buy.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **OnePlus 15 (buy now)** offers exceptional performance and battery life, great cameras and slick software; this is the all-rounder Android phone offering a truly premium experience.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "OnePlus",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The OnePlus 15 is the \"cure for the common phone,\" earning a rare perfect score for its ability to grant every smartphone wish a user could have. It delivers an unbelievable mix of endurance, performance, and durability that exceeds the capabilities of flagships costing hundreds more. If you want the absolute best Android experience available today, this is the phone to buy.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "endurance (battery life)",
+                "performance",
+                "durability",
+                "great cameras",
+                "slick software"
+              ],
+              "confidence": 0.85,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-phone",
+                  "source_title": "The best phone 2026: top smartphones in the US right now",
+                  "supporting_snippet": "The OnePlus 15 is the \"cure for the common phone,\" earning a rare perfect score for its ability to grant every smartphone wish a user could have. It delivers an unbelievable mix of endurance, performance, and durability that exceeds the capabilities of flagships costing hundreds more. If you want the absolute best Android experience available today, this is the phone to buy.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **OnePlus 15 (buy now)** offers exceptional performance and battery life, great cameras and slick software; this is the all-rounder Android phone offering a truly premium experience.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.techradar.com/news/best-cameraphone",
+                  "source_title": "The best camera phone 2026: class-leading phones for photos and ...",
+                  "supporting_snippet": "The OnePlus 15 offers fantastic photos too, thought is perhaps edged out by the iphne 17 Pro in overall photography, and the S26 Ultra has it beat on flexibility. But the phne is still a worthy contender for your consideration.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.techradar.com/news/best-phone",
+            "https://www.stuff.tv/features/best-phone/",
+            "https://www.techradar.com/news/best-cameraphone"
+          ],
+          "provisional": false
+        },
+        {
+          "candidate_id": "Samsung Galaxy Z Fold 7",
+          "entity_name": "Samsung Galaxy Z Fold 7",
+          "fields": {
+            "name": {
+              "value": "Samsung Galaxy Z Fold 7",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Samsung Galaxy Z Fold 7 (buy now)** is an astonishing year-on-year update that’s now top of the class for slimness and an impressive set of cameras. Plenty of power and great global availability are also in its favour.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Samsung",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Samsung Galaxy Z Fold 7 (buy now)** is an astonishing year-on-year update that’s now top of the class for slimness and an impressive set of cameras. Plenty of power and great global availability are also in its favour.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "very slim when unfolded (4.2mm thickness)",
+                "impressive set of cameras",
+                "plenty of power",
+                "great global availability"
+              ],
+              "confidence": 0.7,
+              "evidence": [
+                {
+                  "source_url": "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+                  "source_title": "Apple iPhone Fold, iPhone 18, Google Pixel 11 and Other Phones ...",
+                  "supporting_snippet": "According to Apple analyst Ming-Chi Kuo, the first folding iPhone is expected to measure 4.5mm thick when unfolded. For context, the Samsung Galaxy Z Fold 7 measures 4.2mm, while the Huawei Mate XT (the tri-fold) is 3.6mm thick when fully opened.",
+                  "source_role": "discovery",
+                  "source_quality": "medium",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Samsung Galaxy Z Fold 7 (buy now)** is an astonishing year-on-year update that’s now top of the class for slimness and an impressive set of cameras. Plenty of power and great global availability are also in its favour.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.stuff.tv/features/best-phone/",
+            "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Apple iPhone 17",
+          "entity_name": "Apple iPhone 17",
+          "fields": {
+            "name": {
+              "value": "Apple iPhone 17",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Apple iPhone 17 (buy now)** is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Apple",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Apple iPhone 17 (buy now)** is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": "Strong all-around smartphone experience; camera praised as class-leading (note: camera praise specifically attributed to iPhone 17 Pro / Pro Max)",
+              "confidence": 0.6,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-cameraphone",
+                  "source_title": "The best camera phone 2026: class-leading phones for photos and ...",
+                  "supporting_snippet": "## How we test camera phones ### Which phone has the best camera? The best camera phone for most types of photos is the Apple iPhone 17 Pro (and iPhone 17 Pro Max), because it produces photos that look like real photography, with no digital tricks or touch-ups apparent.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                },
+                {
+                  "source_url": "https://www.stuff.tv/features/best-phone/",
+                  "source_title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+                  "supporting_snippet": "The **Apple iPhone 17 (buy now)** is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro.",
+                  "source_role": "discovery",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.stuff.tv/features/best-phone/",
+            "https://www.techradar.com/news/best-cameraphone"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Oppo X9 Pro",
+          "entity_name": "Oppo X9 Pro",
+          "fields": {
+            "name": {
+              "value": "Oppo X9 Pro",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+                  "source_title": "r/Smartphones on Reddit: Best camera phone in 2026",
+                  "supporting_snippet": "Best camera phone in 2026 Your last options are the best for your  needs listed. Oppo X9 Pro. Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get Well, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year.",
+                  "source_role": "discovery",
+                  "source_quality": "low",
+                  "officiality": "low_quality"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Oppo",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+                  "source_title": "r/Smartphones on Reddit: Best camera phone in 2026",
+                  "supporting_snippet": "Best camera phone in 2026 Your last options are the best for your  needs listed. Oppo X9 Pro. Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get Well, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year.",
+                  "source_role": "discovery",
+                  "source_quality": "low",
+                  "officiality": "low_quality"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Vivo X300",
+          "entity_name": "Vivo X300",
+          "fields": {
+            "name": {
+              "value": "Vivo X300",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+                  "source_title": "r/Smartphones on Reddit: Best camera phone in 2026",
+                  "supporting_snippet": "Best camera phone in 2026 Your last options are the best for your  needs listed. Oppo X9 Pro. Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get Well, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year.",
+                  "source_role": "discovery",
+                  "source_quality": "low",
+                  "officiality": "low_quality"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Vivo",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+                  "source_title": "r/Smartphones on Reddit: Best camera phone in 2026",
+                  "supporting_snippet": "Best camera phone in 2026 Your last options are the best for your  needs listed. Oppo X9 Pro. Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get Well, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year.",
+                  "source_role": "discovery",
+                  "source_quality": "low",
+                  "officiality": "low_quality"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "photography-focused"
+              ],
+              "confidence": 0.6,
+              "evidence": [
+                {
+                  "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+                  "source_title": "r/Smartphones on Reddit: Best camera phone in 2026",
+                  "supporting_snippet": "Best camera phone in 2026 Your last options are the best for your  needs listed. Oppo X9 Pro. Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get Well, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year.",
+                  "source_role": "discovery",
+                  "source_quality": "low",
+                  "officiality": "low_quality"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Xiaomi 14 Ultra",
+          "entity_name": "Xiaomi 14 Ultra",
+          "fields": {
+            "name": {
+              "value": "Xiaomi 14 Ultra",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-cameraphone",
+                  "source_title": "The best camera phone 2026: class-leading phones for photos and ...",
+                  "supporting_snippet": "The Xiaomi 14 Ultra is a phenomenal camera phone, and our UK reviewer Paul Hatton was enthused by the camera capabilities. We've left Xiaomi phones off this list for now due to their lack of availability in the US, but we are currently testing Xiaomi and Huawei phones in our New York Office and we may change our mind if these prove too good to ignore.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Xiaomi",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-cameraphone",
+                  "source_title": "The best camera phone 2026: class-leading phones for photos and ...",
+                  "supporting_snippet": "The Xiaomi 14 Ultra is a phenomenal camera phone, and our UK reviewer Paul Hatton was enthused by the camera capabilities. We've left Xiaomi phones off this list for now due to their lack of availability in the US, but we are currently testing Xiaomi and Huawei phones in our New York Office and we may change our mind if these prove too good to ignore.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "camera capabilities (strong camera phone)"
+              ],
+              "confidence": 0.85,
+              "evidence": [
+                {
+                  "source_url": "https://www.techradar.com/news/best-cameraphone",
+                  "source_title": "The best camera phone 2026: class-leading phones for photos and ...",
+                  "supporting_snippet": "The Xiaomi 14 Ultra is a phenomenal camera phone, and our UK reviewer Paul Hatton was enthused by the camera capabilities. We've left Xiaomi phones off this list for now due to their lack of availability in the US, but we are currently testing Xiaomi and Huawei phones in our New York Office and we may change our mind if these prove too good to ignore.",
+                  "source_role": "corroboration",
+                  "source_quality": "high",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            }
+          },
+          "source_urls": [
+            "https://www.techradar.com/news/best-cameraphone"
+          ],
+          "provisional": true
+        },
+        {
+          "candidate_id": "Samsung Galaxy S24 Ultra",
+          "entity_name": "Samsung Galaxy S24 Ultra",
+          "fields": {
+            "name": {
+              "value": "Samsung Galaxy S24 Ultra",
+              "confidence": 0.9,
+              "evidence": [
+                {
+                  "source_url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+                  "source_title": "Best Camera Phones of 2026 - Mobile Klinik",
+                  "supporting_snippet": "* **Samsung Galaxy S24 Ultra:** A 200 MP sensor and adaptive telephoto lenses make this one of the most versatile camera systems you can get for mid-range spending. Its strong night performance, realistic tone mapping, and 5× optical zoom set it apart for travel and city photography.",
+                  "source_role": "discovery",
+                  "source_quality": "medium",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "manufacturer": {
+              "value": "Samsung",
+              "confidence": 0.8,
+              "evidence": [
+                {
+                  "source_url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+                  "source_title": "Best Camera Phones of 2026 - Mobile Klinik",
+                  "supporting_snippet": "* **Samsung Galaxy S24 Ultra:** A 200 MP sensor and adaptive telephoto lenses make this one of the most versatile camera systems you can get for mid-range spending. Its strong night performance, realistic tone mapping, and 5× optical zoom set it apart for travel and city photography.",
+                  "source_role": "discovery",
+                  "source_quality": "medium",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "release_date": {
+              "value": null,
+              "confidence": 0,
+              "evidence": []
+            },
+            "standout_features": {
+              "value": [
+                "200 MP sensor",
+                "adaptive telephoto lenses",
+                "strong night performance",
+                "realistic tone mapping",
+                "5× optical zoom"
+              ],
+              "confidence": 0.85,
+              "evidence": [
+                {
+                  "source_url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+                  "source_title": "Best Camera Phones of 2026 - Mobile Klinik",
+                  "supporting_snippet": "* **Samsung Galaxy S24 Ultra:** A 200 MP sensor and adaptive telephoto lenses make this one of the most versatile camera systems you can get for mid-range spending. Its strong night performance, realistic tone mapping, and 5× optical zoom set it apart for travel and city photography.",
+                  "source_role": "discovery",
+                  "source_quality": "medium",
+                  "officiality": "third_party"
+                }
+              ]
+            },
+            "price_range": {
+              "value": "mid-range",
+              "confidence": 0.5,
+              "evidence": [
+                {
+                  "source_url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+                  "source_title": "Best Camera Phones of 2026 - Mobile Klinik",
+                  "supporting_snippet": "* **Samsung Galaxy S24 Ultra:** A 200 MP sensor and adaptive telephoto lenses make this one of the most versatile camera systems you can get for mid-range spending. Its strong night performance, realistic tone mapping, and 5× optical zoom set it apart for travel and city photography.",
+                  "source_role": "discovery",
+                  "source_quality": "medium",
+                  "officiality": "third_party"
+                }
+              ]
+            }
+          },
+          "source_urls": [
+            "https://mobileklinik.ca/blog/best-phone-cameras/"
+          ],
+          "provisional": true
+        }
+      ]
+    }
+}

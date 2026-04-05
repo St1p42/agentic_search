@@ -1,0 +1,326 @@
+from __future__ import annotations
+
+"""Deterministic pipeline orchestrator for the active single-pass flow."""
+
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from queue import Queue
+from threading import Thread
+from typing import Callable, TypeVar
+from uuid import uuid4
+
+from backend.app.contracts import (
+    AssessorPass,
+    BraveContextOutput,
+    BudgetState,
+    CanonicalizerVerifierEvaluatorOutput,
+    ErrorCode,
+    EventPayload,
+    EvidenceStore,
+    ExtractorLightOutput,
+    ExtractorOutput,
+    PipelineError,
+    PipelineRequest,
+    PipelineResponse,
+    PlannerOutput,
+    SseEvent,
+    SseEventName,
+    StageName,
+)
+from backend.app.event_emitter import PipelineEventEmitter
+from backend.app.helpers import (
+    BraveContextFetcher,
+    DefaultEvidenceStoreBuilder,
+    EvidenceStoreBuilder,
+    PlaceholderBraveContextFetcher,
+)
+from backend.app.stages import (
+    CanonicalizerVerifierEvaluatorStage,
+    ExtractorLightStage,
+    ExtractorStage,
+    PlaceholderExtractorLightStage,
+    PlaceholderExtractorStage,
+    PlaceholderPlannerStage,
+    PlaceholderSearcherStage,
+    PlannerStage,
+    PlaceholderSourceAssessorStage,
+    SearcherStage,
+    SourceAssessorStage,
+    ThinFinalizerStage,
+)
+
+
+StageResultT = TypeVar("StageResultT")
+
+
+@dataclass
+class PipelineState:
+    request_id: str
+    original_query: str
+    normalized_query: str
+    normalization_note: str | None
+    planner_output: PlannerOutput
+    budget: BudgetState
+    searcher_output: SearcherOutput | None = None
+    brave_context_output: BraveContextOutput | None = None
+    extractor_light_output: ExtractorLightOutput | None = None
+    assessor_output: AssessorOutput | None = None
+    evidence_store: EvidenceStore = field(default_factory=EvidenceStore)
+    extractor_output: ExtractorOutput | None = None
+    finalizer_output: CanonicalizerVerifierEvaluatorOutput | None = None
+    repair_used: bool = False
+
+
+class PipelineOrchestrator:
+    def __init__(
+        self,
+        planner: PlannerStage | None = None,
+        searcher: SearcherStage | None = None,
+        extractor_light: ExtractorLightStage | None = None,
+        assessor: SourceAssessorStage | None = None,
+        extractor: ExtractorStage | None = None,
+        finalizer: CanonicalizerVerifierEvaluatorStage | None = None,
+        brave_context_fetcher: BraveContextFetcher | None = None,
+        evidence_store_builder: EvidenceStoreBuilder | None = None,
+        budget_factory: Callable[[], BudgetState] | None = None,
+        event_emitter: PipelineEventEmitter | None = None,
+    ) -> None:
+        self.planner = planner or PlaceholderPlannerStage()
+        self.searcher = searcher or PlaceholderSearcherStage()
+        self.extractor_light = extractor_light or PlaceholderExtractorLightStage()
+        self.assessor = assessor or PlaceholderSourceAssessorStage()
+        self.extractor = extractor or PlaceholderExtractorStage()
+        self.finalizer = finalizer or ThinFinalizerStage()
+        self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
+        self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
+        self.budget_factory = budget_factory or BudgetState
+        self.event_emitter = event_emitter or PipelineEventEmitter()
+
+    def run(self, request: PipelineRequest) -> PipelineResponse:
+        request_id = request.request_id or str(uuid4())
+        planner_output = self._run_stage(
+            request_id=request_id,
+            stage_name=StageName.PLANNER,
+            message="planning query and schema",
+            action=lambda: self.planner.run(request.query),
+        )
+        if planner_output.error:
+            raise ValueError(planner_output.error_message or "planner rejected query")
+
+        state = PipelineState(
+            request_id=request_id,
+            original_query=request.query,
+            normalized_query=planner_output.normalized_query,
+            normalization_note=planner_output.normalization_note,
+            planner_output=planner_output,
+            budget=self.budget_factory(),
+        )
+
+        self._run_retrieval_pass(state, followup_queries=None)
+        return PipelineResponse(
+            request_id=state.request_id,
+            original_query=state.original_query,
+            normalized_query=state.normalized_query,
+            normalization_note=state.normalization_note,
+            inferred_schema=state.planner_output.schema_columns,
+            final_top_10_rows=(state.finalizer_output.final_rows if state.finalizer_output else []),
+            budget=state.budget,
+            repair_used=state.repair_used,
+            status="completed",
+        )
+
+    def stream(self, request: PipelineRequest) -> Iterator[SseEvent]:
+        request_id = request.request_id or str(uuid4())
+        yield SseEvent(
+            event=SseEventName.RUN_STARTED,
+            payload=EventPayload(
+                request_id=request_id,
+                stage=None,
+                message="pipeline run started",
+                data={"query": request.query},
+                error=None,
+            ),
+        )
+        event_queue: Queue[SseEvent | None] = Queue()
+        streamed_orchestrator = PipelineOrchestrator(
+            planner=self.planner,
+            searcher=self.searcher,
+            extractor_light=self.extractor_light,
+            assessor=self.assessor,
+            extractor=self.extractor,
+            finalizer=self.finalizer,
+            brave_context_fetcher=self.brave_context_fetcher,
+            evidence_store_builder=self.evidence_store_builder,
+            budget_factory=self.budget_factory,
+            event_emitter=PipelineEventEmitter(event_queue.put),
+        )
+
+        def run_pipeline() -> None:
+            try:
+                response = streamed_orchestrator.run(
+                    PipelineRequest(query=request.query, request_id=request_id),
+                )
+                event_queue.put(
+                    SseEvent(
+                        event=SseEventName.RUN_COMPLETED,
+                        payload=EventPayload(
+                            request_id=response.request_id,
+                            stage=None,
+                            message="pipeline run completed",
+                            data=response.model_dump(mode="json"),
+                            error=None,
+                        ),
+                    )
+                )
+            except Exception as exc:
+                if isinstance(exc, ValueError):
+                    error_code = ErrorCode.INVALID_QUERY
+                    error_stage = StageName.PLANNER.value
+                else:
+                    error_code = ErrorCode.INTERNAL_ERROR
+                    error_stage = None
+                event_queue.put(
+                    SseEvent(
+                        event=SseEventName.RUN_FAILED,
+                        payload=EventPayload(
+                            request_id=request_id,
+                            stage=error_stage,
+                            message="pipeline run failed",
+                            data={},
+                            error=PipelineError(
+                                code=error_code,
+                                message=str(exc),
+                                stage=error_stage,
+                            ),
+                        ),
+                    )
+                )
+            finally:
+                event_queue.put(None)
+
+        Thread(target=run_pipeline, daemon=True).start()
+
+        while True:
+            event = event_queue.get()
+            if event is None:
+                break
+            yield event
+
+    def _remaining_search_query_budget(self, state: PipelineState) -> int:
+        return max(
+            0,
+            state.budget.max_total_search_queries - state.budget.used_search_queries,
+        )
+
+    def _run_retrieval_pass(
+        self,
+        state: PipelineState,
+        followup_queries: list[str] | None,
+    ) -> None:
+        if not state.budget.can_search:
+            raise RuntimeError("search budget exhausted")
+
+        state.searcher_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="running Brave search",
+            action=lambda: self.searcher.run(
+                state.planner_output,
+                followup_queries=followup_queries,
+                max_search_queries=self._remaining_search_query_budget(state),
+            ),
+        )
+        state.budget.used_search_rounds += 1
+        state.budget.used_search_queries += len(state.searcher_output.executed_queries)
+
+        state.brave_context_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="fetching Brave LLM Context",
+            action=lambda: self.brave_context_fetcher.run(state.searcher_output),
+        )
+        state.extractor_light_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR_LIGHT,
+            message="extracting candidate names",
+            action=lambda: self.extractor_light.run(
+                planner_output=state.planner_output,
+                brave_context_output=state.brave_context_output,
+            ),
+        )
+
+        state.assessor_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.ASSESSOR,
+            message="assessing first-pass sources",
+            action=lambda: self.assessor.run(
+                planner_output=state.planner_output,
+                searcher_output=state.searcher_output,
+                brave_context_output=state.brave_context_output,
+                extractor_light_output=state.extractor_light_output,
+                pass_type=AssessorPass.FIRST_PASS,
+                evidence_store=state.evidence_store,
+                remaining_fetch_budget=0,
+            ),
+        )
+        self._build_and_merge_evidence_store(state=state, jina_fetcher_output=None)
+
+        state.extractor_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="extracting structured entities",
+            action=lambda: self.extractor.run(
+                planner_output=state.planner_output,
+                extractor_light_output=state.extractor_light_output,
+                evidence_store=state.evidence_store,
+                prior_output=state.extractor_output,
+            ),
+        )
+        state.finalizer_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.FINALIZER,
+            message="shaping final rows",
+            action=lambda: self.finalizer.run(
+                planner_output=state.planner_output,
+                extractor_output=state.extractor_output,
+            ),
+        )
+
+    def _build_and_merge_evidence_store(
+        self,
+        state: PipelineState,
+        jina_fetcher_output: JinaFetcherOutput | None,
+        message: str = "building entity evidence store",
+    ) -> None:
+        state.evidence_store = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.ASSESSOR,
+            message=message,
+            action=lambda: self.evidence_store_builder.run(
+                brave_context_output=state.brave_context_output,
+                extractor_light_output=state.extractor_light_output,
+                assessor_output=state.assessor_output,
+                jina_fetcher_output=jina_fetcher_output,
+                existing_store=state.evidence_store,
+            ),
+        )
+
+    def _run_stage(
+        self,
+        request_id: str,
+        stage_name: StageName,
+        message: str,
+        action: Callable[[], StageResultT],
+    ) -> StageResultT:
+        self.event_emitter.stage_started(
+            request_id=request_id,
+            stage_name=stage_name,
+            message=message,
+        )
+        result = action()
+        self.event_emitter.stage_completed(
+            request_id=request_id,
+            stage_name=stage_name,
+            message=f"{message} completed",
+        )
+        return result

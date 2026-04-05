@@ -1,0 +1,53 @@
+from __future__ import annotations
+
+"""Canonicalizer+Verifier+Evaluator stage interface and thin deterministic finalizer."""
+
+from typing import Protocol
+
+from backend.app.contracts import (
+    CanonicalEntity,
+    CanonicalizerVerifierEvaluatorOutput,
+    ExtractedEntity,
+    ExtractorOutput,
+    PlannerOutput,
+)
+
+
+class CanonicalizerVerifierEvaluatorStage(Protocol):
+    def run(
+        self,
+        planner_output: PlannerOutput,
+        extractor_output: ExtractorOutput,
+    ) -> CanonicalizerVerifierEvaluatorOutput:
+        """Merge/verify/rank candidate rows for the final user-facing response."""
+
+
+class PlaceholderCanonicalizerVerifierEvaluatorStage:
+    def run(
+        self,
+        planner_output: PlannerOutput,
+        extractor_output: ExtractorOutput,
+    ) -> CanonicalizerVerifierEvaluatorOutput:
+        _ = planner_output
+        _ = extractor_output
+        return CanonicalizerVerifierEvaluatorOutput(final_rows=[])
+
+
+class ThinFinalizerStage:
+    def run(
+        self,
+        planner_output: PlannerOutput,
+        extractor_output: ExtractorOutput,
+    ) -> CanonicalizerVerifierEvaluatorOutput:
+        _ = planner_output
+        return CanonicalizerVerifierEvaluatorOutput(
+            final_rows=[_canonical_entity(entity) for entity in extractor_output.entities]
+        )
+
+
+def _canonical_entity(entity: ExtractedEntity) -> CanonicalEntity:
+    return CanonicalEntity(
+        name=entity.entity_name,
+        fields=entity.fields,
+        source_urls=entity.source_urls,
+    )

@@ -1,0 +1,1352 @@
+  {
+    "planner_output": {
+      "entity_type": "smartphone_model",
+      "query_mode": "topic_entity_discovery",
+      "schema_columns": [
+        "name",
+        "manufacturer",
+        "release_date",
+        "standout_features",
+        "price_range"
+      ],
+      "core_aspects": [
+        "form_factor",
+        "target_use_case",
+        "price_segment"
+      ],
+      "base_query": "best phone models in 2026",
+      "initial_query_rewrites": [
+        "best foldable phones in 2026",
+        "best phones in 2026 for photography",
+        "best phones in 2026 across flagship and midrange segments"
+      ],
+      "is_topic_query": true,
+      "normalized_query": "best phone models in 2026",
+      "normalization_note": null,
+      "error": false,
+      "error_message": null
+    },
+    "searcher_output": {
+      "executed_queries": [
+        "best phone models in 2026",
+        "flagship smartphones in 2026",
+        "best camera-focused phones in 2026",
+        "top iOS and Android phones in 2026"
+      ],
+      "raw_results": [
+        {
+          "url": "https://www.pcmag.com/picks/the-best-phones",
+          "title": "The Best Phones We've Tested for 2026 | PCMag",
+          "snippet": "March 31, 2026: With this update, we added the Samsung Galaxy S26 Ultra, the Google Pixel 10a, the Samsung Galaxy A17 5G, and the OnePlus 15. Our remaining recommendations are unchanged and have been vetted for currency and availability.",
+          "domain": "pcmag.com",
+          "rank": 1,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techadvisor.com/article/724318/best-phone.html",
+          "title": "Best Phone 2026: Top 10 Android & iPhone Mobile Phones Today - Tech Advisor",
+          "snippet": "Scroll on to see which phones are the best to buy in 2026, but if you’d rather focus on handsets that don’t exceed a certain price, our guide to the best mid-range phones is ideal for those looking to spend around £500/$500, while the best budget phones are for those wanting to keep the cost below £300/$300.",
+          "domain": "techadvisor.com",
+          "rank": 2,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/news/best-phone",
+          "title": "The best phone 2026: top smartphones in the US right now | TechRadar",
+          "snippet": "We start 2026 with the Apple iPhone 17 Pro Max at the top spot as our best phone overall.",
+          "domain": "techradar.com",
+          "rank": 3,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phones-of-mwc-2026/",
+          "title": "Best Phones of MWC 2026 - CNET",
+          "snippet": "Explore all the incredible handsets we saw at Mobile World Congress, from Xiaomi, Honor, Motorola and more.",
+          "domain": "cnet.com",
+          "rank": 4,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.stuff.tv/features/best-phone/",
+          "title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ranked by our experts | Stuff",
+          "snippet": "The Apple iPhone 17 (buy now) is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro. ... The Google Pixel 10 (buy now) delivers nearly all the flagship ...",
+          "domain": "stuff.tv",
+          "rank": 5,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mozillion.com/resources/2026-most-anticipated-phones/",
+          "title": "2026's Most Anticipated Phones - Buy. Sell. Phones.",
+          "snippet": "Samsung’s Galaxy S26 lineup will almost certainly dominate the headlines in January 2026. Whispers suggest slimmer designs, refreshed camera housings, and a serious zoom upgrade for the Ultra model.",
+          "domain": "mozillion.com",
+          "rank": 6,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+          "title": "Apple iPhone Fold, iPhone 18, Google Pixel 11 and Other Phones We Expect in 2026 - CNET",
+          "snippet": "This year, the Motorola Razr Ultra maintained its lead over the Samsung Galaxy Z Flip 7, but it also costs $1,300, $200 more than the base Z Flip 7. At that price, the Razr Ultra provided the best flip phone experience in 2025.",
+          "domain": "cnet.com",
+          "rank": 7,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/phones/best-phones-of-mwc-2026",
+          "title": "Best phones of MWC 2026: I just tested 30 phones in 2 days and these are the 6 you absolutely must see, including one I have to have",
+          "snippet": "Google Pixel Phones The best Pixel phones 2026: I've tested the Pixel 10 through the Pixel 10 Pro Fold - here's my ranking and tips on which Pixel to buy",
+          "domain": "techradar.com",
+          "rank": 8,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.notebookcheck.net/The-best-smartphones-spring-2026-26-phones-compared.1250353.0.html",
+          "title": "The best smartphones, spring 2026 - 26 phones compared - NotebookCheck.net Reviews",
+          "snippet": "The table above shows all smartphones ... scores. Full results and details can be found in the linked reviews. iQoo launches Z11 5G smartphone with massive 9,020 mAh battery, alongside affordable Z11x News @ 03/27/2...",
+          "domain": "notebookcheck.net",
+          "rank": 9,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.reddit.com/r/Smartphones/comments/1q38s7y/need_a_top_end_phone_recommendation_for_2026/",
+          "title": "r/Smartphones on Reddit: Need a top end phone recommendation for 2026",
+          "snippet": "... Same. I have an s23ultra and it still is amazingggg. ... My S24 Ultra is easily the best phone I have ever owned, and I have had it over two years without any issue whatsoever.",
+          "domain": "reddit.com",
+          "rank": 10,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techadvisor.com/article/724318/best-phone.html",
+          "title": "Best Phone 2026: Top 10 Android & iPhone Mobile Phones Today - Tech Advisor",
+          "snippet": "Don’t baulk at the MediaTek Dimensity ... build quality and impressively sophisticated software, it’s hard to fault the Find X9 Pro ....",
+          "domain": "techadvisor.com",
+          "rank": 1,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+          "title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+          "snippet": "All in all, the Xiaomi 17 Ultra is one of the most capable flagship phones with little to no drawbacks. The exceptionally hefty price tag is the only thing you'd have to deal with.",
+          "domain": "gsmarena.com",
+          "rank": 2,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+          "title": "Apple iPhone Fold, iPhone 18, Google Pixel 11 and Other Phones We Expect in 2026 - CNET",
+          "snippet": "While Xiaomi has already launched its camera-focused Xiaomi 17 Ultra, Vivo showcased its X300 Ultra at the Mobile World Congress 2026 and Oppo is expected to announce its Ultra flagship phone soon.",
+          "domain": "cnet.com",
+          "rank": 3,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.pcmag.com/picks/the-best-phones",
+          "title": "The Best Phones We've Tested for 2026 | PCMag",
+          "snippet": "March 31, 2026: With this update, we added the Samsung Galaxy S26 Ultra, the Google Pixel 10a, the Samsung Galaxy A17 5G, and the OnePlus 15. Our remaining recommendations are unchanged and have been vetted for currency and availability.",
+          "domain": "pcmag.com",
+          "rank": 4,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mozillion.com/resources/2026-most-anticipated-phones/",
+          "title": "2026's Most Anticipated Phones - Buy. Sell. Phones.",
+          "snippet": "Samsung’s Galaxy S26 lineup will almost certainly dominate the headlines in January 2026. Whispers suggest slimmer designs, refreshed camera housings, and a serious zoom upgrade for the Ultra model. The S26 range might also bring Qi2 wireless charging and better battery efficiency, helping Samsung stay competitive against a fast moving Chinese market. As always, the S series ...",
+          "domain": "mozillion.com",
+          "rank": 5,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.stuff.tv/features/most-anticipated-upcoming-phones/",
+          "title": "Best upcoming phones in 2026: find your next phone - Stuff",
+          "snippet": "A shoulder snooper’s worst nightmare. The Galaxy S26 Ultra marks the debut of Samsung’s Privacy Display, a hardware toggle that can cut viewing angles and keep your secrets hidden from view.",
+          "domain": "stuff.tv",
+          "rank": 6,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/phones/best-phones-of-mwc-2026",
+          "title": "Best phones of MWC 2026: I just tested 30 phones in 2 days and these are the 6 you absolutely must see, including one I have to have",
+          "snippet": "As a comic book fan, TCL showed me my dream smartphone at MWC 2026 · 11 things to expect at MWC 2026 — from the Nothing Phone 4a to humanoid robots · The best Android phones 2025 · The Honor Magic 8 Pro is a speccy powerhouse with 350MP ...",
+          "domain": "techradar.com",
+          "rank": 7,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phone/",
+          "title": "Best Phones in 2026 | Top-Rated Smartphones and Cellphones Compared - CNET",
+          "snippet": "We still expect a lot more in 2026 like the Galaxy S26 series, iPhone 18 Pro and possibly Apple's first foldable, the iPhone Fold . Once they are announced and we can get our hands on them, we'll compare them to our current picks, and continue ...",
+          "domain": "cnet.com",
+          "rank": 8,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phones-of-mwc-2026/",
+          "title": "Best Phones of MWC 2026 - CNET",
+          "snippet": "The Samsung Galaxy S26 is the company's latest and greatest flagship, with a slightly bigger 4,300-mAh battery and more AI features than its predecessor, but it feels largely the same as the Galaxy S25 before it.",
+          "domain": "cnet.com",
+          "rank": 9,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://vertu.com/lifestyle/the-5-greatest-ultra-premium-smartphones-for-the-discerning-tech-enthusiast-in-2026/",
+          "title": "5 Best Ultra-Premium Smartphones of 2026: AI & Camera Review",
+          "snippet": "For the tech enthusiast seeking the pinnacle of 2026 mobile technology, these are the five greatest ultra-premium smartphones: Samsung Galaxy S26 Ultra : Best for productivity and versatile zoom. iPhone 17 Pro Max: Best for video professionals ...",
+          "domain": "vertu.com",
+          "rank": 10,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.photobohemian.com/best-phones-for-photographers/",
+          "title": "Best Smartphones for Photographers (2026) – My Top Picks Based on 10 Years of Reviews - PhotoBohemian.com",
+          "snippet": "There are many options, and it’s impossible for me to track everything. Samsung’s A56 series has long been the king of midrange devices. I’ve tested it thoroughly for years. While it’s not a “fantastic” phone, it offers reliable performance, very good image processing, and solid overall specs at a very reasonable price.",
+          "domain": "photobohemian.com",
+          "rank": 1,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+          "title": "r/Smartphones on Reddit: Best camera phone in 2026",
+          "snippet": "The Huawei Pura 80 Pro (released June 2025) is a high-end camera-focused smartphone featuring a 6.8-inch LTPO OLED screen (1-120Hz), 50MP 1-inch main sensor, and a distinct triangular camera design.",
+          "domain": "reddit.com",
+          "rank": 2,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "title": "The best camera phone in 2026: what's the best smartphone for photography?",
+          "snippet": "Lens-to-lens color consistency ... weaker than before because of the longer minimum focusing distance. Overall, the Xiaomi 17 Ultra is an exceptional choice for serious mobile photographers who want one of the boldest, ...",
+          "domain": "digitalcameraworld.com",
+          "rank": 3,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/news/best-cameraphone",
+          "title": "The best camera phone 2026: class-leading phones for photos and video, all tested by our experts",
+          "snippet": "Right now the leader of the pack is the iPhone 17 Pro Max given its combined photo and video performance, but others like the Samsung Galaxy S26 Ultra new for 2026 are worthy contenders.",
+          "domain": "techradar.com",
+          "rank": 4,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+          "title": "Best Camera Phones of 2026 - Mobile Klinik",
+          "snippet": "Find 2026’s best camera phones. Compare photo quality, features, and value picks, including certified pre‑owned options to save on upgrades.",
+          "domain": "mobileklinik.ca",
+          "rank": 5,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-camera-phone/",
+          "title": "Best Camera Phone of 2026 - CNET",
+          "snippet": "From the iPhone 17 Pro and Google Pixel 10 Pro to Samsung's Galaxy S25 Ultra and Galaxy Z Fold 7, these are the top camera phones we've tested.",
+          "domain": "cnet.com",
+          "rank": 6,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.reddit.com/r/phones/comments/1q6bvzy/best_camera_in_smartphone_right_now_2026/",
+          "title": "r/phones on Reddit: Best camera in smartphone right now? 2026",
+          "snippet": "Samsung has unprecedented integration with other home devices like Samsung appliances and TVs. The newest iPhone 17 pro and pro max might be your best bet. Will be an easy transition from your 11.",
+          "domain": "reddit.com",
+          "rank": 7,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://kraftgeek.com/blogs/creator-inspiration/best-camera-phones-for-photography-in-2026-what-pros-actually-use",
+          "title": "Best Camera Phones For Photography In 2026 (What Pros Actually Use) – KraftGeek",
+          "snippet": "The best camera phone for professional photography in 2026 is the one you can keep perfectly still, mount at the right angle, and deploy in under ten seconds when the light is right. Hardware wins the spec comparison.",
+          "domain": "kraftgeek.com",
+          "rank": 8,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.buymobiles.net/blog/best-camera-phones-in-2026-our-top-picks/",
+          "title": "Best Camera Phones in 2026: Our Top Picks",
+          "snippet": "The best camera phone in 2026 isn’t just about specs — it’s about how you create. If video is your focus, iPhone is hard to beat. If you want flexibility and bold visuals, Samsung delivers. Prefer effortless, ready-to-post photos? Pixel has your back.",
+          "domain": "buymobiles.net",
+          "rank": 9,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.gsmarena.com/best_camera_phones_buyers_guide-review-2030.php",
+          "title": "Best camera phones 2026 - buyer’s guide - GSMArena.com tests",
+          "snippet": "Overall, we do recommend the Motorola Edge 60 Pro as a cameraphone on a budget. Read full review · February 6, 2026: Replaced the Xiaomi 15 Ultra with the Xiaomi 17 Ultra as new top.",
+          "domain": "gsmarena.com",
+          "rank": 10,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techadvisor.com/article/724318/best-phone.html",
+          "title": "Best Phone 2026: Top 10 Android & iPhone Mobile Phones Today - Tech Advisor",
+          "snippet": "The iPhone 17 Pro Max is the best phone Apple has ever made. This 6.9-inch behemoth is a force of nature, combining stellar performance with top-class build quality and superb cameras that can rival the best of Android.",
+          "domain": "techadvisor.com",
+          "rank": 1,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.pcmag.com/comparisons/android-vs-ios-one-os-dominates-in-2026",
+          "title": "Android vs. iOS: One Clearly Dominates in 2026 | PCMag",
+          "snippet": "... Apple and Google's near parity is hardly surprising when you consider how the platforms have been matching features and polishing their interfaces for years. Still, iOS comes out on top in 2026 primarily due to its cohesive user experience, ...",
+          "domain": "pcmag.com",
+          "rank": 2,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phone/",
+          "title": "Best Phones in 2026 | Top-Rated Smartphones and Cellphones Compared - CNET",
+          "snippet": "From Apple's iPhone 17 to Samsung’s Galaxy S26 Ultra, here are the best phones we've tested.",
+          "domain": "cnet.com",
+          "rank": 3,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mensjournal.com/gear/best-smartphones",
+          "title": "From iPhone to Android, These Are the Best Smartphones I Tested in 2026",
+          "snippet": "Samsung Galaxy S25 Ultra, Samsung Galaxy Z Fold 7, and Apple iPhone 17 Pro Max are among the best smartphones of 2026.",
+          "domain": "mensjournal.com",
+          "rank": 4,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.pcmag.com/picks/the-best-phones",
+          "title": "The Best Phones We've Tested for 2026 | PCMag",
+          "snippet": "The OnePlus 15 holds its own against top Android flagships from Google and Samsung, delivering a sleek design, outstanding battery life, lightning-fast performance, cutting-edge specs, and a dash of AI—all at a refreshingly affordable price.",
+          "domain": "pcmag.com",
+          "rank": 5,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://shamoscases.com/blogs/blog/iphone-vs-android-in-2026-which-should-you-buy",
+          "title": "iPhone vs. Android in 2026: Which Should You Buy? - Shamo's",
+          "snippet": "Complete 2026 comparison of iPhone vs Android. Compare performance, cameras, AI features, battery life, security, pricing, and more. Unbiased guide to help you choose the right smartphone.",
+          "domain": "shamoscases.com",
+          "rank": 6,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.androidcentral.com/phones/android-central-mwc-2026-best-in-show",
+          "title": "Android Central's MWC 2026 Best in Show | Android Central",
+          "snippet": "Samsung Galaxy Phones Samsung Galaxy Z TriFold hands on — expert engineering creates an enticing phone and big-tablet combo ... I used the Xiaomi Pad 8 for a month — these four features make the half-priced iPad Air clone the best mid-range Android tablet ... Check out the products that stood out to us at MWC 2026! When you purchase through links on our site, we may earn an affiliate commission. Here’s how it works. ... By submitting your information you agree to the Terms & Conditions and Privacy Policy and are aged 16 or over.",
+          "domain": "androidcentral.com",
+          "rank": 7,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mozillion.com/resources/2026-most-anticipated-phones/",
+          "title": "2026's Most Anticipated Phones - Buy. Sell. Phones.",
+          "snippet": "Unsurprisingly, Apple’s long rumoured iPhone 18 is already shaping up to be the most talked about device of the year, with Samsung’s Galaxy S26 series close behind as it sets the tone for the Android market.",
+          "domain": "mozillion.com",
+          "rank": 8,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.reddit.com/r/Smartphones/comments/1qr46z7/help_me_decide_top_5_phones_im_considering_in_2026/",
+          "title": "r/Smartphones on Reddit: Help me decide Top 5 phones I’m considering in 2026",
+          "snippet": "48 votes, 45 comments. iPhone 17 Pro Max Galaxy S25 Ultra HONOR Magic 8 Pro Xiaomi 15T Pro Vivo X100 Pro+",
+          "domain": "reddit.com",
+          "rank": 9,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-android-phone/",
+          "title": "Best Android Phones of 2026: Tested by Our Experts - CNET",
+          "snippet": "We were also impressed by the OnePlus 15, a battery behemoth that just won't run out of charge, as well as the Motorola Razr Ultra, which is as fun to use as it is innovative. We are currently testing Samsung's Galaxy S26 and S26 Ultra and will ...",
+          "domain": "cnet.com",
+          "rank": 10,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        }
+      ],
+      "shortlisted_results": [
+        {
+          "url": "https://www.pcmag.com/picks/the-best-phones",
+          "title": "The Best Phones We've Tested for 2026 | PCMag",
+          "snippet": "March 31, 2026: With this update, we added the Samsung Galaxy S26 Ultra, the Google Pixel 10a, the Samsung Galaxy A17 5G, and the OnePlus 15. Our remaining recommendations are unchanged and have been vetted for currency and availability.",
+          "domain": "pcmag.com",
+          "rank": 1,
+          "query_sources": [
+            "best phone models in 2026",
+            "flagship smartphones in 2026",
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techadvisor.com/article/724318/best-phone.html",
+          "title": "Best Phone 2026: Top 10 Android & iPhone Mobile Phones Today - Tech Advisor",
+          "snippet": "Don’t baulk at the MediaTek Dimensity ... build quality and impressively sophisticated software, it’s hard to fault the Find X9 Pro ....",
+          "domain": "techadvisor.com",
+          "rank": 1,
+          "query_sources": [
+            "best phone models in 2026",
+            "flagship smartphones in 2026",
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.photobohemian.com/best-phones-for-photographers/",
+          "title": "Best Smartphones for Photographers (2026) – My Top Picks Based on 10 Years of Reviews - PhotoBohemian.com",
+          "snippet": "There are many options, and it’s impossible for me to track everything. Samsung’s A56 series has long been the king of midrange devices. I’ve tested it thoroughly for years. While it’s not a “fantastic” phone, it offers reliable performance, very good image processing, and solid overall specs at a very reasonable price.",
+          "domain": "photobohemian.com",
+          "rank": 1,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.pcmag.com/comparisons/android-vs-ios-one-os-dominates-in-2026",
+          "title": "Android vs. iOS: One Clearly Dominates in 2026 | PCMag",
+          "snippet": "... Apple and Google's near parity is hardly surprising when you consider how the platforms have been matching features and polishing their interfaces for years. Still, iOS comes out on top in 2026 primarily due to its cohesive user experience, ...",
+          "domain": "pcmag.com",
+          "rank": 2,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+          "title": "Apple iPhone Fold, iPhone 18, Google Pixel 11 and Other Phones We Expect in 2026 - CNET",
+          "snippet": "While Xiaomi has already launched its camera-focused Xiaomi 17 Ultra, Vivo showcased its X300 Ultra at the Mobile World Congress 2026 and Oppo is expected to announce its Ultra flagship phone soon.",
+          "domain": "cnet.com",
+          "rank": 3,
+          "query_sources": [
+            "best phone models in 2026",
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+          "title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+          "snippet": "All in all, the Xiaomi 17 Ultra is one of the most capable flagship phones with little to no drawbacks. The exceptionally hefty price tag is the only thing you'd have to deal with.",
+          "domain": "gsmarena.com",
+          "rank": 2,
+          "query_sources": [
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/news/best-phone",
+          "title": "The best phone 2026: top smartphones in the US right now | TechRadar",
+          "snippet": "We start 2026 with the Apple iPhone 17 Pro Max at the top spot as our best phone overall.",
+          "domain": "techradar.com",
+          "rank": 3,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+          "title": "r/Smartphones on Reddit: Best camera phone in 2026",
+          "snippet": "The Huawei Pura 80 Pro (released June 2025) is a high-end camera-focused smartphone featuring a 6.8-inch LTPO OLED screen (1-120Hz), 50MP 1-inch main sensor, and a distinct triangular camera design.",
+          "domain": "reddit.com",
+          "rank": 2,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phone/",
+          "title": "Best Phones in 2026 | Top-Rated Smartphones and Cellphones Compared - CNET",
+          "snippet": "From Apple's iPhone 17 to Samsung’s Galaxy S26 Ultra, here are the best phones we've tested.",
+          "domain": "cnet.com",
+          "rank": 3,
+          "query_sources": [
+            "flagship smartphones in 2026",
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "title": "The best camera phone in 2026: what's the best smartphone for photography?",
+          "snippet": "Lens-to-lens color consistency ... weaker than before because of the longer minimum focusing distance. Overall, the Xiaomi 17 Ultra is an exceptional choice for serious mobile photographers who want one of the boldest, ...",
+          "domain": "digitalcameraworld.com",
+          "rank": 3,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.cnet.com/tech/mobile/best-phones-of-mwc-2026/",
+          "title": "Best Phones of MWC 2026 - CNET",
+          "snippet": "Explore all the incredible handsets we saw at Mobile World Congress, from Xiaomi, Honor, Motorola and more.",
+          "domain": "cnet.com",
+          "rank": 4,
+          "query_sources": [
+            "best phone models in 2026",
+            "flagship smartphones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.techradar.com/news/best-cameraphone",
+          "title": "The best camera phone 2026: class-leading phones for photos and video, all tested by our experts",
+          "snippet": "Right now the leader of the pack is the iPhone 17 Pro Max given its combined photo and video performance, but others like the Samsung Galaxy S26 Ultra new for 2026 are worthy contenders.",
+          "domain": "techradar.com",
+          "rank": 4,
+          "query_sources": [
+            "best camera-focused phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mensjournal.com/gear/best-smartphones",
+          "title": "From iPhone to Android, These Are the Best Smartphones I Tested in 2026",
+          "snippet": "Samsung Galaxy S25 Ultra, Samsung Galaxy Z Fold 7, and Apple iPhone 17 Pro Max are among the best smartphones of 2026.",
+          "domain": "mensjournal.com",
+          "rank": 4,
+          "query_sources": [
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.mozillion.com/resources/2026-most-anticipated-phones/",
+          "title": "2026's Most Anticipated Phones - Buy. Sell. Phones.",
+          "snippet": "Samsung’s Galaxy S26 lineup will almost certainly dominate the headlines in January 2026. Whispers suggest slimmer designs, refreshed camera housings, and a serious zoom upgrade for the Ultra model. The S26 range might also bring Qi2 wireless charging and better battery efficiency, helping Samsung stay competitive against a fast moving Chinese market. As always, the S series ...",
+          "domain": "mozillion.com",
+          "rank": 5,
+          "query_sources": [
+            "best phone models in 2026",
+            "flagship smartphones in 2026",
+            "top iOS and Android phones in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        },
+        {
+          "url": "https://www.stuff.tv/features/best-phone/",
+          "title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ranked by our experts | Stuff",
+          "snippet": "The Apple iPhone 17 (buy now) is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro. ... The Google Pixel 10 (buy now) delivers nearly all the flagship ...",
+          "domain": "stuff.tv",
+          "rank": 5,
+          "query_sources": [
+            "best phone models in 2026"
+          ],
+          "result_type": "search_result",
+          "provider_metadata": {
+            "source": "brave_web_search",
+            "family_friendly": true,
+            "is_source_local": false,
+            "is_source_both": false,
+            "language": "en"
+          }
+        }
+      ]
+    },
+    "brave_context_output": {
+      "passages_by_url": {
+        "https://www.techadvisor.com/article/724318/best-phone.html": [
+          {
+            "source_url": "https://www.techadvisor.com/article/724318/best-phone.html",
+            "passage_text": "## At a glance\n\nBest Phone Overall\n\nGoogle Pixel 10 Pro XL\n\n↓ See why we picked it\n\nPros\n\n* Gorgeous design and display\n* Superb camera experience\n* Brilliant Android 16 software with long support\n* The best wireless charging on Android\n\nCons\n\n* Big and bulky\n* 100x zoom is disappointing\n* Even more expensive\n\nBest Phone Cameras\n\nOppo Find X9 Pro\n\n↓ See why we picked it\n\nPros\n\n* Phenomenal cameras\n* Gigantic battery\n* Excellent performance and software\n* One of the nicest screens around\n\nCons\n\n* Expensive\n* Only 5 years of OS updates\n\nBest Phone Software\n\nSamsung Galaxy S26 Ultra\n\n↓ See why we picked it\n\nPros\n\n* Slick software\n* Still the best AI tools\n* Exclusive Privacy Display\n* APV codec and Horizontal Lock video\n* Faster charging\n\nCons\n\n* Minimal upgrades\n* S-Pen positioning is irksome\n* No Qi2 magnets\n* Expensive\n\nBest iPhone\n\nApple iPhone 17\n\n↓ See why we picked it\n\nPros\n\n* Double the storage\n* Excellent screen\n* Camera features for socials\n* Solid battery life\n\nCons\n\n* AI features are still hit and miss\n* Camera could be improved\n\nBest Phone Performance\n\nOnePlus 15\n\n↓ See why we picked it\n\nPros\n\n* Best-in-class performance\n* Great user experience with nice AI additions\n* Outlandish battery life\n* Super-fast charging\n\nCons\n\n* Not quite top-tier cameras\n* Software support could be longer\n* Magnetic accessories require case\n\nGreat Camera Phone\n\nXiaomi 15 Ultra\n\n↓ See why we picked it\n\nPros\n\n* Incredible camera performance\n* Excellent screen\n* Solid battery life &amp; fast charging\n* Silky performance\n\nCons\n\n* Some design backsteps\n* Not the best Android skin\n* Mixed bag of AI features\n\nBest Mid-Range Phone\n\nSamsung Galaxy S25 FE\n\n↓ See why we picked it\n\nPros\n\n* Flagship design and build\n* Strong main and selfie cameras\n* Impressive battery life\n* One UI is slick and intuitive\n* Seven years of updates\n\nCons\n\n* Supporting cameras could be better\n* Occasional software bugs\n* Not suitable for demanding gaming\n\nBest Premium iPhone\n\nApple iPhone 17 Pro Max\n\n↓ See why we picked it\n\nPros\n\n* Superb display\n*",
+            "metadata": {
+              "title": "Best Phone 2026: Top 10 Android & iPhone Mobile Phones Today - ...",
+              "hostname": "www.techadvisor.com",
+              "age": "Tuesday, March 31, 2026"
+            }
+          }
+        ],
+        "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php": [
+          {
+            "source_url": "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+            "passage_text": "# Best flagship phones 2026 - buyer’s guide\n###\nThese are the best offers from our affiliate partners. We may get a commission from qualifying sales.\n\n512GB 16GB RAM |\n\n* Premium and sturdy design, the limited Leica edition design is unique\n\n* Even bigger display with plenty of nits and Dolby Vision\n* Class-leading battery life; decently fast charging\n\n* Loud and very nice-sounding speakers\n\n* Feature-rich HyperOS; decent sustained performance\n\n* Superb main camera, surprisingly good ultrawide, excellent telephoto across its entire (admittedly narrow) zoom range\n\n* Leica edition's camera ring control is widely customizable and can be useful for the right crowd\n\n* Very high price tag at launch\n\n* Main camera's video stabilization is subpar; video quality in general is just alright\n\n* Camera app is brimming with features and modes, and it can be overwhelming\n\n* Shorter minimum focusing distance on the telephoto camera would have been appreciated\n\nDespite the hefty price tag, which is even higher than last year, the Xiaomi 17 Ultra is one of the best flagship cameraphones you can get right now. Just like the rest of the flagship phones, the 17 Ultra has an excellent display, fast chipset, snappy charging and long battery life, although that last bit isn't a given.\n\nHowever, the improved telephoto and selfie cameras, along with the exceptional main camera performance, make the device one of the best in its class. We also didn't feel the absence of the second 3x telephoto camera either, as the current 200MP telephoto shooter with continuous optical zoom and close-distance focusing covers all bases. The rotating camera ring on the 17 Ultra by Leica is a nice touch, but it's borderline gimmicky, and we had to turn it off to avoid accidental actuations.\n\nAll in all, the Xiaomi 17 Ultra is one of the most capable flagship phones with little to no drawbacks. The exceptionally hefty price tag is the only thing you'd have to deal with. And on whether the Leica edition is worth the extra cost, it depends on how useful the",
+            "metadata": {
+              "title": "Best flagship phones 2026 - buyer’s guide - GSMArena.com tests",
+              "hostname": "www.gsmarena.com",
+              "age": "Friday, February 06, 2026"
+            }
+          }
+        ],
+        "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/": [
+          {
+            "source_url": "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+            "passage_text": "Best camera phone in 2026\nYour last options are the best for your  needs listed. Oppo X9 Pro.  Best all around phone for 2025. Vivo X300 solely for photography. If you live outside of the North America, those phones are easier to get\nWell, camera base, seem like for Vivo, you take the Ultra route, as by what it seems, overall, the X200 Ultra is still superior than the X300 Pro and the X300 Ultra seem to be right around the corner with a global launch this time, same goes for the Oppo, X9 Pro is great, but doesn't surpass the Vivo X200 Ultra, though their X9 Ultra also seems like it will get a global launch, coming out supposedly Q2 of this year. Leave us with the Honor Magic 8 Pro, that I've heard is great for night shots and finally the Xiaomi 17 Ultra Leica edition, a phone on par with the ones I've mentioned, as they all have great cameras, though one seems to better than the others in a specific aspect and this seems to be general with all of them, though with the Xiaomi, you if course get those Leica profiles which many people prefer. Outsider, that will be the Huawei 80 Ultra, but this doesn't even run Android anymore, so... And as most know, when it comes to video,oat seem to say that the iPhone is still champion here",
+            "metadata": {
+              "title": "r/Smartphones on Reddit: Best camera phone in 2026",
+              "hostname": "www.reddit.com",
+              "age": "Monday, February 16, 2026"
+            }
+          }
+        ],
+        "https://www.pcmag.com/picks/the-best-phones": [
+          {
+            "source_url": "https://www.pcmag.com/picks/the-best-phones",
+            "passage_text": "## EDITORS' NOTE\n*March 31, 2026: With this update, we added the Samsung Galaxy S26 Ultra, the Google Pixel 10a, the Samsung Galaxy A17 5G, and the OnePlus 15. Our remaining recommendations are unchanged and have been vetted for currency and availability.*\n\n(Credit: Eric Zeman)\n\n*\nBest value among iPhone 17 models\n\n*\nFast performance\n\n*\nCompetitive battery life\n\n*\nSpeedy wireless connections\n\n*\nPro-level display\n\n*\nFlexible cameras\n\n*\nNo telephoto camera\n\nWith the iPhone 17, Apple has meaningfully upgraded the base model to bring it in line with the rest of the iPhone 17 family—and competing flagships. With more than 24 hours of battery life, fast charging, modern radios, and high-quality hardware, it's a near-total package. Unless you're a power user who wants the photo and video tools of the Pro models, the iPhone 17 is the better value proposition.\n\n**Value-seeking iPhone fans:** The entry-level iPhone 17 would be considered a Pro-level model just a few years ago. In fact, it gets you much of the iPhone Pro experience for hundreds less. For $799, it packs 256GB of storage, a powerful Apple processor, and excellent cameras.&nbsp;What's not to like?\n\n**Selfie lovers: **Apple’s iPhone 17 introduces a new selfie camera capable of capturing both vertical&nbsp;*and&nbsp;*horizontal photos without requiring the user to rotate the phone. If you want some variety in your selfies without having to change the way you use your phone, the iPhone 17 is a great pick\nMarch 31, 2026: With this update, we added the Samsung Galaxy S26 Ultra, the Google Pixel 10a, the Samsung Galaxy A17 5G, and the OnePlus 15. Our remaining recommendations are unchanged and have been vetted for currency and availability. ... With the iPhone 17, Apple has meaningfully upgraded the base model to bring it in line with the rest of the iPhone 17 family—and competing flagships. With more than 24 hours of battery life, fast charging, modern radios, and high-quality hardware, it's a near-total package. Unless you're a power user who wants the photo and",
+            "metadata": {
+              "title": "The Best Phones We've Tested for 2026",
+              "hostname": "www.pcmag.com",
+              "age": "Tuesday, March 31, 2026"
+            }
+          }
+        ],
+        "https://www.mozillion.com/resources/2026-most-anticipated-phones/": [
+          {
+            "source_url": "https://www.mozillion.com/resources/2026-most-anticipated-phones/",
+            "passage_text": "# **The Top 10 Most Anticipated Phone Releases for 2026**\n## **1. **Samsung’s Galaxy S26****\n\nSamsung’s Galaxy S26 lineup will almost certainly dominate the headlines in January 2026. Whispers suggest slimmer designs, refreshed camera housings, and a serious zoom upgrade for the Ultra model.\n\nThe S26 range might also bring Qi2 wireless charging and better battery efficiency, helping Samsung stay competitive against a fast moving Chinese market. As always, the S series will likely set the standard for what an Android flagship looks like in 2026\nUnsurprisingly, Apple’s long rumoured iPhone 18 is already shaping up to be the most talked about device of the year, with Samsung’s Galaxy S26 series close behind as it sets the tone for the Android market. But 2026 isn’t just about the usual suspects. Foldables are set to take centre stage, with Oppo, Google, and Samsung each refining their designs, and Xiaomi and Huawei making strong plays for the camera phone crown. The result? A top 10 lineup that perfectly captures where the smartphone industry is heading. Thinner, smarter, and more experimental than ever, with AI and imaging technology driving the next big leap forward. Samsung’s Galaxy S26 lineup will almost certainly dominate the headlines in January 2026. Whispers suggest slimmer designs, refreshed camera housings, and a serious zoom upgrade for the Ultra model. The S26 range might also bring Qi2 wireless charging and better battery efficiency, helping Samsung stay competitive against a fast moving Chinese market",
+            "metadata": {
+              "title": "2026's Most Anticipated Phones - Buy. Sell. Phones.",
+              "hostname": "www.mozillion.com",
+              "age": "Tuesday, November 04, 2025"
+            }
+          }
+        ],
+        "https://www.cnet.com/tech/mobile/best-phone/": [
+          {
+            "source_url": "https://www.cnet.com/tech/mobile/best-phone/",
+            "passage_text": "From Apple's iPhone 17 to Samsung’s Galaxy S26 Ultra, here are the best phones we've tested.",
+            "metadata": {
+              "title": "Best Phones in 2026 | Top-Rated Smartphones and Cellphones Compared - CNET",
+              "hostname": "cnet.com",
+              "fallback": true
+            }
+          }
+        ],
+        "https://www.techradar.com/news/best-phone": [
+          {
+            "source_url": "https://www.techradar.com/news/best-phone",
+            "passage_text": "### The Best Phones\n\nBest iPhone\n\n1. Apple iPhone 17 Pro Max\n\nThe iPhone 17 Pro Max pushes the iconic iPhone in bold new directions, and it is the best iPhone our Editor has ever tested. It’s recognizable, but different in ways that make it eye-catching, featuring a fresh design and a camera array that sets a new high-water mark for smartphone photography. For people who demand more from their smartphone, there is no better choice.\n\nBest Android\n\n2. OnePlus 15\n\nThe OnePlus 15 is the \"cure for the common phone,\" earning a rare perfect score for its ability to grant every smartphone wish a user could have. It delivers an unbelievable mix of endurance, performance, and durability that exceeds the capabilities of flagships costing hundreds more. If you want the absolute best Android experience available today, this is the phone to buy.\n\nBest iPhone cameras\n\n3. Apple iPhone 17 Pro (and Pro Max)\n\nThe iPhone 17 Pro is the ultimate choice for mobile photographers who want Apple's most advanced imaging technology in a pocket-friendly design. It features a complete \"inside-out refashioning,\" including a triple 48MP camera array that produces professional-quality images. It’s the Pro-level iPhone for those who want a more pocketable form factor at a price that's a little closer to reasonable.\n\nBest Android cameras\n\n4. Samsung Galaxy S26 Ultra\n\nThe Samsung Galaxy S26 Ultra builds upon its predecessor's superb camera capabilities, improving low-light performance for stills and video, but also adds in more AI features, and upgraded performance. If you want an no-compromise Android phone, and one that offers a lot of photography flexibility, the S26 Ultra is hard to beat.\n\nBest Android for AI\n\n5. Google Pixel 10 Pro\n\nThe Google Pixel 10 Pro is the \"phone that makes life easier,\" delivering the most useful and integrated AI experience on any smartphone. While other brands focus on flashy tricks, Google provides \"useful tools that actually work,\" like call screening that takes notes and a seamless voice translator. It is the",
+            "metadata": {
+              "title": "The best phone 2026: top smartphones in the US right now",
+              "hostname": "www.techradar.com",
+              "age": "Wednesday, March 11, 2026"
+            }
+          }
+        ],
+        "https://www.photobohemian.com/best-phones-for-photographers/": [
+          {
+            "source_url": "https://www.photobohemian.com/best-phones-for-photographers/",
+            "passage_text": "# Best Smartphones for Photographers (2026) – My Top Picks Based on 10 Years of Reviews\n## Why I Like Reviewing Smartphones – For Years\nAs a newspaper photographer, I started testing cameras about 15 years ago — and I still do for my Czech site Fotoguru.cz. Naturally, it was only a matter of time before I included flagship smartphones in my reviews.\n\nOver the past few years, I’ve systematically borrowed devices from various categories and prepared detailed reviews — and I try to do them properly. Almost every smartphone I test gets at least a week of hands-on use, usually longer, and each review includes 150–200 sample photos. Originally, these reviews were only in Czech, but gradually I added video reviews on YouTube in English — I just couldn’t keep all this testing to a local audience.\n\nSome of title photos of my smartphone reviews done in London, Barcelona, Slovenia and, of course, Prague.\n\nWhy am I mentioning this? Because I am truly confident in recommending which smartphones serve different types of users best, and which devices are the real stars in the mobile photography sky.\n\nDon’t expect complicated tables or categorical statements from me: there is obviously no single “best smartphone in the world.” Different user categories value different things. But if you ask me over coffee: “Which one should I buy?” — I’ll happily and confidently advise you. I just ask three questions first:\n\n1. What exactly will you be photographing?\n\n2. How experienced are you as a photographer?\n\n3. And yes, of course, what is your budget?\n\n| Best Smartphones for Photography – Jan’s Personal Picks (Café Talk Edition) |\n| Question / Use case | Recommended smartphones &amp; why | Links |\n| **1. Best Smartphones for Everyday Photography** |\n| “I need the best smartphone for everyday use” | **iPhone 17 Pro** and other top iPhones — sounds boring, but iPhones still offer the most balanced performance for everyday photography and video. | My articles about iPhones on Photobohemian |\n| “I do not like iPhones! What else should I",
+            "metadata": {
+              "title": "Best Smartphones for Photographers (2026)",
+              "hostname": "www.photobohemian.com",
+              "age": "Wednesday, March 25, 2026"
+            }
+          }
+        ],
+        "https://www.pcmag.com/comparisons/android-vs-ios-one-os-dominates-in-2026": [
+          {
+            "source_url": "https://www.pcmag.com/comparisons/android-vs-ios-one-os-dominates-in-2026",
+            "passage_text": "Apple and Google's near parity is hardly surprising when you consider how the platforms have been matching features and polishing their interfaces for years. Still, iOS comes out on top in 2026 primarily due to its cohesive user experience, excellent ecosystem integration, terrific games, and sleek Liquid Glass visual overhaul. Android's open-source nature affords it far greater flexibility and customization, which improves with every OS update. However, Android can also feel like a collection of disparate tools, made all the more inconsistent due to the platform's heavy fragmentation. For those reasons and more, Apple iOS 26 reigns as the mobile OS champion. ... In 2014, I began my career at PCMag as a freelancer. That blossomed into a full-time position in 2021, and I now review email marketing apps, mobile operating systems, web hosting services, streaming music platforms, and video games as a senior writer\n## And The Winner Is...\n### Apple iOS 26\n4.0\n\nExcellent\n\nApple and Google's near parity is hardly surprising when you consider how the platforms have been matching features and polishing their interfaces for years. Still, iOS comes out on top in 2026 primarily due to its cohesive user experience, excellent ecosystem integration, terrific games, and sleek Liquid Glass visual overhaul. Android's open-source nature affords it far greater flexibility and customization, which improves with every OS update. However, Android can also feel like a collection of disparate tools, made all the more inconsistent due to the platform's heavy fragmentation.** **For those reasons and more, Apple iOS 26 reigns as the mobile OS champion.\n\nApple iOS 26 Review",
+            "metadata": {
+              "title": "Android vs. iOS: One Clearly Dominates in 2026",
+              "hostname": "www.pcmag.com",
+              "age": "Saturday, February 14, 2026"
+            }
+          }
+        ],
+        "https://www.digitalcameraworld.com/buying-guides/best-camera-phone": [
+          {
+            "source_url": "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+            "passage_text": "### The Quick List\n\nBest for photos\n\n1. Google Pixel 10 Pro / 10 Pro XL\n\nThe Pixel 10 Pros are the most consistent phones for photography, with great images every time. Both sizes have identical camera setups but different screen sizes, so you can pick the size that works for you.\n\nBest for video\n\n2. Apple iPhone 17 Pro / Max\n\nThe iPhones are a very close second in photography, but for anyone looking for the best phone for videos, the iPhone 17 Pro and Pro Max can't be beat – with a new design and telephoto lens, they are also better than ever.\n\nBest Galaxy\n\n3. Samsung Galaxy S26 Ultra\n\nSamsung’s Galaxy S26 Ultra is a polished all-rounder, with a refined 200MP main camera, a strong ultra-wide, and useful 5x zoom. It is not a huge leap over the S25 Ultra, and Samsung’s processing can still be a little heavy-handed, but it remains one of the safest picks for a premium camera phone.\n\nBest value\n\n4. Google Pixel 9a\n\nIf you're looking for a great image-maker for an amazing price, then the Google Pixel 9a takes the crown as my top pick for affordable phone photography with two very impressive cameras.\n\nBest for zoom\n\n5. Oppo Find X9 Pro\n\nThe Oppo Find X9 Pro's 200MP telephoto lens alone would be enough to put it on this list as the best zoom, but paired with the Hasselblad teleconverter adapter – it's the best zoom I've ever seen from a phone.\n\nBest for pros\n\n6. Xiaomi 17 Ultra\n\nThe Xiaomi 17 Ultra is one of the boldest camera phones around, with a huge 1-inch main sensor, Leica color tuning, and a new 200MP mechanical zoom aimed at serious photographers. It is not flawless, but for sheer photographic ambition, it is one of the most exciting flagship phones you can buy.\n\nView the full list...\n\nBest value iPhone\n\n7. Apple iPhone 17\n\nThe iPhone 17 might not be the top-spec phone on this list, but it is the best shooter for casual, everyday phone photographers who want an excellent camera for content creation.\n\nBest foldable phone\n\n8. Honor Magic V5\n\nThe Honor Magic V5 takes the foldable crown with slick software",
+            "metadata": {
+              "title": "The best camera phone in 2026: what's the best smartphone for ...",
+              "hostname": "www.digitalcameraworld.com",
+              "age": "Friday, March 13, 2026"
+            }
+          }
+        ],
+        "https://www.cnet.com/tech/mobile/best-phones-of-mwc-2026/": [
+          {
+            "source_url": "https://www.cnet.com/tech/mobile/best-phones-of-mwc-2026/",
+            "passage_text": "At MWC 2026, we have -- surprising nobody -- seen a ton of phones.\n\nThis year's Mobile World Congress is particularly plentiful with phones packing unique features appealing to different mobile fans, like Honor's Robot Phone, which is part handset and part camera gimbal. While Xiaomi predictably unveiled another premium device, its photographic capabilities are next-level. Motorola finally revealed its book-style foldable. The brands may be expected, but the phones aren't.\n\nThis year's MWC comes with its own set of challenging circumstances. The Samsung Galaxy S26 phones have arrived just before the show to set the stage for this year's premium Android phones, and they've come with a $100 price hike for their basic and Galaxy S26 Plus models. This could be the result of the RAM shortage, which is expected to pressure phonemakers to raise prices on many phones. How they choose to balance new features and affordability could be the biggest hurdle of 2026 for the phone industry.\n\nAmid all that uncertainty, manufacturers have still graced the biggest phone show of the year to debut their new handsets. Here are all the best phones we've seen at MWC.\n\nThe Xiaomi Leitzphone.\n\nAndrew Lanxon/CNET",
+            "metadata": {
+              "title": "Best Phones of MWC 2026 - CNET",
+              "hostname": "www.cnet.com",
+              "age": "Thursday, March 05, 2026"
+            }
+          }
+        ],
+        "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/": [
+          {
+            "source_url": "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+            "passage_text": "## Apple\n### The iPhone Fold\n\nThis is a mock-up of what a possible iPhone Fold might look like, according to CNET designer Jeffrey Hazelwood.\n\nJeffrey Hazelwood/CNET\n\nThere are conflicting rumors about the launch timeline of Apple's foldable iPhone. Some say it'll be released alongside the iPhone 18 Pro series this year, while a report from The Elec claims that the launch could be delayed to 2027. It's worth noting that rumors of Apple's book-style foldable iPhone date back to 2019.\n\nApple's first folding phone is likely to be a book-style foldable, like the Galaxy Z Fold, rather than a clamshell flip phone. It'll have a smaller outer display and a wider folding display -- like the first-gen Google Pixel Fold, per Kuo. I used the Oppo Find N in 2022, which had a similar passport-size form factor. While Oppo's foldable is better for watching videos, it didn't offer the best experience for browsing the web.\n\nOne of the best aspects of the first Pixel Fold was its passport book-style design and size.\n\nJames Martin/CNET\n\nIf Apple can find the middle ground between the Pixel Fold and Galaxy Z Fold 7, the iPhone Fold could be an enticing choice. It is rumored to include a 5.5-inch cover screen and a 7.8-inch display when unfolded.\n\nAccording to Apple analyst Ming-Chi Kuo, the first folding iPhone is expected to measure 4.5mm thick when unfolded. For context, the Samsung Galaxy Z Fold 7 measures 4.2mm, while the Huawei Mate XT (the tri-fold) is 3.6mm thick when fully opened.\n\nIn his blog, Kuo gave more clarity on the expected release date and shipment delays. He says that the development of the foldable iPhone \"is behind earlier expectations.\" The new Apple iPhone is still on track to be launched in 2026 but \"smooth shipments may not occur until 2027.\"\n\nHere's a mock-up of the Galaxy Z Fold with iPadOS overlayed on top of the screen.\n\nCelso Bulgatti/CNET\n\nA report from The Elec (via DigiTimes) says that Apple will use ultra-thin glass for its first foldable iPhone. It could have a hole-punch selfie shooter on the",
+            "metadata": {
+              "title": "Apple iPhone Fold, iPhone 18, Google Pixel 11 and Other Phones ...",
+              "hostname": "www.cnet.com",
+              "age": "Wednesday, March 18, 2026"
+            }
+          }
+        ],
+        "https://www.techradar.com/news/best-cameraphone": [
+          {
+            "source_url": "https://www.techradar.com/news/best-cameraphone",
+            "passage_text": "Right now the leader of the pack is the iPhone 17 Pro Max given its combined photo and video performance, but others like the Samsung Galaxy S26 Ultra new for 2026 are worthy contenders\n## How we test camera phones\n### Which phone has the best camera?\nThe best camera phone for most types of photos is the Apple iPhone 17 Pro (and iPhone 17 Pro Max), because it produces photos that look like real photography, with no digital tricks or touch-ups apparent.\n\nThe Samsung Galaxy S26 Ultra is the best camera phone if you need some specialized photos, like delicious food shots or astrophotography, or landscape photos with bright blue skies and the greenest grass.\n\nThe OnePlus 15 offers fantastic photos too, thought is perhaps edged out by the iphne 17 Pro in overall photography, and the S26 Ultra has it beat on flexibility. But the phne is still a worthy contender for your consideration.\n\nThe Xiaomi 14 Ultra is a phenomenal camera phone, and our UK reviewer Paul Hatton was enthused by the camera capabilities. We've left Xiaomi phones off this list for now due to their lack of availability in the US, but we are currently testing Xiaomi and Huawei phones in our New York Office and we may change our mind if these prove too good to ignore.\n\nWhether or not Xiaomi or Huawei make the best camera phone, I'd warn US buyers against importing a phone without a local warranty. Buyer beware, it may be hard to fix, and impossible to fix under its own warranty, but if you want to see what we're missing, it's been a lot of fun so far.\n\nShould you choose a phone based on the camera? Absolutely. After the messaging features, the camera is probably the feature you'll use most on your smartphone. You don't need the most expensive and expansive camera options, so it's best to consider what sort of photos you care about the most.\n\nI'd suggest you take a look at the camera samples in this article and read our reviews, we try to offer a selection of the best images the camera produced in our brief review period, and we don't rely on studio",
+            "metadata": {
+              "title": "The best camera phone 2026: class-leading phones for photos and ...",
+              "hostname": "www.techradar.com",
+              "age": "Thursday, April 02, 2026"
+            }
+          }
+        ],
+        "https://www.stuff.tv/features/best-phone/": [
+          {
+            "source_url": "https://www.stuff.tv/features/best-phone/",
+            "passage_text": "## Our&nbsp;top&nbsp;best&nbsp;phone picks for 2026&nbsp;at a glance\nBest phone overall\n\nThe **Apple iPhone 17 (buy now)** is the best smartphone you can buy. It’s a pleasing update to a winning formula that’s a much more appealing combo than spending more to go Pro.\n\nBest Android phone overall\n\nThe **Google Pixel 10 (buy now)** delivers nearly all the flagship experience of the Pro model, with a refined design, a bright 6.3in display, strong performance, and versatile cameras, all at a more accessible price.\n\nBest budget phone\n\nThe **Nothing Phone 4a (buy now)** may not have the very best cameras, or the most potent performance in its price bracket – but it’s a consummate all-rounder, with slick software and unique Glyph lights.\n\nBest flagship Android phone\n\nThe **OnePlus 15 (buy now)** offers exceptional performance and battery life, great cameras and slick software; this is the all-rounder Android phone offering a truly premium experience.\n\nBest big screen phone\n\nThe **Samsung Galaxy S26 Ultra (buy now)** is still the Android power user go-to, with an integrated S-Pen stylus, clever AI additions and a unique Privacy Display – on top of rapid performance and capable cameras.\n\nBest iPhone for power users\n\nThe&nbsp;**iPhone 17 Pro Max (buy now)**&nbsp;comes with the upgraded camera and is the ultimate powerhouse – again. The Pro lineup certainly presents a much better option for experienced users than the iPhone Air.\n\nBest camera phone\n\nThe **Xiaomi 17 Ultra (buy now)** is the ultimate camera phone, with seriously impressive sensors, Leica-backed image processing, and optional accessories that add physical controls.\n\nBest foldable phone\n\nThe **Samsung Galaxy Z Fold 7 (buy now)** is an astonishing year-on-year update that’s now top of the class for slimness and an impressive set of cameras. Plenty of power and great global availability are also in its favour.\n\nBest flip phone\n\nThe **Motorola Razr 60 Ultra (buy now)** is an effortlessly pretty clamshell with plenty of power, capable cameras and a relatively big",
+            "metadata": {
+              "title": "Best phones to buy in 2026: top smartphones tested, reviewed, and ...",
+              "hostname": "www.stuff.tv",
+              "age": "Thursday, April 02, 2026"
+            }
+          }
+        ],
+        "https://mobileklinik.ca/blog/best-phone-cameras/": [
+          {
+            "source_url": "https://mobileklinik.ca/blog/best-phone-cameras/",
+            "passage_text": "# Best Camera Phones of 2026\n## **Top Camera Phones in 2026**\n### **Best Budget Camera Phones**\n#### Standout Picks for 2026\nEach of these models delivers flagship-grade camera quality at today’s mid-range prices, making them exceptional values for everyday photographers and creators alike.\n\n* **Google Pixel 9 / 9 Pro:** Google’s refined HDR+ and Night Sight still define mobile low-light performance. You get detailed, true-to-life shots without harsh colour shifts, and Portrait mode handles mixed tones beautifully.\n\n* **iPhone 15 / 15 Plus:** The 48 MP main sensor captures sharp, vibrant images with Apple’s signature colour accuracy. Photonic Engine improvements keep faces bright even in dim lighting, while Action Mode and Cinematic Mode bring smooth, cinematic video to casual clips.\n\n* **Samsung Galaxy S24 Ultra:** A 200 MP sensor and adaptive telephoto lenses make this one of the most versatile camera systems you can get for mid-range spending. Its strong night performance, realistic tone mapping, and 5× optical zoom set it apart for travel and city photography.\n\nAll three of these phones balance ease of use and professional output, offering bright, shareable photos and high-quality video without needing manual controls\n# Best Camera Phones of 2026\n## **Top Camera Phones in 2026**\n### **Best for Low Light Photography**\n#### Our Pick: Google Pixel 10 Pro\n##### Strong Alternatives\n* **Samsung Galaxy S25 Ultra:** Its huge 200 MP sensor and adaptive f/1.7–f/2.4 aperture excel in dim environments, while the 5× telephoto lens remains surprisingly usable at night for skyline or concert shots.\n\n* **iPhone 16 Pro / Pro Max:** Apple’s latest Photonic Engine brightens shadows while preserving contrast and warmth, producing balanced indoor and night portraits with less motion blur",
+            "metadata": {
+              "title": "Best Camera Phones of 2026 - Mobile Klinik",
+              "hostname": "mobileklinik.ca",
+              "age": "Friday, March 27, 2026"
+            }
+          }
+        ]
+      }
+    },
+    "extractor_light_output": {
+      "candidate_names": [
+        "Oppo Find X9 Pro",
+        "Samsung Galaxy S26 Ultra",
+        "Apple iPhone 17",
+        "OnePlus 15",
+        "Xiaomi 15 Ultra",
+        "Samsung Galaxy S25 FE",
+        "Xiaomi 17 Ultra",
+        "Oppo X9 Pro",
+        "Vivo X300",
+        "Vivo X200 Ultra",
+        "Honor Magic 8 Pro",
+        "Huawei 80 Ultra",
+        "Xiaomi 14 Ultra",
+        "Google Pixel 10",
+        "Nothing Phone 4a",
+        "Samsung Galaxy Z Fold 7",
+        "Motorola Razr 60 Ultra",
+        "Google Pixel 9",
+        "iPhone 15",
+        "Samsung Galaxy S24 Ultra",
+        "Samsung Galaxy S25 Ultra",
+        "iPhone 16 Pro"
+      ],
+      "name_to_source_urls": {
+        "Oppo Find X9 Pro": [
+          "https://www.techadvisor.com/article/724318/best-phone.html",
+          "https://www.digitalcameraworld.com/buying-guides/best-camera-phone"
+        ],
+        "Samsung Galaxy S26 Ultra": [
+          "https://www.techadvisor.com/article/724318/best-phone.html",
+          "https://www.pcmag.com/picks/the-best-phones",
+          "https://www.techradar.com/news/best-phone",
+          "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "https://www.techradar.com/news/best-cameraphone",
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Apple iPhone 17": [
+          "https://www.techadvisor.com/article/724318/best-phone.html",
+          "https://www.techradar.com/news/best-phone",
+          "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "https://www.techradar.com/news/best-cameraphone",
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "OnePlus 15": [
+          "https://www.techadvisor.com/article/724318/best-phone.html",
+          "https://www.pcmag.com/picks/the-best-phones",
+          "https://www.techradar.com/news/best-phone",
+          "https://www.techradar.com/news/best-cameraphone",
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Xiaomi 15 Ultra": [
+          "https://www.techadvisor.com/article/724318/best-phone.html"
+        ],
+        "Samsung Galaxy S25 FE": [
+          "https://www.techadvisor.com/article/724318/best-phone.html"
+        ],
+        "Xiaomi 17 Ultra": [
+          "https://www.gsmarena.com/best_flagship_phones_buyers_guide-review-2027.php",
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/",
+          "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Oppo X9 Pro": [
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+        ],
+        "Vivo X300": [
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+        ],
+        "Vivo X200 Ultra": [
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+        ],
+        "Honor Magic 8 Pro": [
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+        ],
+        "Huawei 80 Ultra": [
+          "https://www.reddit.com/r/Smartphones/comments/1r6d3qe/best_camera_phone_in_2026/"
+        ],
+        "Xiaomi 14 Ultra": [
+          "https://www.techradar.com/news/best-cameraphone"
+        ],
+        "Google Pixel 10": [
+          "https://www.techadvisor.com/article/724318/best-phone.html",
+          "https://www.techradar.com/news/best-phone",
+          "https://www.digitalcameraworld.com/buying-guides/best-camera-phone",
+          "https://www.stuff.tv/features/best-phone/",
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ],
+        "Nothing Phone 4a": [
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Samsung Galaxy Z Fold 7": [
+          "https://www.cnet.com/tech/mobile/comparing-the-2026-phone-lineups-from-apple-samsung-google-and-everyone-else/",
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Motorola Razr 60 Ultra": [
+          "https://www.stuff.tv/features/best-phone/"
+        ],
+        "Google Pixel 9": [
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ],
+        "iPhone 15": [
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ],
+        "Samsung Galaxy S24 Ultra": [
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ],
+        "Samsung Galaxy S25 Ultra": [
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ],
+        "iPhone 16 Pro": [
+          "https://mobileklinik.ca/blog/best-phone-cameras/"
+        ]
+      },
+      "mention_counts": {
+        "Oppo Find X9 Pro": 3,
+        "Samsung Galaxy S26 Ultra": 9,
+        "Apple iPhone 17": 8,
+        "OnePlus 15": 7,
+        "Xiaomi 15 Ultra": 1,
+        "Samsung Galaxy S25 FE": 1,
+        "Xiaomi 17 Ultra": 6,
+        "Oppo X9 Pro": 1,
+        "Vivo X300": 1,
+        "Vivo X200 Ultra": 1,
+        "Honor Magic 8 Pro": 1,
+        "Huawei 80 Ultra": 1,
+        "Xiaomi 14 Ultra": 1,
+        "Google Pixel 10": 6,
+        "Nothing Phone 4a": 1,
+        "Samsung Galaxy Z Fold 7": 2,
+        "Motorola Razr 60 Ultra": 1,
+        "Google Pixel 9": 1,
+        "iPhone 15": 1,
+        "Samsung Galaxy S24 Ultra": 1,
+        "Samsung Galaxy S25 Ultra": 1,
+        "iPhone 16 Pro": 1
+      }
+    },
+    "pass_type": "first_pass",
+    "evidence_store": null,
+    "remaining_fetch_budget": 7
+  }
