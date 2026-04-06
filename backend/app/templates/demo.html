@@ -302,6 +302,21 @@
     const stagesEl = document.getElementById("stages");
     const resultEl = document.getElementById("result");
     let currentSource = null;
+    let wakeTimer = null;
+
+    function clearWakeTimer() {
+      if (wakeTimer !== null) {
+        window.clearTimeout(wakeTimer);
+        wakeTimer = null;
+      }
+    }
+
+    function startWakeNotice() {
+      clearWakeTimer();
+      wakeTimer = window.setTimeout(() => {
+        statusEl.textContent = "Waking server... Render free services can take up to a minute after inactivity.";
+      }, 7000);
+    }
 
     function resetUi(query) {
       statusEl.textContent = `Running: ${query}`;
@@ -370,11 +385,19 @@
       }
 
       resetUi(query);
+      startWakeNotice();
       const streamUrl = `/api/v1/search/stream?query=${encodeURIComponent(query)}`;
       currentSource = new EventSource(streamUrl);
 
+      currentSource.onopen = () => {
+        clearWakeTimer();
+        statusEl.textContent = `Running: ${query}`;
+      };
+
       currentSource.addEventListener("run_started", (event) => {
+        clearWakeTimer();
         const payload = JSON.parse(event.data);
+        statusEl.textContent = "Connected. Running search...";
         addStage(payload.payload.message);
       });
 
@@ -389,6 +412,7 @@
       });
 
       currentSource.addEventListener("run_completed", (event) => {
+        clearWakeTimer();
         const payload = JSON.parse(event.data);
         statusEl.textContent = "Completed";
         renderTable(payload.payload.data);
@@ -396,6 +420,7 @@
       });
 
       currentSource.addEventListener("run_failed", (event) => {
+        clearWakeTimer();
         const payload = JSON.parse(event.data);
         statusEl.textContent = "Failed";
         resultEl.innerHTML = `<div class="error">${payload.payload.error?.message || "Unknown error"}</div>`;
@@ -403,7 +428,8 @@
       });
 
       currentSource.onerror = () => {
-        statusEl.textContent = "Stream interrupted";
+        clearWakeTimer();
+        statusEl.textContent = "Still trying to connect. If the service was idle, Render may be waking it up.";
       };
     });
   </script>
