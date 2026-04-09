@@ -1,0 +1,76 @@
+.summary {
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.7) 0%, rgba(236, 253, 245, 0.7) 50%, rgba(240, 253, 250, 0.7) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(167, 243, 208, 0.5);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.06);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.entityInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.entityType {
+  font-weight: 600;
+  color: #047857;
+}
+
+.separator {
+  color: #d1d5db;
+}
+
+.stat {
+  color: #6b7280;
+}
+
+.confidence {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.confidenceValue {
+  font-weight: 600;
+  color: #059669;
+}
+
+.confidenceLabel {
+  color: #6b7280;
+}
+
+.schemaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 12px;
+  font-weight: 500;
+  color: #065f46;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(209, 250, 229, 0.8);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  background: rgba(236, 253, 245, 0.9);
+  border-color: #a7f3d0;
+}

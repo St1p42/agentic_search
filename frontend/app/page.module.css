@@ -1,0 +1,183 @@
+.app {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8faf9 0%, #f0f4f2 50%, #eef2f0 100%);
+}
+
+.layout {
+  display: flex;
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  flex-shrink: 0;
+  width: 320px;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+.loadingTable {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.loadingTableHeader {
+  display: flex;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.loadingColumn {
+  flex: 1;
+  padding: 14px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.loadingRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingRow {
+  display: flex;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.loadingRow:last-child {
+  border-bottom: none;
+}
+
+.loadingCell {
+  flex: 1;
+  height: 52px;
+  padding: 16px;
+  position: relative;
+}
+
+.loadingCell::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  height: 20px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingCell::after {
+    animation: none;
+    background: #e5e7eb;
+  }
+}
+
+/* Collapsible sections */
+.collapsibleSection {
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.collapsibleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.collapsibleHeader:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.collapsibleHeaderExpanded {
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.collapsibleTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.collapsibleCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: #047857;
+  background-color: #ecfdf5;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.collapsibleToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.collapsibleIcon {
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.collapsibleIconExpanded {
+  transform: rotate(180deg);
+}
+
+.collapsibleContent {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.collapsibleContentExpanded {
+  grid-template-rows: 1fr;
+}
+
+.collapsibleInner {
+  overflow: hidden;
+}

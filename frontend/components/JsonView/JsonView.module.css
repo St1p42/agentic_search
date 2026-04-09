@@ -1,0 +1,34 @@
+.container {
+  background-color: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.code {
+  padding: 20px 24px;
+  margin: 0;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.code::-webkit-scrollbar {
+  height: 8px;
+}
+
+.code::-webkit-scrollbar-track {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.code::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.code::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
