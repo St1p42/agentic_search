@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8000';
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   const responseText = await backendResponse.text();
 
-  return new NextResponse(responseText, {
+  return new Response(responseText, {
     status: backendResponse.status,
     headers: {
       'Content-Type': backendResponse.headers.get('content-type') || 'application/json',
