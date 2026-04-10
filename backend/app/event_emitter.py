@@ -35,20 +35,34 @@ class PipelineEventEmitter:
             )
         )
 
-    def stage_started(self, request_id: str, stage_name: StageName, message: str) -> None:
+    def stage_started(
+        self,
+        request_id: str,
+        stage_name: StageName,
+        message: str,
+        data: dict[str, object] | None = None,
+    ) -> None:
         self.emit(
             event_name=SseEventName.STAGE_STARTED,
             request_id=request_id,
             stage=stage_name,
             message=message,
+            data=data,
         )
 
-    def stage_completed(self, request_id: str, stage_name: StageName, message: str) -> None:
+    def stage_completed(
+        self,
+        request_id: str,
+        stage_name: StageName,
+        message: str,
+        data: dict[str, object] | None = None,
+    ) -> None:
         self.emit(
             event_name=SseEventName.STAGE_COMPLETED,
             request_id=request_id,
             stage=stage_name,
             message=message,
+            data=data,
         )
 
     def repair_started(

@@ -193,6 +193,13 @@
   opacity: 0.5;
 }
 
+.stageStatic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
 .iconCompleted {
   flex-shrink: 0;
   color: #668577;
@@ -257,6 +264,23 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.countValue {
+  display: block;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: #20312a;
+}
+
+.countValueText {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: #30443b;
+  word-break: break-word;
 }
 
 .countItem {

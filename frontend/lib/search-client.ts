@@ -1,5 +1,5 @@
 import { mockRows, mockSchema, mockSources, mockStages } from '@/data/mockData';
-import { InferredSchema, EntityRow, ResearchStage, Source } from '@/types';
+import { InferredSchema, EntityRow, ResearchStage, ResearchStageDetails, Source } from '@/types';
 import { mapPipelineResponse, type BackendPipelineResponse } from '@/lib/search-mappers';
 
 export type SearchStatus = 'idle' | 'connecting' | 'running' | 'completed' | 'failed';
@@ -25,6 +25,7 @@ interface BackendPipelineError {
   code: string;
   message: string;
   stage?: string | null;
+  details?: Record<string, string>;
 }
 
 interface BackendSsePayload {
@@ -39,6 +40,18 @@ interface BackendSseEvent {
   event: 'run_started' | 'stage_started' | 'stage_completed' | 'repair_started' | 'run_completed' | 'run_failed';
   payload: BackendSsePayload;
   schema_version: '1.0';
+}
+
+function toUserFacingErrorMessage(error?: BackendPipelineError | null): string {
+  if (!error) {
+    return 'Search failed';
+  }
+
+  if (error.code === 'invalid_query' && error.message) {
+    return error.message;
+  }
+
+  return 'Something went wrong while running the research pipeline. Please try again.';
 }
 
 function createRunningStages(activeIndex: number): ResearchStage[] {
@@ -85,7 +98,9 @@ function upsertStage(
   status: ResearchStage['status'],
   details?: ResearchStage['details']
 ): ResearchStage[] {
-  const normalizedMessage = message.replace(/ completed$/, '');
+  const normalizedMessage = message === 'Search completed'
+    ? 'Search Complete'
+    : message.replace(/ completed$/, '');
   const id = toStageId(stageName, message);
   let found = false;
 
@@ -122,6 +137,31 @@ function upsertStage(
       details,
     },
   ];
+}
+
+function extractStageDetails(data: Record<string, unknown>): ResearchStageDetails | undefined {
+  const details = data.details && typeof data.details === 'object'
+    ? data.details
+    : data;
+
+  if (!details || typeof details !== 'object') {
+    return undefined;
+  }
+
+  const candidate = details as Partial<ResearchStageDetails>;
+  return {
+    summary: typeof candidate.summary === 'string' ? candidate.summary : undefined,
+    metrics: Array.isArray(candidate.metrics)
+      ? candidate.metrics.filter(
+          (metric): metric is NonNullable<ResearchStageDetails['metrics']>[number] =>
+            typeof metric === 'object' &&
+            metric !== null &&
+            'key' in metric &&
+            'label' in metric &&
+            'value' in metric
+        )
+      : undefined,
+  };
 }
 
 export function createSearchApiClient(): SearchClient {
@@ -164,7 +204,13 @@ export function createSearchApiClient(): SearchClient {
         pushUpdate({
           status: 'running',
           error: undefined,
-          stages: upsertStage(currentSnapshot.stages, payload.payload.stage, payload.payload.message, 'active'),
+          stages: upsertStage(
+            currentSnapshot.stages,
+            payload.payload.stage,
+            payload.payload.message,
+            'active',
+            extractStageDetails(payload.payload.data)
+          ),
         });
       });
 
@@ -180,7 +226,13 @@ export function createSearchApiClient(): SearchClient {
         const payload = JSON.parse(event.data) as BackendSseEvent;
         pushUpdate({
           status: 'running',
-          stages: upsertStage(currentSnapshot.stages, payload.payload.stage, payload.payload.message, 'completed'),
+          stages: upsertStage(
+            currentSnapshot.stages,
+            payload.payload.stage,
+            payload.payload.message,
+            'completed',
+            extractStageDetails(payload.payload.data)
+          ),
         });
       });
 
@@ -235,7 +287,7 @@ export function createSearchApiClient(): SearchClient {
           sourcesCount: 0,
           freshness: '',
           overallConfidence: 0,
-          error: payload.payload.error?.message || 'Search failed',
+          error: toUserFacingErrorMessage(payload.payload.error),
         });
         eventSource.close();
       });

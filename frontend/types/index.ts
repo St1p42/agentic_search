@@ -39,13 +39,23 @@ export interface ResearchStage {
   status: 'pending' | 'active' | 'completed' | 'failed';
   startedAt?: Date;
   completedAt?: Date;
-  details?: {
-    inputs?: string[];
-    outputs?: string[];
-    counts?: Record<string, number>;
-    topSources?: string[];
-    warnings?: string[];
-  };
+  details?: ResearchStageDetails;
+}
+
+export interface ResearchStageDetails {
+  summary?: string;
+  metrics?: ResearchStageMetric[];
+  inputs?: string[];
+  outputs?: string[];
+  counts?: Record<string, number>;
+  topSources?: string[];
+  warnings?: string[];
+}
+
+export interface ResearchStageMetric {
+  key: string;
+  label: string;
+  value: number | string;
 }
 
 export interface SearchState {

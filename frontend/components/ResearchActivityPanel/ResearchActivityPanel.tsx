@@ -38,6 +38,25 @@ function StageDetails({ details }: { details: ResearchStage['details'] }) {
 
   return (
     <div className={styles.stageDetails}>
+      {details.summary && (
+        <p className={styles.topSources}>{details.summary}</p>
+      )}
+      {details.metrics && details.metrics.length > 0 && (
+        <div className={styles.countsGrid}>
+          {details.metrics.map((metric) => (
+            <div key={metric.key} className={styles.countItem}>
+              <span
+                className={
+                  typeof metric.value === 'number' ? styles.countValue : styles.countValueText
+                }
+              >
+                {metric.value}
+              </span>
+              <span className={styles.countLabel}>{metric.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {details.outputs && details.outputs.length > 0 && (
         <ul className={styles.detailList}>
           {details.outputs.map((output, i) => (
@@ -95,7 +114,6 @@ export function ResearchActivityPanel({
   };
 
   const activeStage = stages.find((s) => s.status === 'active');
-  const completedStages = stages.filter((s) => s.status === 'completed');
   const allCompleted = stages.every((s) => s.status === 'completed');
 
   return (
@@ -144,50 +162,64 @@ export function ResearchActivityPanel({
         </div>
       ) : (
         <>
-      {isRunning && activeStage && (
-        <div className={styles.activeStatus}>
-          <div className={styles.activeIndicator} />
-          <span className={styles.activeText}>{activeStage.name}</span>
-        </div>
-      )}
-
       <div className={styles.timeline}>
-        {completedStages.map((stage) => {
+        {stages.map((stage) => {
           const isExpanded = expandedStages.has(stage.id);
+          const isStartedSearchStage = stage.id.startsWith('run:') || stage.name === 'Started search';
+          const canExpand = Boolean(
+            !isStartedSearchStage && (
+              stage.details?.summary ||
+              (stage.details?.metrics && stage.details.metrics.length > 0) ||
+              (stage.details?.outputs && stage.details.outputs.length > 0) ||
+              (stage.details?.counts && Object.keys(stage.details.counts).length > 0) ||
+              (stage.details?.topSources && stage.details.topSources.length > 0) ||
+              (stage.details?.warnings && stage.details.warnings.length > 0)
+            )
+          );
+
+          if (stage.status === 'pending') {
+            return (
+              <div key={stage.id} className={styles.stageItem}>
+                <div className={styles.stagePending}>
+                  <StageIcon status={stage.status} />
+                  <span className={styles.stageName}>{stage.name}</span>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={stage.id} className={styles.stageItem}>
-              <button
-                className={styles.stageButton}
-                onClick={() => toggleStage(stage.id)}
-                aria-expanded={isExpanded}
-              >
-                <StageIcon status={stage.status} />
-                <span className={styles.stageName}>{stage.name}</span>
-                <svg
-                  className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ''}`}
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+              {canExpand ? (
+                <button
+                  className={styles.stageButton}
+                  onClick={() => toggleStage(stage.id)}
+                  aria-expanded={isExpanded}
                 >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
+                  <StageIcon status={stage.status} />
+                  <span className={styles.stageName}>{stage.name}</span>
+                  <svg
+                    className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ''}`}
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              ) : (
+                <div className={styles.stageStatic}>
+                  <StageIcon status={stage.status} />
+                  <span className={styles.stageName}>{stage.name}</span>
+                </div>
+              )}
               {isExpanded && <StageDetails details={stage.details} />}
             </div>
           );
         })}
-
-        {stages.filter((s) => s.status === 'pending').map((stage) => (
-          <div key={stage.id} className={styles.stageItem}>
-            <div className={styles.stagePending}>
-              <StageIcon status={stage.status} />
-              <span className={styles.stageName}>{stage.name}</span>
-            </div>
-          </div>
-        ))}
       </div>
         </>
       )}
