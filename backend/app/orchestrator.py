@@ -10,22 +10,38 @@ from typing import Callable, TypeVar
 from uuid import uuid4
 
 from backend.app.contracts import (
+    AssessingSourceQualityStageUiModel,
     AssessorPass,
+    AssessorOutput,
+    BuildingEntitiesStageUiModel,
     BraveContextOutput,
     BudgetState,
     CanonicalizerVerifierEvaluatorOutput,
     ErrorCode,
     EventPayload,
     EvidenceStore,
+    ExtractedEntity,
     ExtractorLightOutput,
     ExtractorOutput,
+    FinalizingTableStageUiModel,
+    IdentifyingCandidatesStageUiModel,
+    JinaFetcherOutput,
+    OfficialityLevel,
     PipelineError,
     PipelineRequest,
     PipelineResponse,
+    PlanningStageUiModel,
     PlannerOutput,
+    ProcessingSourcesStageUiModel,
+    RetrievingEvidenceStageUiModel,
+    RetrievingSourcesStageUiModel,
+    SearcherOutput,
     SseEvent,
     SseEventName,
+    SourceQuality,
     StageName,
+    StageUiDetails,
+    StartedSearchStageUiModel,
 )
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
@@ -101,8 +117,14 @@ class PipelineOrchestrator:
         planner_output = self._run_stage(
             request_id=request_id,
             stage_name=StageName.PLANNER,
-            message="planning query and schema",
+            message="Planning",
             action=lambda: self.planner.run(request.query),
+            completed_data_factory=lambda result: _ui_event_data(
+                PlanningStageUiModel(
+                    interpreted_query=result.normalized_query,
+                    columns_selected=len(result.schema_columns),
+                ).to_ui_details()
+            ),
         )
         if planner_output.error:
             raise ValueError(planner_output.error_message or "planner rejected query")
@@ -136,8 +158,11 @@ class PipelineOrchestrator:
             payload=EventPayload(
                 request_id=request_id,
                 stage=None,
-                message="pipeline run started",
-                data={"query": request.query},
+                message="Started search",
+                data={
+                    "query": request.query,
+                    "details": _ui_event_data(StartedSearchStageUiModel(query=request.query).to_ui_details()),
+                },
                 error=None,
             ),
         )
@@ -166,7 +191,7 @@ class PipelineOrchestrator:
                         payload=EventPayload(
                             request_id=response.request_id,
                             stage=None,
-                            message="pipeline run completed",
+                            message="Search completed",
                             data=response.model_dump(mode="json"),
                             error=None,
                         ),
@@ -176,21 +201,26 @@ class PipelineOrchestrator:
                 if isinstance(exc, ValueError):
                     error_code = ErrorCode.INVALID_QUERY
                     error_stage = StageName.PLANNER.value
+                    error_message = str(exc)
+                    error_details: dict[str, str] = {}
                 else:
                     error_code = ErrorCode.INTERNAL_ERROR
                     error_stage = None
+                    error_message = "Something went wrong while running the research pipeline."
+                    error_details = {"internal_exception": str(exc)}
                 event_queue.put(
                     SseEvent(
                         event=SseEventName.RUN_FAILED,
                         payload=EventPayload(
                             request_id=request_id,
                             stage=error_stage,
-                            message="pipeline run failed",
+                            message="Search failed",
                             data={},
                             error=PipelineError(
                                 code=error_code,
-                                message=str(exc),
+                                message=error_message,
                                 stage=error_stage,
+                                details=error_details,
                             ),
                         ),
                     )
@@ -223,11 +253,18 @@ class PipelineOrchestrator:
         state.searcher_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
-            message="running Brave search",
+            message="Retrieving sources",
             action=lambda: self.searcher.run(
                 state.planner_output,
                 followup_queries=followup_queries,
                 max_search_queries=self._remaining_search_query_budget(state),
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                RetrievingSourcesStageUiModel(
+                    queries_run=len(result.executed_queries),
+                    sources_found=len(result.raw_results),
+                    shortlisted=len(result.shortlisted_results),
+                ).to_ui_details()
             ),
         )
         state.budget.used_search_rounds += 1
@@ -236,23 +273,38 @@ class PipelineOrchestrator:
         state.brave_context_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
-            message="fetching Brave LLM Context",
+            message="Processing sources",
             action=lambda: self.brave_context_fetcher.run(state.searcher_output),
+            completed_data_factory=lambda result: _ui_event_data(
+                ProcessingSourcesStageUiModel(
+                    sources_processed=len(result.passages_by_url),
+                    relevant_details_found=sum(
+                        len([passage for passage in passages if passage.passage_text.strip()])
+                        for passages in result.passages_by_url.values()
+                    ),
+                ).to_ui_details()
+            ),
         )
         state.extractor_light_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.EXTRACTOR_LIGHT,
-            message="extracting candidate names",
+            message="Identifying candidates",
             action=lambda: self.extractor_light.run(
                 planner_output=state.planner_output,
                 brave_context_output=state.brave_context_output,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                IdentifyingCandidatesStageUiModel(
+                    preliminary_candidates=len(result.candidate_names),
+                    mentions_found=sum(result.mention_counts.values()),
+                ).to_ui_details()
             ),
         )
 
         state.assessor_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.ASSESSOR,
-            message="assessing first-pass sources",
+            message="Assessing source quality",
             action=lambda: self.assessor.run(
                 planner_output=state.planner_output,
                 searcher_output=state.searcher_output,
@@ -262,27 +314,53 @@ class PipelineOrchestrator:
                 evidence_store=state.evidence_store,
                 remaining_fetch_budget=0,
             ),
+            completed_data_factory=lambda result: _ui_event_data(
+                AssessingSourceQualityStageUiModel(
+                    sources_assessed=len(result.assessed_sources),
+                    sources_kept_for_analysis=_sources_kept_for_analysis_count(result),
+                ).to_ui_details()
+            ),
         )
-        self._build_and_merge_evidence_store(state=state, jina_fetcher_output=None)
+        self._build_and_merge_evidence_store(
+            state=state,
+            jina_fetcher_output=None,
+            completed_data_factory=lambda result: _ui_event_data(
+                RetrievingEvidenceStageUiModel(
+                    candidates_with_evidence=sum(1 for chunks in result.chunks_by_entity.values() if chunks),
+                    supporting_sources_linked=len(
+                        {str(chunk.source_url) for chunks in result.chunks_by_entity.values() for chunk in chunks}
+                    ),
+                ).to_ui_details()
+            ),
+        )
 
         state.extractor_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.EXTRACTOR,
-            message="extracting structured entities",
+            message="Building entities",
             action=lambda: self.extractor.run(
                 planner_output=state.planner_output,
                 extractor_light_output=state.extractor_light_output,
                 evidence_store=state.evidence_store,
                 prior_output=state.extractor_output,
             ),
+            completed_data_factory=lambda result: _ui_event_data(
+                BuildingEntitiesStageUiModel(
+                    profiles_built=len(result.entities),
+                    missing_fields=_missing_fields_count(result.entities),
+                ).to_ui_details()
+            ),
         )
         state.finalizer_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.FINALIZER,
-            message="shaping final rows",
+            message="Finalizing table",
             action=lambda: self.finalizer.run(
                 planner_output=state.planner_output,
                 extractor_output=state.extractor_output,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                FinalizingTableStageUiModel(rows_ready=len(result.final_rows)).to_ui_details()
             ),
         )
 
@@ -290,7 +368,8 @@ class PipelineOrchestrator:
         self,
         state: PipelineState,
         jina_fetcher_output: JinaFetcherOutput | None,
-        message: str = "building entity evidence store",
+        message: str = "Retrieving evidence",
+        completed_data_factory: Callable[[EvidenceStore], dict[str, object]] | None = None,
     ) -> None:
         state.evidence_store = self._run_stage(
             request_id=state.request_id,
@@ -303,6 +382,7 @@ class PipelineOrchestrator:
                 jina_fetcher_output=jina_fetcher_output,
                 existing_store=state.evidence_store,
             ),
+            completed_data_factory=completed_data_factory,
         )
 
     def _run_stage(
@@ -311,6 +391,7 @@ class PipelineOrchestrator:
         stage_name: StageName,
         message: str,
         action: Callable[[], StageResultT],
+        completed_data_factory: Callable[[StageResultT], dict[str, object]] | None = None,
     ) -> StageResultT:
         self.event_emitter.stage_started(
             request_id=request_id,
@@ -322,5 +403,27 @@ class PipelineOrchestrator:
             request_id=request_id,
             stage_name=stage_name,
             message=f"{message} completed",
+            data=completed_data_factory(result) if completed_data_factory else {},
         )
         return result
+
+
+def _ui_event_data(details: StageUiDetails) -> dict[str, object]:
+    return details.model_dump(mode="json")
+
+
+def _sources_kept_for_analysis_count(assessor_output: AssessorOutput) -> int:
+    return sum(
+        1
+        for source in assessor_output.assessed_sources
+        if source.source_quality != SourceQuality.LOW and source.officiality != OfficialityLevel.LOW_QUALITY
+    )
+
+
+def _missing_fields_count(entities: list[ExtractedEntity]) -> int:
+    return sum(
+        1
+        for entity in entities
+        for field in entity.fields.values()
+        if field.value is None
+    )

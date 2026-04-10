@@ -1,0 +1,83 @@
+.summary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(244, 248, 246, 0.58));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  box-shadow:
+    0 16px 34px rgba(31, 48, 39, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.entityInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.entityType {
+  font-weight: 600;
+  color: #2a5849;
+}
+
+.separator {
+  color: #b8c2bd;
+}
+
+.stat {
+  color: #5e6c65;
+}
+
+.confidence {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.confidenceValue {
+  font-weight: 600;
+  color: #2c5f50;
+}
+
+.confidenceLabel {
+  color: #5e6c65;
+}
+
+.schemaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 12px;
+  font-weight: 500;
+  color: #3a554a;
+  background: rgba(250, 252, 251, 0.82);
+  border: 1px solid rgba(212, 222, 216, 0.82);
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+
+@media (max-width: 720px) {
+  .summaryTop {
+    margin-bottom: 14px;
+  }
+
+  .entityInfo {
+    gap: 6px;
+    font-size: 13px;
+  }
+}

@@ -124,7 +124,7 @@ EXAMPLE_SSE_LIFECYCLE = [
         payload=EventPayload(
             request_id="seed-request-001",
             stage=None,
-            message="pipeline run started",
+            message="Started search",
             data={"query": "AI startups in healthcare"},
         ),
     ),
@@ -133,7 +133,7 @@ EXAMPLE_SSE_LIFECYCLE = [
         payload=EventPayload(
             request_id="seed-request-001",
             stage=None,
-            message="pipeline run completed",
+            message="Search completed",
             data=EXAMPLE_FINAL_RESPONSE.model_dump(mode="json"),
         ),
     ),

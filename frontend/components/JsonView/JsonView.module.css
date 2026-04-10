@@ -1,0 +1,85 @@
+.container {
+  position: relative;
+  background-color: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.code {
+  padding: 20px 24px;
+  margin: 0;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.codeLoading {
+  opacity: 0.42;
+  filter: saturate(0.8);
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.36), rgba(15, 23, 42, 0.18));
+  backdrop-filter: blur(2px);
+}
+
+.loadingLine,
+.loadingLineShort {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.35) 25%, rgba(226, 232, 240, 0.7) 50%, rgba(148, 163, 184, 0.35) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.loadingLine {
+  width: 220px;
+}
+
+.loadingLineShort {
+  width: 140px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingLine,
+  .loadingLineShort {
+    animation: none;
+  }
+}
+
+.code::-webkit-scrollbar {
+  height: 8px;
+}
+
+.code::-webkit-scrollbar-track {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.code::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.code::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
