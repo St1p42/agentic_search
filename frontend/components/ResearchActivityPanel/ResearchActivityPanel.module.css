@@ -1,16 +1,22 @@
 .panel {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(244, 248, 246, 0.54));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 18px;
   padding: 20px;
   height: fit-content;
   position: sticky;
   top: 140px;
+  overflow: hidden;
   box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 16px 32px rgba(27, 43, 36, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: width 0.25s ease, padding 0.25s ease, box-shadow 0.25s ease;
+}
+
+.panelCollapsed {
+  padding: 14px 10px 16px;
 }
 
 .header {
@@ -20,6 +26,17 @@
   margin-bottom: 16px;
 }
 
+.panelCollapsed .header {
+  margin-bottom: 10px;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .title {
   font-size: 14px;
   font-weight: 600;
@@ -27,15 +44,53 @@
   margin: 0;
 }
 
+.panelCollapsed .title {
+  display: none;
+}
+
 .completedBadge {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #065f46;
-  background-color: #d1fae5;
-  padding: 3px 8px;
-  border-radius: 4px;
+  color: #2b5849;
+  background-color: rgba(235, 245, 240, 0.92);
+  border: 1px solid rgba(193, 211, 201, 0.82);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.collapseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid rgba(215, 224, 219, 0.84);
+  background: rgba(251, 252, 251, 0.74);
+  color: #65736d;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.panelCollapsed .collapseButton {
+  width: 24px;
+  height: 24px;
+}
+
+.collapseButton:hover {
+  background: rgba(244, 247, 245, 0.96);
+  color: #34423c;
+}
+
+.collapseIcon {
+  transition: transform 0.2s ease;
+}
+
+.collapseIconCollapsed {
+  transform: rotate(180deg);
 }
 
 .activeStatus {
@@ -43,16 +98,16 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  background: linear-gradient(135deg, rgba(240, 253, 244, 0.8) 0%, rgba(236, 253, 245, 0.8) 100%);
-  border: 1px solid rgba(167, 243, 208, 0.6);
-  border-radius: 10px;
+  background: rgba(245, 248, 246, 0.82);
+  border: 1px solid rgba(210, 220, 214, 0.7);
+  border-radius: 14px;
   margin-bottom: 16px;
 }
 
 .activeIndicator {
   width: 8px;
   height: 8px;
-  background-color: #10b981;
+  background-color: #6d8e80;
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -70,12 +125,36 @@
   .activeIndicator {
     animation: none;
   }
+
+  .activeText,
+  .iconActive {
+    animation: none;
+  }
 }
 
 .activeText {
   font-size: 13px;
   font-weight: 500;
-  color: #047857;
+  color: rgba(45, 72, 63, 0.72);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.collapsedSummary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-top: 6px;
+}
+
+.collapsedLabel {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71807a;
+  text-align: center;
 }
 
 .timeline {
@@ -103,7 +182,7 @@
 }
 
 .stageButton:hover {
-  background-color: rgba(16, 185, 129, 0.06);
+  background-color: rgba(228, 235, 231, 0.62);
 }
 
 .stagePending {
@@ -116,14 +195,14 @@
 
 .iconCompleted {
   flex-shrink: 0;
-  color: #10b981;
+  color: #668577;
 }
 
 .iconActive {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  border: 2px solid #10b981;
+  border: 2px solid #6d8e80;
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -137,14 +216,14 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  border: 2px solid #d1d5db;
+  border: 2px solid #c8d0cc;
   border-radius: 50%;
 }
 
 .stageName {
   flex: 1;
   font-size: 13px;
-  color: #374151;
+  color: #405149;
 }
 
 .chevron {
@@ -185,8 +264,8 @@
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(229, 231, 235, 0.6);
+  background: rgba(252, 253, 252, 0.68);
+  border: 1px solid rgba(217, 226, 221, 0.76);
   border-radius: 8px;
 }
 
@@ -241,6 +320,10 @@
     z-index: 50;
     transform: translateY(100%);
     transition: transform 0.2s ease;
+  }
+
+  .panelCollapsed {
+    padding: 20px;
   }
 
   .panel.open {

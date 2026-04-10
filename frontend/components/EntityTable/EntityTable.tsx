@@ -6,6 +6,7 @@ import styles from './EntityTable.module.css';
 interface EntityTableProps {
   schema: InferredSchema;
   rows: EntityRow[];
+  showEvidence: boolean;
   onCellClick: (row: EntityRow, columnKey: string, field: FieldValue) => void;
 }
 
@@ -19,12 +20,20 @@ function ConfidenceDot({ confidence }: { confidence: number }) {
   return <span className={`${styles.confidenceDot} ${colorClass}`} />;
 }
 
-function CellContent({ field, columnKey }: { field: FieldValue; columnKey: string }) {
+function CellContent({
+  field,
+  columnType,
+  showEvidence,
+}: {
+  field: FieldValue;
+  columnType: InferredSchema['columns'][number]['type'];
+  showEvidence: boolean;
+}) {
   if (!field.value) {
     return <span className={styles.nullValue}>—</span>;
   }
 
-  const isUrl = columnKey === 'website';
+  const isUrl = columnType === 'url';
 
   return (
     <span className={styles.cellContent}>
@@ -41,15 +50,17 @@ function CellContent({ field, columnKey }: { field: FieldValue; columnKey: strin
       ) : (
         <span className={styles.cellText}>{field.value}</span>
       )}
-      <span className={styles.evidenceBadge}>
-        <ConfidenceDot confidence={field.confidence} />
-        <span className={styles.evidenceCount}>{field.evidence.length}</span>
-      </span>
+      {showEvidence && (
+        <span className={styles.evidenceBadge}>
+          <ConfidenceDot confidence={field.confidence} />
+          <span className={styles.evidenceCount}>{field.evidence.length}</span>
+        </span>
+      )}
     </span>
   );
 }
 
-export function EntityTable({ schema, rows, onCellClick }: EntityTableProps) {
+export function EntityTable({ schema, rows, showEvidence, onCellClick }: EntityTableProps) {
   return (
     <div className={styles.tableWrapper}>
       <div className={styles.tableScroll}>
@@ -76,7 +87,7 @@ export function EntityTable({ schema, rows, onCellClick }: EntityTableProps) {
                     className={styles.td}
                     onClick={() => onCellClick(row, col.key, field)}
                   >
-                    <CellContent field={field} columnKey={col.key} />
+                    <CellContent field={field} columnType={col.type} showEvidence={showEvidence} />
                   </td>
                 );
               })}

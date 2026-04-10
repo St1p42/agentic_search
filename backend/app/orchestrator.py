@@ -101,7 +101,7 @@ class PipelineOrchestrator:
         planner_output = self._run_stage(
             request_id=request_id,
             stage_name=StageName.PLANNER,
-            message="planning query and schema",
+            message="Planning",
             action=lambda: self.planner.run(request.query),
         )
         if planner_output.error:
@@ -136,7 +136,7 @@ class PipelineOrchestrator:
             payload=EventPayload(
                 request_id=request_id,
                 stage=None,
-                message="pipeline run started",
+                message="Started search",
                 data={"query": request.query},
                 error=None,
             ),
@@ -166,7 +166,7 @@ class PipelineOrchestrator:
                         payload=EventPayload(
                             request_id=response.request_id,
                             stage=None,
-                            message="pipeline run completed",
+                            message="Search completed",
                             data=response.model_dump(mode="json"),
                             error=None,
                         ),
@@ -185,7 +185,7 @@ class PipelineOrchestrator:
                         payload=EventPayload(
                             request_id=request_id,
                             stage=error_stage,
-                            message="pipeline run failed",
+                            message="Search failed",
                             data={},
                             error=PipelineError(
                                 code=error_code,
@@ -223,7 +223,7 @@ class PipelineOrchestrator:
         state.searcher_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
-            message="running Brave search",
+            message="Retrieving sources",
             action=lambda: self.searcher.run(
                 state.planner_output,
                 followup_queries=followup_queries,
@@ -236,13 +236,13 @@ class PipelineOrchestrator:
         state.brave_context_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
-            message="fetching Brave LLM Context",
+            message="Processing sources",
             action=lambda: self.brave_context_fetcher.run(state.searcher_output),
         )
         state.extractor_light_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.EXTRACTOR_LIGHT,
-            message="extracting candidate names",
+            message="Identifying candidates",
             action=lambda: self.extractor_light.run(
                 planner_output=state.planner_output,
                 brave_context_output=state.brave_context_output,
@@ -252,7 +252,7 @@ class PipelineOrchestrator:
         state.assessor_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.ASSESSOR,
-            message="assessing first-pass sources",
+            message="Assessing source quality",
             action=lambda: self.assessor.run(
                 planner_output=state.planner_output,
                 searcher_output=state.searcher_output,
@@ -268,7 +268,7 @@ class PipelineOrchestrator:
         state.extractor_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.EXTRACTOR,
-            message="extracting structured entities",
+            message="Building entities",
             action=lambda: self.extractor.run(
                 planner_output=state.planner_output,
                 extractor_light_output=state.extractor_light_output,
@@ -279,7 +279,7 @@ class PipelineOrchestrator:
         state.finalizer_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.FINALIZER,
-            message="shaping final rows",
+            message="Finalizing table",
             action=lambda: self.finalizer.run(
                 planner_output=state.planner_output,
                 extractor_output=state.extractor_output,
@@ -290,7 +290,7 @@ class PipelineOrchestrator:
         self,
         state: PipelineState,
         jina_fetcher_output: JinaFetcherOutput | None,
-        message: str = "building entity evidence store",
+        message: str = "Retrieving evidence",
     ) -> None:
         state.evidence_store = self._run_stage(
             request_id=state.request_id,

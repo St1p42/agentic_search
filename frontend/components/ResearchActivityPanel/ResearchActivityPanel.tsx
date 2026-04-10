@@ -7,6 +7,8 @@ import styles from './ResearchActivityPanel.module.css';
 interface ResearchActivityPanelProps {
   stages: ResearchStage[];
   isRunning: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 function StageIcon({ status }: { status: ResearchStage['status'] }) {
@@ -72,7 +74,12 @@ function StageDetails({ details }: { details: ResearchStage['details'] }) {
   );
 }
 
-export function ResearchActivityPanel({ stages, isRunning }: ResearchActivityPanelProps) {
+export function ResearchActivityPanel({
+  stages,
+  isRunning,
+  collapsed = false,
+  onToggleCollapsed,
+}: ResearchActivityPanelProps) {
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
 
   const toggleStage = (stageId: string) => {
@@ -92,14 +99,51 @@ export function ResearchActivityPanel({ stages, isRunning }: ResearchActivityPan
   const allCompleted = stages.every((s) => s.status === 'completed');
 
   return (
-    <aside className={styles.panel}>
+    <aside className={`${styles.panel} ${collapsed ? styles.panelCollapsed : ''}`}>
       <header className={styles.header}>
-        <h2 className={styles.title}>Research activity</h2>
-        {allCompleted && (
-          <span className={styles.completedBadge}>Complete</span>
+        <div className={styles.headerMeta}>
+          <h2 className={styles.title}>Research activity</h2>
+          {allCompleted && !collapsed && (
+            <span className={styles.completedBadge}>Complete</span>
+          )}
+        </div>
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            className={styles.collapseButton}
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand research activity' : 'Collapse research activity'}
+            title={collapsed ? 'Expand research activity' : 'Collapse research activity'}
+          >
+            <svg
+              className={`${styles.collapseIcon} ${collapsed ? styles.collapseIconCollapsed : ''}`}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
         )}
       </header>
 
+      {collapsed ? (
+        <div className={styles.collapsedSummary} title="Research activity">
+          {isRunning && activeStage ? (
+            <div className={styles.activeIndicator} />
+          ) : (
+            <svg className={styles.iconCompleted} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          <span className={styles.collapsedLabel}>Activity</span>
+        </div>
+      ) : (
+        <>
       {isRunning && activeStage && (
         <div className={styles.activeStatus}>
           <div className={styles.activeIndicator} />
@@ -145,6 +189,8 @@ export function ResearchActivityPanel({ stages, isRunning }: ResearchActivityPan
           </div>
         ))}
       </div>
+        </>
+      )}
     </aside>
   );
 }

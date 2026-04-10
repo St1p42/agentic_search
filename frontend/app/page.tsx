@@ -10,118 +10,75 @@ import { SupportingSources } from '@/components/SupportingSources/SupportingSour
 import { JsonView } from '@/components/JsonView/JsonView';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { MobileActivityDrawer } from '@/components/MobileActivityDrawer/MobileActivityDrawer';
-import { mockSchema, mockRows, mockStages, mockSources } from '@/data/mockData';
-import { EntityRow, FieldValue, SearchState, InferredSchema, ResearchStage } from '@/types';
+import { useSearchSession } from '@/hooks/use-search-session';
+import { EntityRow, FieldValue } from '@/types';
 import styles from './page.module.css';
 
-const INITIAL_STATE: SearchState = {
-  status: 'idle',
-  query: '',
-  schema: null,
-  rows: [],
-  stages: [],
-  sourcesCount: 0,
-  freshness: '',
-  overallConfidence: 0,
-};
-
 export default function Home() {
-  const [searchState, setSearchState] = useState<SearchState>(INITIAL_STATE);
+  const { searchState, sources, activityCollapsed, setActivityCollapsed, runSearch, resetSearch } = useSearchSession();
+  const [searchInput, setSearchInput] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'json'>('table');
-  const [showSources, setShowSources] = useState(true);
+  const [showEvidence, setShowEvidence] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<string>('');
   const [selectedField, setSelectedField] = useState<FieldValue | null>(null);
   const [tableExpanded, setTableExpanded] = useState(true);
-  const [sourcesExpanded, setSourcesExpanded] = useState(true);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
-  const handleSearch = useCallback((query: string) => {
-    // Simulate connecting state
-    setSearchState({
-      ...INITIAL_STATE,
-      status: 'connecting',
-      query,
-    });
-
-    // Simulate the research pipeline
-    setTimeout(() => {
-      setSearchState({
-        status: 'running',
-        query,
-        schema: mockSchema,
-        rows: [],
-        stages: mockStages.map((stage, index) => ({
-          ...stage,
-          status: index === 0 ? 'active' : 'pending',
-        })) as ResearchStage[],
-        sourcesCount: 0,
-        freshness: '',
-        overallConfidence: 0,
-      });
-
-      // Simulate stages completing over time
-      let currentStage = 0;
-      const stageInterval = setInterval(() => {
-        currentStage++;
-        if (currentStage >= mockStages.length) {
-          clearInterval(stageInterval);
-          // Final completed state
-          setSearchState({
-            status: 'completed',
-            query,
-            schema: mockSchema,
-            rows: mockRows,
-            stages: mockStages,
-            sourcesCount: 23,
-            freshness: 'Updated today',
-            overallConfidence: 0.93,
-          });
-        } else {
-          setSearchState((prev) => ({
-            ...prev,
-            stages: mockStages.map((stage, index) => ({
-              ...stage,
-              status: index < currentStage ? 'completed' : index === currentStage ? 'active' : 'pending',
-            })) as ResearchStage[],
-          }));
-        }
-      }, 800);
-    }, 1000);
-  }, []);
+  const handleReset = useCallback(() => {
+    resetSearch();
+    setSearchInput('');
+    setViewMode('table');
+    setShowEvidence(true);
+    setDrawerOpen(false);
+    setSelectedColumn('');
+    setSelectedField(null);
+    setTableExpanded(true);
+    setSourcesExpanded(false);
+    setActivityCollapsed(false);
+  }, [resetSearch, setActivityCollapsed]);
 
   const handleCellClick = useCallback((row: EntityRow, columnKey: string, field: FieldValue) => {
-    const column = mockSchema.columns.find((c) => c.key === columnKey);
+    const column = searchState.schema?.columns.find((c) => c.key === columnKey);
     setSelectedColumn(column?.label || columnKey);
     setSelectedField(field);
     setDrawerOpen(true);
-  }, []);
+  }, [searchState.schema]);
 
   const isRunning = searchState.status === 'running';
-  const hasResults = searchState.status === 'completed' && searchState.rows.length > 0;
+  const isCompleted = searchState.status === 'completed';
+  const hasResults = isCompleted && searchState.rows.length > 0;
+  const hasNoResults = isCompleted && searchState.rows.length === 0;
 
   return (
     <div className={styles.app}>
       <SearchHeader
-        initialQuery={searchState.query}
-        onSearch={handleSearch}
+        query={searchInput}
+        onQueryChange={setSearchInput}
+        onSearch={runSearch}
+        onReset={searchState.status !== 'idle' ? handleReset : undefined}
         isLoading={searchState.status === 'connecting' || isRunning}
-        resultsCount={hasResults ? searchState.rows.length : undefined}
-        entityType={hasResults ? searchState.schema?.entityType : undefined}
+        resultsCount={isCompleted ? searchState.rows.length : undefined}
+        entityType={isCompleted ? searchState.schema?.entityType : undefined}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showSources={showSources}
-        onShowSourcesChange={setShowSources}
+        showEvidence={showEvidence}
+        onShowEvidenceChange={setShowEvidence}
       />
 
       <div className={styles.layout}>
         <main className={styles.main}>
-          {searchState.status === 'idle' && <EmptyState type="idle" />}
+          {searchState.status === 'idle' && (
+            <EmptyState type="idle" onExampleClick={setSearchInput} />
+          )}
 
           {searchState.status === 'connecting' && <EmptyState type="connecting" />}
 
           {searchState.status === 'failed' && (
             <EmptyState type="error" errorMessage={searchState.error} />
           )}
+
+          {hasNoResults && <EmptyState type="no-results" />}
 
           {(isRunning || hasResults) && searchState.schema && (
             <>
@@ -166,6 +123,7 @@ export default function Home() {
                           <EntityTable
                             schema={searchState.schema}
                             rows={searchState.rows}
+                            showEvidence={showEvidence}
                             onCellClick={handleCellClick}
                           />
                         </div>
@@ -192,7 +150,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {hasResults && showSources && (
+                  {hasResults && (
                     <div className={styles.collapsibleSection} style={{ marginTop: '24px' }}>
                       <button
                         className={`${styles.collapsibleHeader} ${sourcesExpanded ? styles.collapsibleHeaderExpanded : ''}`}
@@ -201,7 +159,7 @@ export default function Home() {
                       >
                         <span className={styles.collapsibleTitle}>
                           Supporting Sources
-                          <span className={styles.collapsibleCount}>{mockSources.length}</span>
+                          <span className={styles.collapsibleCount}>{sources.length}</span>
                         </span>
                         <span className={styles.collapsibleToggle}>
                           {sourcesExpanded ? 'Collapse' : 'Expand'}
@@ -218,24 +176,30 @@ export default function Home() {
                       </button>
                       <div className={`${styles.collapsibleContent} ${sourcesExpanded ? styles.collapsibleContentExpanded : ''}`}>
                         <div className={styles.collapsibleInner}>
-                          <SupportingSources sources={mockSources} />
+                          <SupportingSources sources={sources} />
                         </div>
                       </div>
                     </div>
                   )}
                 </>
               ) : (
-                hasResults && <JsonView schema={searchState.schema} rows={searchState.rows} />
+                <JsonView
+                  schema={searchState.schema}
+                  rows={searchState.rows}
+                  isLoading={isRunning}
+                />
               )}
             </>
           )}
         </main>
 
         {(isRunning || hasResults) && (
-          <aside className={styles.sidebar}>
+          <aside className={`${styles.sidebar} ${activityCollapsed ? styles.sidebarCollapsed : ''}`}>
             <ResearchActivityPanel
               stages={searchState.stages}
               isRunning={isRunning}
+              collapsed={activityCollapsed}
+              onToggleCollapsed={() => setActivityCollapsed((prev) => !prev)}
             />
           </aside>
         )}

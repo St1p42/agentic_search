@@ -1,12 +1,14 @@
 .summary {
-  background: linear-gradient(135deg, rgba(240, 253, 244, 0.7) 0%, rgba(236, 253, 245, 0.7) 50%, rgba(240, 253, 250, 0.7) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(167, 243, 208, 0.5);
-  border-radius: 14px;
-  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(244, 248, 246, 0.58));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  padding: 18px 22px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.06);
+  box-shadow:
+    0 16px 34px rgba(31, 48, 39, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .summaryTop {
@@ -27,15 +29,15 @@
 
 .entityType {
   font-weight: 600;
-  color: #047857;
+  color: #2a5849;
 }
 
 .separator {
-  color: #d1d5db;
+  color: #b8c2bd;
 }
 
 .stat {
-  color: #6b7280;
+  color: #5e6c65;
 }
 
 .confidence {
@@ -46,11 +48,11 @@
 
 .confidenceValue {
   font-weight: 600;
-  color: #059669;
+  color: #2c5f50;
 }
 
 .confidenceLabel {
-  color: #6b7280;
+  color: #5e6c65;
 }
 
 .schemaChips {
@@ -62,15 +64,20 @@
 .chip {
   font-size: 12px;
   font-weight: 500;
-  color: #065f46;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(209, 250, 229, 0.8);
-  padding: 4px 10px;
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  color: #3a554a;
+  background: rgba(250, 252, 251, 0.82);
+  border: 1px solid rgba(212, 222, 216, 0.82);
+  padding: 5px 10px;
+  border-radius: 999px;
 }
 
-.chip:hover {
-  background: rgba(236, 253, 245, 0.9);
-  border-color: #a7f3d0;
+@media (max-width: 720px) {
+  .summaryTop {
+    margin-bottom: 14px;
+  }
+
+  .entityInfo {
+    gap: 6px;
+    font-size: 13px;
+  }
 }

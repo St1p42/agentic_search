@@ -4,21 +4,37 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 80px 40px;
-  max-width: 520px;
+  padding: 56px 40px;
+  max-width: 680px;
   margin: 0 auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(246, 249, 247, 0.6));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 24px;
+  box-shadow:
+    0 22px 44px rgba(28, 42, 35, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .icon {
-  color: #9ca3af;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  color: #5c6d66;
   margin-bottom: 24px;
+  background: rgba(242, 246, 244, 0.88);
+  border: 1px solid rgba(214, 224, 218, 0.92);
+  border-radius: 22px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #d1fae5;
-  border-top-color: #10b981;
+  border: 3px solid rgba(197, 214, 206, 0.75);
+  border-top-color: #6b8f80;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 24px;
@@ -38,22 +54,31 @@
 }
 
 .errorIcon {
-  color: #dc2626;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  color: #c2414a;
   margin-bottom: 24px;
+  background: rgba(255, 243, 242, 0.92);
+  border: 1px solid rgba(249, 203, 206, 0.9);
+  border-radius: 22px;
 }
 
 .title {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
-  color: #111827;
-  margin: 0 0 12px 0;
+  letter-spacing: -0.03em;
+  color: #16211d;
+  margin: 0 0 14px 0;
 }
 
 .description {
   font-size: 15px;
-  color: #6b7280;
+  color: #5c6a64;
   line-height: 1.6;
-  margin: 0 0 28px 0;
+  margin: 0 0 30px 0;
+  max-width: 520px;
 }
 
 .examples {
@@ -66,21 +91,38 @@
 
 .examplesLabel {
   font-size: 13px;
-  color: #9ca3af;
+  color: #83918c;
 }
 
 .example {
   font-size: 13px;
-  color: #065f46;
-  background-color: #ecfdf5;
-  border: 1px solid #d1fae5;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: default;
+  color: #285647;
+  background: rgba(242, 247, 244, 0.92);
+  border: 1px solid rgba(205, 218, 211, 0.86);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
   transition: all 0.1s ease;
 }
 
 .example:hover {
-  background-color: #d1fae5;
-  border-color: #a7f3d0;
+  background: rgba(233, 241, 236, 0.96);
+  border-color: rgba(175, 198, 187, 0.92);
+}
+
+.example:focus-visible {
+  outline: 2px solid rgba(110, 141, 128, 0.45);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .container {
+    padding: 40px 24px;
+    border-radius: 20px;
+  }
+
+  .title {
+    font-size: 21px;
+  }
 }

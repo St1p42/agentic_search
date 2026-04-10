@@ -1,7 +1,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.3);
+  background: rgba(24, 33, 28, 0.28);
+  backdrop-filter: blur(6px);
   z-index: 200;
   animation: fadeIn 0.15s ease;
 }
@@ -22,8 +23,11 @@
   width: 420px;
   max-width: 100%;
   height: 100vh;
-  background-color: #ffffff;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(180deg, rgba(248, 250, 249, 0.96), rgba(240, 244, 241, 0.93));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: -18px 0 40px rgba(22, 30, 26, 0.12);
   z-index: 201;
   display: flex;
   flex-direction: column;
@@ -48,7 +52,7 @@
 
 .header {
   padding: 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(212, 221, 216, 0.7);
 }
 
 .headerTop {
@@ -63,7 +67,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
+  color: #68756f;
   margin: 0;
 }
 
@@ -75,23 +79,24 @@
   height: 32px;
   border: none;
   background-color: transparent;
-  color: #6b7280;
+  color: #66746e;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .closeButton:hover {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: rgba(232, 237, 234, 0.92);
+  color: #18221e;
 }
 
 .value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  color: #111827;
+  color: #18221e;
   margin-bottom: 16px;
   line-height: 1.4;
+  letter-spacing: -0.02em;
 }
 
 .confidenceBar {
@@ -102,25 +107,25 @@
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #6b7280;
+  color: #63706b;
   margin-bottom: 6px;
 }
 
 .confidenceValue {
   font-weight: 600;
-  color: #059669;
+  color: #315d50;
 }
 
 .confidenceTrack {
   height: 6px;
-  background-color: #e5e7eb;
+  background-color: rgba(213, 220, 216, 0.84);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .confidenceFill {
   height: 100%;
-  background-color: #10b981;
+  background: linear-gradient(90deg, #6d8e80, #88a79a);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -137,7 +142,7 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #18221e;
   margin: 0 0 16px 0;
 }
 
@@ -149,9 +154,9 @@
   height: 20px;
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
-  background-color: #f3f4f6;
-  border-radius: 10px;
+  color: #5f6c67;
+  background-color: rgba(234, 238, 236, 0.95);
+  border-radius: 999px;
   padding: 0 6px;
 }
 
@@ -162,10 +167,13 @@
 }
 
 .evidenceCard {
-  background-color: #fafafa;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(245, 248, 246, 0.7));
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 14px;
   padding: 16px;
+  box-shadow:
+    0 12px 24px rgba(29, 41, 35, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .evidenceHeader {
@@ -181,13 +189,13 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #2563eb;
+  color: #315c72;
   text-decoration: none;
   transition: color 0.1s ease;
 }
 
 .evidenceLink:hover {
-  color: #1d4ed8;
+  color: #1f4254;
 }
 
 .evidenceDomain {
@@ -210,55 +218,55 @@
 }
 
 .badge_official {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: rgba(226, 240, 232, 0.96);
+  color: #295648;
 }
 
 .badge_third-party {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: rgba(244, 236, 215, 0.96);
+  color: #7a5630;
 }
 
 .badge_article {
-  background-color: #ede9fe;
-  color: #5b21b6;
+  background-color: rgba(231, 233, 243, 0.96);
+  color: #525887;
 }
 
 .badge_profile {
-  background-color: #e0e7ff;
-  color: #3730a3;
+  background-color: rgba(222, 235, 242, 0.96);
+  color: #315f71;
 }
 
 .badge_high {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: rgba(232, 242, 236, 0.96);
+  color: #30594b;
 }
 
 .badge_medium {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: rgba(243, 237, 221, 0.96);
+  color: #795833;
 }
 
 .badge_low {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: rgba(250, 231, 230, 0.96);
+  color: #9b4044;
 }
 
 .evidenceTitle {
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: #34433d;
   margin-bottom: 10px;
   line-height: 1.4;
 }
 
 .evidenceSnippet {
   font-size: 13px;
-  color: #6b7280;
+  color: #5f6c67;
   line-height: 1.6;
   margin: 0;
   padding-left: 12px;
-  border-left: 2px solid #e5e7eb;
+  border-left: 2px solid rgba(193, 206, 199, 0.8);
   font-style: italic;
 }
 

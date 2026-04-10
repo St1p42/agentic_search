@@ -1,6 +1,9 @@
 .app {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f8faf9 0%, #f0f4f2 50%, #eef2f0 100%);
+  background:
+    radial-gradient(circle at top left, rgba(214, 232, 223, 0.8), transparent 32%),
+    radial-gradient(circle at top right, rgba(218, 229, 236, 0.72), transparent 28%),
+    linear-gradient(180deg, #f3f6f4 0%, #edf2ef 52%, #e7eeea 100%);
 }
 
 .layout {
@@ -8,7 +11,7 @@
   gap: 32px;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 28px 24px 80px;
 }
 
 .main {
@@ -18,7 +21,12 @@
 
 .sidebar {
   flex-shrink: 0;
-  width: 320px;
+  width: 260px;
+  transition: width 0.25s ease;
+}
+
+.sidebarCollapsed {
+  width: 76px;
 }
 
 @media (max-width: 1024px) {
@@ -28,36 +36,42 @@
 }
 
 .loadingTable {
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
   overflow: hidden;
+  box-shadow:
+    0 18px 38px rgba(29, 48, 39, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .loadingTableHeader {
   display: flex;
-  background-color: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(180deg, rgba(247, 250, 248, 0.92), rgba(241, 246, 243, 0.88));
+  border-bottom: 1px solid rgba(193, 208, 200, 0.5);
 }
 
 .loadingColumn {
   flex: 1;
-  padding: 14px 16px;
+  padding: 16px 18px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
+  color: #66756d;
 }
 
 .loadingRows {
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .loadingRow {
   display: flex;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid rgba(211, 220, 214, 0.5);
 }
 
 .loadingRow:last-child {
@@ -75,12 +89,12 @@
   content: '';
   position: absolute;
   top: 16px;
-  left: 16px;
-  right: 16px;
-  height: 20px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  left: 18px;
+  right: 18px;
+  height: 18px;
+  background: linear-gradient(90deg, rgba(229, 236, 232, 0.82) 25%, rgba(245, 248, 246, 0.95) 50%, rgba(229, 236, 232, 0.82) 75%);
   background-size: 200% 100%;
-  border-radius: 4px;
+  border-radius: 999px;
   animation: shimmer 1.5s infinite;
 }
 
@@ -102,33 +116,39 @@
 
 /* Collapsible sections */
 .collapsibleSection {
+  border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.25s ease;
+  box-shadow:
+    0 10px 28px rgba(34, 53, 44, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .collapsibleHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.7);
+  padding: 15px 18px;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 250, 248, 0.72));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
+  border: none;
+  border-radius: 16px;
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
 }
 
 .collapsibleHeader:hover {
-  background: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(249, 252, 250, 0.78));
+  box-shadow: inset 0 -1px 0 rgba(198, 214, 206, 0.38);
 }
 
 .collapsibleHeaderExpanded {
-  border-radius: 12px 12px 0 0;
-  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 16px 16px 0 0;
+  box-shadow: inset 0 -1px 0 rgba(189, 206, 197, 0.42);
 }
 
 .collapsibleTitle {
@@ -143,10 +163,11 @@
 .collapsibleCount {
   font-size: 12px;
   font-weight: 600;
-  color: #047857;
-  background-color: #ecfdf5;
-  padding: 3px 8px;
-  border-radius: 6px;
+  color: #215f4f;
+  background: rgba(235, 245, 240, 0.86);
+  border: 1px solid rgba(189, 215, 204, 0.68);
+  padding: 4px 8px;
+  border-radius: 999px;
 }
 
 .collapsibleToggle {
@@ -154,7 +175,7 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #6b7280;
+  color: #67756f;
 }
 
 .collapsibleIcon {
@@ -172,6 +193,8 @@
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.25s ease;
+  background: rgba(255, 255, 255, 0.42);
+  overflow: hidden;
 }
 
 .collapsibleContentExpanded {
@@ -180,4 +203,33 @@
 
 .collapsibleInner {
   overflow: hidden;
+  min-height: 0;
+  padding: 0;
+}
+
+.collapsibleContentExpanded .collapsibleInner {
+  padding: 16px;
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    padding: 24px 16px 96px;
+  }
+}
+
+@media (max-width: 720px) {
+  .collapsibleHeader {
+    align-items: flex-start;
+    gap: 12px;
+    flex-direction: column;
+  }
+
+  .collapsibleToggle {
+    align-self: flex-end;
+  }
+
+  .loadingTableHeader,
+  .loadingRow {
+    min-width: 760px;
+  }
 }

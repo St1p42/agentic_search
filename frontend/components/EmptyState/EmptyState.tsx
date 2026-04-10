@@ -1,11 +1,18 @@
 import styles from './EmptyState.module.css';
 
 interface EmptyStateProps {
-  type: 'idle' | 'connecting' | 'error';
+  type: 'idle' | 'connecting' | 'error' | 'no-results';
   errorMessage?: string;
+  onExampleClick?: (query: string) => void;
 }
 
-export function EmptyState({ type, errorMessage }: EmptyStateProps) {
+export function EmptyState({ type, errorMessage, onExampleClick }: EmptyStateProps) {
+  const examples = [
+    'AI startups in healthcare',
+    'Top venture capital firms in NYC',
+    'Climate tech companies in Europe',
+  ];
+
   if (type === 'connecting') {
     return (
       <div className={styles.container}>
@@ -34,6 +41,25 @@ export function EmptyState({ type, errorMessage }: EmptyStateProps) {
     );
   }
 
+  if (type === 'no-results') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.icon}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+            <path d="M8.5 11h5" />
+          </svg>
+        </div>
+        <h2 className={styles.title}>No entities found</h2>
+        <p className={styles.description}>
+          The backend completed the search but did not return any final rows for this query.
+          Try a broader topic or a more specific industry or region.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.icon}>
@@ -49,9 +75,16 @@ export function EmptyState({ type, errorMessage }: EmptyStateProps) {
       </p>
       <div className={styles.examples}>
         <span className={styles.examplesLabel}>Try:</span>
-        <span className={styles.example}>AI startups in healthcare</span>
-        <span className={styles.example}>Top venture capital firms in NYC</span>
-        <span className={styles.example}>Climate tech companies in Europe</span>
+        {examples.map((example) => (
+          <button
+            key={example}
+            type="button"
+            className={styles.example}
+            onClick={() => onExampleClick?.(example)}
+          >
+            {example}
+          </button>
+        ))}
       </div>
     </div>
   );

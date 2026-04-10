@@ -1,19 +1,20 @@
 .tableWrapper {
-  background: rgba(255, 255, 255, 0.65);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 246, 0.64));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 
-    0 4px 24px rgba(0, 0, 0, 0.04),
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 20px 38px rgba(27, 43, 36, 0.08),
+    0 1px 2px rgba(20, 28, 24, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .tableScroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 /* Custom scrollbar for horizontal scroll */
@@ -37,6 +38,7 @@
 
 .table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -45,9 +47,9 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(135deg, rgba(236, 253, 245, 0.9) 0%, rgba(240, 253, 244, 0.9) 50%, rgba(240, 253, 250, 0.9) 100%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(242, 247, 244, 0.94), rgba(235, 243, 239, 0.88));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .th {
@@ -56,19 +58,19 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #047857;
-  padding: 14px 16px;
-  border-bottom: 1px solid #d1fae5;
+  color: #547065;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(194, 207, 200, 0.58);
   white-space: nowrap;
 }
 
 .th:first-child {
-  padding-left: 20px;
-  width: 48px;
+  padding-left: 22px;
+  width: 56px;
 }
 
 .tbody {
-  background-color: transparent;
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .tr {
@@ -76,70 +78,73 @@
 }
 
 .tr:hover {
-  background-color: rgba(16, 185, 129, 0.04);
+  background-color: rgba(222, 232, 227, 0.48);
 }
 
 .tr:not(:last-child) .td,
 .tr:not(:last-child) .tdIndex {
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid rgba(211, 220, 214, 0.48);
 }
 
 .td {
   padding: 16px;
-  color: #111827;
+  color: #15211c;
   cursor: pointer;
   max-width: 280px;
+  transition: background-color 0.15s ease;
 }
 
 .td:hover {
-  background-color: rgba(16, 185, 129, 0.08);
+  background-color: rgba(236, 243, 239, 0.8);
 }
 
 .tdIndex {
-  padding: 16px 16px 16px 20px;
-  color: #9ca3af;
+  padding: 16px 16px 16px 22px;
+  color: #86938d;
   font-size: 13px;
   font-weight: 500;
-  width: 48px;
+  width: 56px;
 }
 
 .cellContent {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
 }
 
 .cellText {
   flex: 1;
   line-height: 1.5;
+  min-width: 0;
 }
 
 .link {
-  color: #059669;
+  color: #235a4e;
   text-decoration: none;
   transition: color 0.1s ease;
 }
 
 .link:hover {
-  color: #047857;
+  color: #17463c;
   text-decoration: underline;
 }
 
 .nullValue {
-  color: #d1d5db;
+  color: #aeb8b3;
 }
 
 .evidenceBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
-  padding: 2px 6px;
-  background-color: #f0fdf4;
-  border: 1px solid #d1fae5;
-  border-radius: 4px;
+  padding: 3px 7px;
+  background: rgba(244, 248, 246, 0.92);
+  border: 1px solid rgba(203, 217, 210, 0.72);
+  border-radius: 999px;
   font-size: 11px;
-  color: #047857;
+  color: #4a5f56;
+  align-self: center;
 }
 
 .confidenceDot {

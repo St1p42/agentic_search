@@ -1,32 +1,36 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { FormEvent } from 'react';
 import styles from './SearchHeader.module.css';
 
 interface SearchHeaderProps {
-  initialQuery?: string;
+  query: string;
+  onQueryChange: (query: string) => void;
   onSearch: (query: string) => void;
+  onReset?: () => void;
   isLoading?: boolean;
   resultsCount?: number;
   entityType?: string;
   viewMode: 'table' | 'json';
   onViewModeChange: (mode: 'table' | 'json') => void;
-  showSources: boolean;
-  onShowSourcesChange: (show: boolean) => void;
+  showEvidence: boolean;
+  onShowEvidenceChange: (show: boolean) => void;
 }
 
 export function SearchHeader({
-  initialQuery = '',
+  query,
+  onQueryChange,
   onSearch,
+  onReset,
   isLoading = false,
   resultsCount,
   entityType,
   viewMode,
   onViewModeChange,
-  showSources,
-  onShowSourcesChange,
+  showEvidence,
+  onShowEvidenceChange,
 }: SearchHeaderProps) {
-  const [query, setQuery] = useState(initialQuery);
+  const showToolbar = resultsCount !== undefined || entityType || Boolean(onReset);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -59,9 +63,30 @@ export function SearchHeader({
               className={styles.searchInput}
               placeholder="Search for entities... e.g., AI startups in healthcare"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => onQueryChange(e.target.value)}
               disabled={isLoading}
             />
+            <button
+              type="submit"
+              className={styles.searchButton}
+              aria-label={isLoading ? 'Running search' : 'Run search'}
+              disabled={isLoading || !query.trim()}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </button>
             {isLoading && (
               <div className={styles.loadingIndicator}>
                 <div className={styles.spinner} />
@@ -70,9 +95,18 @@ export function SearchHeader({
           </div>
         </form>
 
-        {(resultsCount !== undefined || entityType) && (
+        {showToolbar && (
           <div className={styles.toolbar}>
             <div className={styles.toolbarLeft}>
+              {onReset && (
+                <button
+                  type="button"
+                  className={styles.resetButton}
+                  onClick={onReset}
+                >
+                  New search
+                </button>
+              )}
               {resultsCount !== undefined && (
                 <span className={styles.resultsCount}>
                   {resultsCount} {resultsCount === 1 ? 'result' : 'results'}
@@ -100,14 +134,16 @@ export function SearchHeader({
               <button
                 type="button"
                 role="switch"
-                aria-checked={showSources}
-                className={`${styles.sourcesToggle} ${showSources ? styles.sourcesToggleActive : ''}`}
-                onClick={() => onShowSourcesChange(!showSources)}
+                aria-checked={showEvidence}
+                className={`${styles.sourcesToggle} ${showEvidence ? styles.sourcesToggleActive : ''}`}
+                onClick={() => onShowEvidenceChange(!showEvidence)}
               >
                 <span className={styles.sourcesToggleTrack}>
                   <span className={styles.sourcesToggleThumb} />
                 </span>
-                <span className={styles.sourcesToggleLabel}>Sources</span>
+                <span className={styles.sourcesToggleLabel}>
+                  Evidence {showEvidence ? 'On' : 'Off'}
+                </span>
               </button>
             </div>
           </div>
