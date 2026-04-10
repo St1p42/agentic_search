@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ResearchStage } from '@/types';
+import { startCaseDisplayValue } from '@/lib/display-format';
 import styles from './ResearchActivityPanel.module.css';
 
 interface ResearchActivityPanelProps {
@@ -39,7 +40,7 @@ function StageDetails({ details }: { details: ResearchStage['details'] }) {
   return (
     <div className={styles.stageDetails}>
       {details.summary && (
-        <p className={styles.topSources}>{details.summary}</p>
+        <p className={styles.topSources}>{startCaseDisplayValue(details.summary)}</p>
       )}
       {details.metrics && details.metrics.length > 0 && (
         <div className={styles.countsGrid}>
@@ -52,7 +53,7 @@ function StageDetails({ details }: { details: ResearchStage['details'] }) {
               >
                 {metric.value}
               </span>
-              <span className={styles.countLabel}>{metric.label}</span>
+              <span className={styles.countLabel}>{startCaseDisplayValue(metric.label)}</span>
             </div>
           ))}
         </div>
@@ -197,7 +198,7 @@ export function ResearchActivityPanel({
                   aria-expanded={isExpanded}
                 >
                   <StageIcon status={stage.status} />
-                  <span className={styles.stageName}>{stage.name}</span>
+                  <span className={styles.stageName}>{startCaseDisplayValue(stage.name)}</span>
                   <svg
                     className={`${styles.chevron} ${isExpanded ? styles.chevronOpen : ''}`}
                     width="14"
@@ -213,7 +214,7 @@ export function ResearchActivityPanel({
               ) : (
                 <div className={styles.stageStatic}>
                   <StageIcon status={stage.status} />
-                  <span className={styles.stageName}>{stage.name}</span>
+                  <span className={styles.stageName}>{startCaseDisplayValue(stage.name)}</span>
                 </div>
               )}
               {isExpanded && <StageDetails details={stage.details} />}

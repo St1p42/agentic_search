@@ -1,6 +1,7 @@
 'use client';
 
 import { EntityRow, InferredSchema, FieldValue } from '@/types';
+import { capitalizeDisplayValue } from '@/lib/display-format';
 import styles from './EntityTable.module.css';
 
 interface EntityTableProps {
@@ -48,7 +49,7 @@ function CellContent({
           {field.value}
         </a>
       ) : (
-        <span className={styles.cellText}>{field.value}</span>
+        <span className={styles.cellText}>{capitalizeDisplayValue(field.value)}</span>
       )}
       {showEvidence && (
         <span className={styles.evidenceBadge}>
