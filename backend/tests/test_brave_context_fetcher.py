@@ -5,8 +5,8 @@ from pydantic import HttpUrl
 
 from backend.app.api_clients import BraveLlmContextClient, BraveLlmContextPassage
 from backend.app.config import BraveContextRuntimeConfig
-from backend.app.contracts import SearchResultItem, SearcherOutput
 from backend.app.helpers.brave_context_fetcher import DefaultBraveContextFetcher
+from backend.tests.fixtures.factories import make_search_result, make_searcher_output
 
 
 class FakeBraveContextClient(BraveLlmContextClient):
@@ -54,34 +54,14 @@ class ErroringBraveContextClient(BraveLlmContextClient):
         raise httpx.HTTPStatusError("422 from Brave Context", request=request, response=response)
 
 
-def _search_result(
-    *,
-    url: str,
-    title: str,
-    snippet: str,
-    domain: str,
-    rank: int = 1,
-) -> SearchResultItem:
-    return SearchResultItem(
-        url=HttpUrl(url),
-        title=title,
-        snippet=snippet,
-        domain=domain,
-        rank=rank,
-        query_sources=["AI startups in healthcare"],
-        result_type="search_result",
-        provider_metadata={"source": "brave_web_search"},
-    )
-
-
 def test_default_brave_context_fetcher_returns_passages_and_falls_back_to_snippet() -> None:
-    matching_result = _search_result(
+    matching_result = make_search_result(
         url="https://acmehealth.com/about",
         title="Acme Health",
         snippet="Acme Health builds clinical AI tools",
         domain="acmehealth.com",
     )
-    fallback_result = _search_result(
+    fallback_result = make_search_result(
         url="https://beta.ai",
         title="Beta AI",
         snippet="Beta AI develops healthcare copilots",
@@ -119,8 +99,7 @@ def test_default_brave_context_fetcher_returns_passages_and_falls_back_to_snippe
     )
 
     output = fetcher.run(
-        SearcherOutput(
-            executed_queries=["AI startups in healthcare"],
+        make_searcher_output(
             raw_results=[matching_result, fallback_result],
             shortlisted_results=[matching_result, fallback_result],
         )
@@ -138,13 +117,13 @@ def test_default_brave_context_fetcher_returns_passages_and_falls_back_to_snippe
 
 
 def test_default_brave_context_fetcher_cleans_passage_text_and_falls_back_if_only_junk() -> None:
-    cleaned_result = _search_result(
+    cleaned_result = make_search_result(
         url="https://acmehealth.com/about",
         title="Acme Health",
         snippet="Acme Health builds clinical AI tools",
         domain="acmehealth.com",
     )
-    junk_result = _search_result(
+    junk_result = make_search_result(
         url="https://beta.ai",
         title="Beta AI",
         snippet="Beta AI develops healthcare copilots",
@@ -196,8 +175,7 @@ def test_default_brave_context_fetcher_cleans_passage_text_and_falls_back_if_onl
     )
 
     output = fetcher.run(
-        SearcherOutput(
-            executed_queries=["AI startups in healthcare"],
+        make_searcher_output(
             raw_results=[cleaned_result, junk_result],
             shortlisted_results=[cleaned_result, junk_result],
         )
@@ -213,7 +191,7 @@ def test_default_brave_context_fetcher_cleans_passage_text_and_falls_back_if_onl
 
 
 def test_default_brave_context_fetcher_truncates_passages_to_configured_char_limit() -> None:
-    result = _search_result(
+    result = make_search_result(
         url="https://acmehealth.com/about",
         title="Acme Health",
         snippet="Acme Health builds clinical AI tools",
@@ -247,13 +225,7 @@ def test_default_brave_context_fetcher_truncates_passages_to_configured_char_lim
         brave_context_client=fake_client,
     )
 
-    output = fetcher.run(
-        SearcherOutput(
-            executed_queries=["AI startups in healthcare"],
-            raw_results=[result],
-            shortlisted_results=[result],
-        )
-    )
+    output = fetcher.run(make_searcher_output(raw_results=[result], shortlisted_results=[result]))
 
     assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
         "Acme Health builds clinical AI tooling for hospital systems with decision"
@@ -261,7 +233,7 @@ def test_default_brave_context_fetcher_truncates_passages_to_configured_char_lim
 
 
 def test_default_brave_context_fetcher_falls_back_to_snippet_on_client_error() -> None:
-    result = _search_result(
+    result = make_search_result(
         url="https://acmehealth.com/about",
         title="Acme Health",
         snippet="Acme Health builds clinical AI tools",
@@ -278,13 +250,7 @@ def test_default_brave_context_fetcher_falls_back_to_snippet_on_client_error() -
         brave_context_client=ErroringBraveContextClient(),
     )
 
-    output = fetcher.run(
-        SearcherOutput(
-            executed_queries=["AI startups in healthcare"],
-            raw_results=[result],
-            shortlisted_results=[result],
-        )
-    )
+    output = fetcher.run(make_searcher_output(raw_results=[result], shortlisted_results=[result]))
 
     assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
         "Acme Health builds clinical AI tools"

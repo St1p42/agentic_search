@@ -4,29 +4,35 @@ from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 
 from backend.app.contracts import (
-    AssessedSource,
     AssessorOutput,
     AssessorPass,
     BraveContextOutput,
-    BraveContextPassage,
     DeepFetchedDocument,
     EvidenceStore,
-    ExtractedEntity,
     ExtractorLightOutput,
     ExtractorOutput,
-    FieldValue,
-    HeuristicSourceSignals,
     JinaFetcherOutput,
-    OfficialityLevel,
     PipelineRequest,
     PlannerOutput,
-    SearchResultItem,
     SearcherOutput,
-    SourceQuality,
-    SourceRole,
 )
 from backend.app.main import app
 from backend.app.orchestrator import PipelineOrchestrator
+from backend.tests.fixtures.factories import (
+    make_assessed_source,
+    make_assessor_output,
+    make_brave_context_output,
+    make_brave_context_passage,
+    make_evidence_chunk,
+    make_evidence_store,
+    make_extracted_entity,
+    make_extractor_light_output,
+    make_extractor_output,
+    make_field_value,
+    make_planner_output,
+    make_search_result,
+    make_searcher_output,
+)
 
 
 client = TestClient(app)
@@ -114,55 +120,24 @@ def test_orchestrator_stream_emits_run_failed_on_internal_error() -> None:
 
 
 def _planner_output() -> PlannerOutput:
-    return PlannerOutput(
-        entity_type="startup",
-        query_mode="topic_entity_discovery",
-        schema_columns=["name", "website", "location", "focus_area"],
-        core_aspects=["focus_area", "location"],
-        base_query="AI startups in healthcare",
-        initial_query_rewrites=[],
-        is_topic_query=True,
-        normalized_query="AI startups in healthcare",
-    )
-
-
-def _search_result() -> SearchResultItem:
-    return SearchResultItem(
-        url=HttpUrl("https://acmehealth.com/about"),
-        title="About Acme Health",
-        snippet="Acme Health builds clinical AI systems.",
-        domain="acmehealth.com",
-        rank=1,
-        query_sources=["AI startups in healthcare"],
-        result_type="search_result",
-        provider_metadata={"source": "brave_web_search"},
-    )
-
-
-def _extractor_light_output() -> ExtractorLightOutput:
-    return ExtractorLightOutput(
-        candidate_names=["Acme Health"],
-        name_to_source_urls={"Acme Health": [HttpUrl("https://acmehealth.com/about")]},
-        mention_counts={"Acme Health": 1},
-    )
+    return make_planner_output()
 
 
 def _searcher_output() -> SearcherOutput:
-    search_result = _search_result()
-    return SearcherOutput(
-        executed_queries=["AI startups in healthcare"],
+    search_result = make_search_result()
+    return make_searcher_output(
         raw_results=[search_result],
         shortlisted_results=[search_result],
     )
 
 
 def _brave_context_output() -> BraveContextOutput:
-    search_result = _search_result()
-    return BraveContextOutput(
+    search_result = make_search_result()
+    return make_brave_context_output(
         passages_by_url={
             search_result.url: [
-                BraveContextPassage(
-                    source_url=search_result.url,
+                make_brave_context_passage(
+                    source_url=str(search_result.url),
                     passage_text=(
                         "Acme Health develops clinical AI systems for hospitals and care teams."
                     ),
@@ -174,53 +149,20 @@ def _brave_context_output() -> BraveContextOutput:
 
 
 def _assessor_output() -> AssessorOutput:
-    search_result = _search_result()
+    search_result = make_search_result()
     brave_context_output = _brave_context_output()
-    return AssessorOutput(
-        pass_type=AssessorPass.FIRST_PASS,
+    return make_assessor_output(
         assessed_sources=[
-            AssessedSource(
+            make_assessed_source(
                 result=search_result,
                 brave_context_passages=brave_context_output.passages_by_url[search_result.url],
-                heuristic_signals=HeuristicSourceSignals(
-                    relevance_hint=1.0,
-                    domain_match_hint=1.0,
-                    official_path_hint=1.0,
-                    snippet_thinness_hint=0.0,
-                    rank_hint=1,
-                    source_metadata={"hostname": "acmehealth.com"},
-                ),
-                source_role=SourceRole.VERIFICATION,
-                source_quality=SourceQuality.HIGH,
-                officiality=OfficialityLevel.OFFICIAL,
-                estimated_aspect_coverage=["focus_area"],
-                evidence_sufficiency=0.95,
-                should_deep_fetch=False,
-                fetch_reason=None,
             )
-        ],
-        verification_gaps=[],
-        selected_jina_urls=[],
+        ]
     )
 
 
 def _evidence_store() -> EvidenceStore:
-    return EvidenceStore(
-        chunks_by_entity={
-            "Acme Health": [
-                {
-                    "text": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                    "source_url": "https://acmehealth.com/about",
-                    "source_title": "About Acme Health",
-                    "source_role": "verification",
-                    "source_quality": "high",
-                    "officiality": "official",
-                    "origin": "brave_llm",
-                    "aspect_coverage": ["focus_area"],
-                }
-            ]
-        }
-    )
+    return make_evidence_store(chunks_by_entity={"Acme Health": [make_evidence_chunk()]})
 
 
 def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
@@ -248,7 +190,7 @@ def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
 
 
 def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> None:
-    extractor_light_output = _extractor_light_output()
+    extractor_light_output = make_extractor_light_output()
 
     class FakeEndpointExtractorLight:
         def run(
@@ -311,7 +253,7 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
             "planner_output": _planner_output().model_dump(mode="json"),
             "searcher_output": _searcher_output().model_dump(mode="json"),
             "brave_context_output": _brave_context_output().model_dump(mode="json"),
-            "extractor_light_output": _extractor_light_output().model_dump(mode="json"),
+            "extractor_light_output": make_extractor_light_output().model_dump(mode="json"),
             "pass_type": "first_pass",
             "evidence_store": None,
             "remaining_fetch_budget": 0,
@@ -327,7 +269,7 @@ def test_evidence_store_test_endpoint_returns_entity_chunks() -> None:
         "/api/v1/evidence-store/test",
         json={
             "brave_context_output": _brave_context_output().model_dump(mode="json"),
-            "extractor_light_output": _extractor_light_output().model_dump(mode="json"),
+            "extractor_light_output": make_extractor_light_output().model_dump(mode="json"),
             "assessor_output": _assessor_output().model_dump(mode="json"),
             "evidence_store": None,
         },
@@ -340,45 +282,18 @@ def test_evidence_store_test_endpoint_returns_entity_chunks() -> None:
 
 
 def test_extractor_test_endpoint_returns_entity_rows(monkeypatch) -> None:
-    extractor_output = ExtractorOutput(
+    extractor_output = make_extractor_output(
         entities=[
-            ExtractedEntity(
-                candidate_id="Acme Health",
-                entity_name="Acme Health",
+            make_extracted_entity(
                 fields={
-                    "name": FieldValue(
-                        value="Acme Health",
-                        confidence=1.0,
-                        evidence=[
-                            {
-                                "source_url": "https://acmehealth.com/about",
-                                "source_title": "About Acme Health",
-                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                                "source_role": "verification",
-                                "source_quality": "high",
-                                "officiality": "official",
-                            }
-                        ],
-                    ),
-                    "website": FieldValue(value=None, confidence=0.0, evidence=[]),
-                    "location": FieldValue(value=None, confidence=0.0, evidence=[]),
-                    "focus_area": FieldValue(
+                    "name": make_field_value(value="Acme Health", confidence=1.0),
+                    "website": make_field_value(value=None, confidence=0.0),
+                    "location": make_field_value(value=None, confidence=0.0),
+                    "focus_area": make_field_value(
                         value="clinical AI systems for hospitals and care teams",
                         confidence=0.84,
-                        evidence=[
-                            {
-                                "source_url": "https://acmehealth.com/about",
-                                "source_title": "About Acme Health",
-                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                                "source_role": "verification",
-                                "source_quality": "high",
-                                "officiality": "official",
-                            }
-                        ],
                     ),
-                },
-                source_urls=[HttpUrl("https://acmehealth.com/about")],
-                provisional=False,
+                }
             )
         ]
     )
@@ -406,7 +321,7 @@ def test_extractor_test_endpoint_returns_entity_rows(monkeypatch) -> None:
         "/api/v1/extractor/test",
         json={
             "planner_output": _planner_output().model_dump(mode="json"),
-            "extractor_light_output": _extractor_light_output().model_dump(mode="json"),
+            "extractor_light_output": make_extractor_light_output().model_dump(mode="json"),
             "evidence_store": _evidence_store().model_dump(mode="json"),
         },
     )
@@ -417,45 +332,18 @@ def test_extractor_test_endpoint_returns_entity_rows(monkeypatch) -> None:
 
 
 def test_finalizer_test_endpoint_returns_final_rows() -> None:
-    extractor_output = ExtractorOutput(
+    extractor_output = make_extractor_output(
         entities=[
-            ExtractedEntity(
-                candidate_id="Acme Health",
-                entity_name="Acme Health",
+            make_extracted_entity(
                 fields={
-                    "name": FieldValue(
-                        value="Acme Health",
-                        confidence=1.0,
-                        evidence=[
-                            {
-                                "source_url": "https://acmehealth.com/about",
-                                "source_title": "About Acme Health",
-                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                                "source_role": "verification",
-                                "source_quality": "high",
-                                "officiality": "official",
-                            }
-                        ],
-                    ),
-                    "website": FieldValue(value=None, confidence=0.0, evidence=[]),
-                    "location": FieldValue(value=None, confidence=0.0, evidence=[]),
-                    "focus_area": FieldValue(
+                    "name": make_field_value(value="Acme Health", confidence=1.0),
+                    "website": make_field_value(value=None, confidence=0.0),
+                    "location": make_field_value(value=None, confidence=0.0),
+                    "focus_area": make_field_value(
                         value="clinical AI systems",
                         confidence=0.84,
-                        evidence=[
-                            {
-                                "source_url": "https://acmehealth.com/about",
-                                "source_title": "About Acme Health",
-                                "supporting_snippet": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                                "source_role": "verification",
-                                "source_quality": "high",
-                                "officiality": "official",
-                            }
-                        ],
                     ),
-                },
-                source_urls=[HttpUrl("https://acmehealth.com/about")],
-                provisional=False,
+                }
             )
         ]
     )

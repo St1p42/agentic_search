@@ -5,10 +5,15 @@ from typing import cast
 from pydantic import HttpUrl
 
 from backend.app.api_clients.llm_client import StructuredLlmClient, StructuredOutputT
-from backend.app.contracts import BraveContextOutput, BraveContextPassage, PlannerOutput
+from backend.app.contracts import BraveContextOutput
 from backend.app.stages.extractor_light import (
     ExtractorLightModelOutput,
     LlmExtractorLightStage,
+)
+from backend.tests.fixtures.factories import (
+    make_brave_context_output,
+    make_brave_context_passage,
+    make_planner_output,
 )
 
 
@@ -38,34 +43,21 @@ class FakeExtractorLightClient:
         return response_model.model_validate(self.output_payload)
 
 
-def _planner_output() -> PlannerOutput:
-    return PlannerOutput(
-        entity_type="startup",
-        query_mode="topic_entity_discovery",
-        schema_columns=["name", "website", "location", "focus_area"],
-        core_aspects=["focus_area", "location"],
-        base_query="AI startups in healthcare",
-        initial_query_rewrites=[],
-        is_topic_query=True,
-        normalized_query="AI startups in healthcare",
-    )
-
-
 def _brave_context_output() -> BraveContextOutput:
     acme_url = HttpUrl("https://acmehealth.com/about")
     roundup_url = HttpUrl("https://roundup.example.com/health-ai")
-    return BraveContextOutput(
+    return make_brave_context_output(
         passages_by_url={
             acme_url: [
-                BraveContextPassage(
-                    source_url=acme_url,
+                make_brave_context_passage(
+                    source_url=str(acme_url),
                     passage_text="Acme Health builds clinical AI systems. Acme Health serves hospitals.",
                     metadata={"title": "About Acme Health"},
                 )
             ],
             roundup_url: [
-                BraveContextPassage(
-                    source_url=roundup_url,
+                make_brave_context_passage(
+                    source_url=str(roundup_url),
                     passage_text=(
                         "A roundup featuring Beta AI and Acme Health in healthcare AI. "
                         "Beta AI's platform supports triage."
@@ -96,7 +88,7 @@ def test_llm_extractor_light_stage_builds_name_url_map_and_mentions() -> None:
     )
 
     output = extractor_light.run(
-        planner_output=_planner_output(),
+        planner_output=make_planner_output(),
         brave_context_output=brave_context_output,
     )
 
@@ -126,8 +118,8 @@ def test_llm_extractor_light_stage_returns_empty_output_without_passages() -> No
     )
 
     output = extractor_light.run(
-        planner_output=_planner_output(),
-        brave_context_output=BraveContextOutput(passages_by_url={}),
+        planner_output=make_planner_output(),
+        brave_context_output=make_brave_context_output(),
     )
 
     assert output.candidate_names == []
@@ -138,11 +130,11 @@ def test_llm_extractor_light_stage_returns_empty_output_without_passages() -> No
 
 def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> None:
     acme_url = HttpUrl("https://example.com/apple")
-    brave_context_output = BraveContextOutput(
+    brave_context_output = make_brave_context_output(
         passages_by_url={
             acme_url: [
-                BraveContextPassage(
-                    source_url=acme_url,
+                make_brave_context_passage(
+                    source_url=str(acme_url),
                     passage_text=(
                         "Apple iPhone 17 Pro Max is the top pick. "
                         "The iPhone 17 Pro Max camera system is excellent."
@@ -163,7 +155,7 @@ def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> 
     )
 
     output = extractor_light.run(
-        planner_output=_planner_output(),
+        planner_output=make_planner_output(),
         brave_context_output=brave_context_output,
     )
 

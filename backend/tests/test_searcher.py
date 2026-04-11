@@ -8,6 +8,7 @@ from backend.app.contracts import PlannerOutput, SearcherOutput
 from backend.app.main import app
 from backend.app.stages import PlaceholderSearcherStage
 from backend.app.stages.searcher import BraveSearcherStage
+from backend.tests.fixtures.factories import make_planner_output
 
 
 class FakeBraveSearchClient(BraveSearchClient):
@@ -25,15 +26,11 @@ def _planner_output(
     base_query: str = "AI startups in healthcare",
     rewrites: list[str] | None = None,
 ) -> PlannerOutput:
-    return PlannerOutput(
-        entity_type="startup",
-        query_mode="topic_entity_discovery",
+    return make_planner_output(
         schema_columns=["name", "clinical_application", "technology_type", "website"],
         core_aspects=["clinical_application", "technology_type"],
         base_query=base_query,
         initial_query_rewrites=rewrites or [],
-        is_topic_query=True,
-        normalized_query=base_query,
     )
 
 

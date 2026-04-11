@@ -6,16 +6,17 @@ import time
 
 from pydantic import HttpUrl
 
-from backend.app.contracts import (
-    EvidenceStore,
-    ExtractorLightOutput,
-    PlannerOutput,
-)
 from backend.app.api_clients import StructuredLlmClient
 from backend.app.stages.extractor import (
     ExtractorColumnDecision,
     ExtractorEntityModelOutput,
     LlmExtractorStage,
+)
+from backend.tests.fixtures.factories import (
+    make_evidence_chunk,
+    make_evidence_store,
+    make_extractor_light_output,
+    make_planner_output,
 )
 
 
@@ -107,36 +108,14 @@ def test_llm_extractor_stage_anchors_entity_and_maps_chunk_evidence() -> None:
     stage = LlmExtractorStage(model="gpt-5-mini", llm_client=llm_client)
 
     output = stage.run(
-        planner_output=PlannerOutput(
-            entity_type="startup",
-            query_mode="topic_entity_discovery",
-            schema_columns=["name", "website", "location", "focus_area"],
-            core_aspects=["focus_area", "location"],
-            base_query="AI startups in healthcare",
-            initial_query_rewrites=[],
-            is_topic_query=True,
-            normalized_query="AI startups in healthcare",
-        ),
-        extractor_light_output=ExtractorLightOutput(
+        planner_output=make_planner_output(),
+        extractor_light_output=make_extractor_light_output(
             candidate_names=["Acme Health"],
             name_to_source_urls={"Acme Health": [HttpUrl("https://acmehealth.com/about")]},
             mention_counts={"Acme Health": 1},
         ),
-        evidence_store=EvidenceStore(
-            chunks_by_entity={
-                "Acme Health": [
-                    {
-                        "text": "Acme Health develops clinical AI systems for hospitals and care teams.",
-                        "source_url": "https://acmehealth.com/about",
-                        "source_title": "About Acme Health",
-                        "source_role": "verification",
-                        "source_quality": "high",
-                        "officiality": "official",
-                        "origin": "brave_llm",
-                        "aspect_coverage": ["focus_area"],
-                    }
-                ]
-            },
+        evidence_store=make_evidence_store(
+            chunks_by_entity={"Acme Health": [make_evidence_chunk()]},
             entity_scores={"Acme Health": 1.0},
         ),
     )
@@ -178,25 +157,16 @@ def test_llm_extractor_stage_keeps_only_top_ranked_ten_entities() -> None:
     }
 
     output = stage.run(
-        planner_output=PlannerOutput(
-            entity_type="startup",
-            query_mode="topic_entity_discovery",
+        planner_output=make_planner_output(
             schema_columns=["name", "focus_area"],
             core_aspects=["focus_area"],
-            base_query="AI startups in healthcare",
-            initial_query_rewrites=[],
-            is_topic_query=True,
-            normalized_query="AI startups in healthcare",
         ),
-        extractor_light_output=ExtractorLightOutput(
+        extractor_light_output=make_extractor_light_output(
             candidate_names=candidate_names,
             name_to_source_urls={},
             mention_counts={entity_name: 1 for entity_name in candidate_names},
         ),
-        evidence_store=EvidenceStore(
-            chunks_by_entity=chunks_by_entity,
-            entity_scores=entity_scores,
-        ),
+        evidence_store=make_evidence_store(chunks_by_entity=chunks_by_entity, entity_scores=entity_scores),
     )
 
     assert len(output.entities) == 10
@@ -229,22 +199,16 @@ def test_llm_extractor_stage_runs_multiple_entity_requests_concurrently_and_pres
     }
 
     output = stage.run(
-        planner_output=PlannerOutput(
-            entity_type="startup",
-            query_mode="topic_entity_discovery",
+        planner_output=make_planner_output(
             schema_columns=["name", "focus_area"],
             core_aspects=["focus_area"],
-            base_query="AI startups in healthcare",
-            initial_query_rewrites=[],
-            is_topic_query=True,
-            normalized_query="AI startups in healthcare",
         ),
-        extractor_light_output=ExtractorLightOutput(
+        extractor_light_output=make_extractor_light_output(
             candidate_names=candidate_names,
             name_to_source_urls={},
             mention_counts={entity_name: 1 for entity_name in candidate_names},
         ),
-        evidence_store=EvidenceStore(
+        evidence_store=make_evidence_store(
             chunks_by_entity=chunks_by_entity,
             entity_scores={entity_name: float(6 - index) for index, entity_name in enumerate(candidate_names, start=1)},
         ),
