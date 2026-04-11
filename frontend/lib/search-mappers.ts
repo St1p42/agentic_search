@@ -45,6 +45,15 @@ interface FrontendSearchResult {
   overallConfidence: number;
 }
 
+export interface BackendSchemaPreview {
+  entity_type: string;
+  columns: Array<{
+    key: string;
+    label: string;
+    type: InferredSchema['columns'][number]['type'];
+  }>;
+}
+
 function formatColumnLabel(columnKey: string): string {
   return columnKey
     .split('_')
@@ -129,14 +138,10 @@ function emptyFieldValue(): FieldValue {
 }
 
 export function mapPipelineResponse(response: BackendPipelineResponse): FrontendSearchResult {
-  const schema: InferredSchema = {
+  const schema = buildInferredSchema({
     entityType: response.normalized_query,
-    columns: response.inferred_schema.map((columnKey) => ({
-      key: columnKey,
-      label: formatColumnLabel(columnKey),
-      type: inferColumnType(columnKey),
-    })),
-  };
+    columnKeys: response.inferred_schema,
+  });
 
   const rows = response.final_top_10_rows.map((row, index) => {
     const frontendRow: EntityRow = {
@@ -211,6 +216,28 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
       confidenceValues.length > 0
         ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
         : 0,
+  };
+}
+
+export function buildInferredSchema(input: { entityType: string; columnKeys: string[] }): InferredSchema {
+  return {
+    entityType: input.entityType,
+    columns: input.columnKeys.map((columnKey) => ({
+      key: columnKey,
+      label: formatColumnLabel(columnKey),
+      type: inferColumnType(columnKey),
+    })),
+  };
+}
+
+export function mapSchemaPreview(preview: BackendSchemaPreview): InferredSchema {
+  return {
+    entityType: preview.entity_type,
+    columns: preview.columns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      type: column.type,
+    })),
   };
 }
 

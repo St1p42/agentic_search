@@ -49,6 +49,7 @@ export default function Home() {
   const isCompleted = searchState.status === 'completed';
   const hasResults = isCompleted && searchState.rows.length > 0;
   const hasNoResults = isCompleted && searchState.rows.length === 0;
+  const hasPreviewSchema = Boolean(searchState.schema);
 
   return (
     <div className={styles.app}>
@@ -74,13 +75,15 @@ export default function Home() {
 
           {searchState.status === 'connecting' && <EmptyState type="connecting" />}
 
+          {isRunning && !hasPreviewSchema && <EmptyState type="planning" />}
+
           {searchState.status === 'failed' && (
             <EmptyState type="error" errorMessage={searchState.error} />
           )}
 
           {hasNoResults && <EmptyState type="no-results" />}
 
-          {(isRunning || hasResults) && searchState.schema && (
+          {(isRunning || hasResults) && hasPreviewSchema && searchState.schema && (
             <>
               {hasResults && (
                 <DiscoverySummary

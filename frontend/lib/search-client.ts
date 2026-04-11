@@ -1,6 +1,11 @@
 import { mockRows, mockSchema, mockSources, mockStages } from '@/data/mockData';
 import { InferredSchema, EntityRow, ResearchStage, ResearchStageDetails, Source } from '@/types';
-import { mapPipelineResponse, type BackendPipelineResponse } from '@/lib/search-mappers';
+import {
+  mapPipelineResponse,
+  mapSchemaPreview,
+  type BackendPipelineResponse,
+  type BackendSchemaPreview,
+} from '@/lib/search-mappers';
 
 export type SearchStatus = 'idle' | 'connecting' | 'running' | 'completed' | 'failed';
 
@@ -164,6 +169,20 @@ function extractStageDetails(data: Record<string, unknown>): ResearchStageDetail
   };
 }
 
+function extractSchemaPreview(data: Record<string, unknown>): InferredSchema | undefined {
+  const preview = data.schema_preview;
+  if (!preview || typeof preview !== 'object') {
+    return undefined;
+  }
+
+  const candidate = preview as BackendSchemaPreview;
+  if (!candidate.entity_type || !Array.isArray(candidate.columns)) {
+    return undefined;
+  }
+
+  return mapSchemaPreview(candidate);
+}
+
 export function createSearchApiClient(): SearchClient {
   return {
     runSearch(query, onUpdate) {
@@ -224,8 +243,10 @@ export function createSearchApiClient(): SearchClient {
 
       eventSource.addEventListener('stage_completed', (event) => {
         const payload = JSON.parse(event.data) as BackendSseEvent;
+        const schemaPreview = extractSchemaPreview(payload.payload.data);
         pushUpdate({
           status: 'running',
+          schema: schemaPreview ?? currentSnapshot.schema,
           stages: upsertStage(
             currentSnapshot.stages,
             payload.payload.stage,

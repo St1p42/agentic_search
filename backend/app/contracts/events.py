@@ -34,6 +34,21 @@ class StageUiDetails(BaseModel):
     metrics: list[StageMetric] = Field(default_factory=list)
 
 
+class SchemaPreviewColumnUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    label: str
+    type: Literal["text", "url", "number", "date"] = "text"
+
+
+class SchemaPreviewUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: str
+    columns: list[SchemaPreviewColumnUiModel] = Field(default_factory=list)
+
+
 class StartedSearchStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -48,6 +63,7 @@ class PlanningStageUiModel(BaseModel):
 
     interpreted_query: str
     columns_selected: int
+    schema_preview: SchemaPreviewUiModel
 
     def to_ui_details(self) -> StageUiDetails:
         return StageUiDetails(
