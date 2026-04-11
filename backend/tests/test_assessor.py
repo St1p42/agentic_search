@@ -6,12 +6,15 @@ from pydantic import HttpUrl
 
 from backend.app.api_clients.llm_client import StructuredLlmClient, StructuredOutputT
 from backend.app.contracts import AssessorPass, OfficialityLevel, SourceQuality, SourceRole
-from backend.app.stages.source_assessor import (
+from backend.app.helpers.evidence_store_builder import DefaultEvidenceStoreBuilder
+from backend.app.stages.assessor import (
     AssessorModelOutput,
     AssessorSourceDecision,
     LlmSourceAssessorStage,
 )
 from backend.tests.fixtures.factories import (
+    make_assessed_source,
+    make_assessor_output,
     make_brave_context_output,
     make_brave_context_passage,
     make_extractor_light_output,
@@ -136,3 +139,118 @@ def test_llm_assessor_stage_returns_source_triage_only() -> None:
     assert first_pass_output.assessed_sources[0].source_role == SourceRole.VERIFICATION
     assert first_pass_output.assessed_sources[1].estimated_aspect_coverage == ["focus_area"]
     assert all(source.should_deep_fetch is False for source in first_pass_output.assessed_sources)
+
+
+def test_llm_assessor_stage_filters_low_quality_sources_before_llm() -> None:
+    low_quality_result = make_search_result(
+        url="https://reddit.com/r/startups/comments/acme",
+        title="Acme thread",
+        snippet="",
+        domain="reddit.com",
+        rank=4,
+    )
+    official_result = make_search_result(
+        url="https://acmehealth.com/about",
+        title="About Acme Health",
+        snippet="Acme Health builds clinical AI systems.",
+        domain="acmehealth.com",
+        rank=1,
+    )
+    searcher_output = make_searcher_output(
+        raw_results=[official_result, low_quality_result],
+        shortlisted_results=[official_result, low_quality_result],
+    )
+    brave_context_output = make_brave_context_output(
+        passages_by_url={
+            official_result.url: [
+                make_brave_context_passage(
+                    source_url=str(official_result.url),
+                    passage_text="Acme Health develops clinical AI in Boston.",
+                    metadata={"title": "About Acme Health"},
+                )
+            ],
+            low_quality_result.url: [
+                make_brave_context_passage(
+                    source_url=str(low_quality_result.url),
+                    passage_text="fallback snippet",
+                    metadata={"title": "Acme thread", "fallback": True},
+                )
+            ],
+        }
+    )
+    fake_client = FakeAssessorClient(
+        AssessorModelOutput(
+            assessed_sources=[
+                AssessorSourceDecision(
+                    source_url=str(official_result.url),
+                    source_role=SourceRole.VERIFICATION,
+                    source_quality=SourceQuality.HIGH,
+                    officiality=OfficialityLevel.OFFICIAL,
+                    estimated_aspect_coverage=["focus_area"],
+                    evidence_sufficiency=0.9,
+                )
+            ]
+        )
+    )
+    assessor = LlmSourceAssessorStage(
+        model="gpt-5-mini",
+        llm_client=_as_structured_client(fake_client),
+    )
+
+    output = assessor.run(
+        planner_output=make_planner_output(),
+        searcher_output=searcher_output,
+        brave_context_output=brave_context_output,
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Acme Health"],
+            name_to_source_urls={"Acme Health": [HttpUrl("https://acmehealth.com/about")]},
+            mention_counts={"Acme Health": 2},
+        ),
+    )
+
+    assert len(fake_client.calls) == 1
+    payload = fake_client.calls[0]["user_content"]
+    assert str(low_quality_result.url) not in payload
+    dropped = next(source for source in output.assessed_sources if str(source.result.url) == str(low_quality_result.url))
+    assert dropped.filtered_out is True
+    assert dropped.fetch_reason == "low_quality"
+
+
+def test_evidence_builder_skips_filtered_sources() -> None:
+    result = make_search_result(
+        url="https://reddit.com/r/startups/comments/acme",
+        title="Acme thread",
+        snippet="",
+        domain="reddit.com",
+        rank=4,
+    )
+    passage = make_brave_context_passage(
+        source_url=str(result.url),
+        passage_text="This should never become evidence.",
+        metadata={"title": "Acme thread", "fallback": True},
+    )
+    builder = DefaultEvidenceStoreBuilder()
+
+    output = builder.run(
+        brave_context_output=make_brave_context_output(passages_by_url={result.url: [passage]}),
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Acme Health"],
+            name_to_source_urls={"Acme Health": [result.url]},
+            mention_counts={"Acme Health": 1},
+        ),
+        assessor_output=make_assessor_output(
+            assessed_sources=[
+                make_assessed_source(
+                    result=result,
+                    brave_context_passages=[passage],
+                    source_role=SourceRole.DISCOVERY,
+                    source_quality=SourceQuality.LOW,
+                    officiality=OfficialityLevel.THIRD_PARTY,
+                    evidence_sufficiency=0.0,
+                    filtered_out=True,
+                )
+            ]
+        ),
+    )
+
+    assert output.chunks_by_entity == {}

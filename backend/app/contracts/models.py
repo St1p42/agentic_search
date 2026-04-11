@@ -167,6 +167,7 @@ class AssessedSource(BaseModel):
     evidence_sufficiency: float = Field(ge=0.0, le=1.0)
     should_deep_fetch: bool
     fetch_reason: str | None = None
+    filtered_out: bool = False
 
 
 class ExtractorLightOutput(BaseModel):

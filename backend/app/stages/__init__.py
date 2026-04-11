@@ -1,6 +1,6 @@
 """Stage interfaces and concrete/placeholder implementations."""
 
-from backend.app.stages.source_assessor import (
+from backend.app.stages.assessor import (
     LlmSourceAssessorStage,
     PlaceholderSourceAssessorStage,
     SourceAssessorStage,

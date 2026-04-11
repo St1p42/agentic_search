@@ -425,7 +425,11 @@ def _sources_kept_for_analysis_count(assessor_output: AssessorOutput) -> int:
     return sum(
         1
         for source in assessor_output.assessed_sources
-        if source.source_quality != SourceQuality.LOW and source.officiality != OfficialityLevel.LOW_QUALITY
+        if (
+            not source.filtered_out
+            and source.source_quality != SourceQuality.LOW
+            and source.officiality != OfficialityLevel.LOW_QUALITY
+        )
     )
 
 
@@ -433,8 +437,8 @@ def _missing_fields_count(entities: list[ExtractedEntity]) -> int:
     return sum(
         1
         for entity in entities
-        for field in entity.fields.values()
-        if field.value is None
+        for field_value in entity.fields.values()
+        if field_value.value is None
     )
 
 

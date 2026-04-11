@@ -155,6 +155,7 @@ def make_assessed_source(
     evidence_sufficiency: float = 0.95,
     should_deep_fetch: bool = False,
     fetch_reason: str | None = None,
+    filtered_out: bool = False,
 ) -> AssessedSource:
     search_result = result or make_search_result()
     passages = brave_context_passages or [
@@ -172,6 +173,7 @@ def make_assessed_source(
         evidence_sufficiency=evidence_sufficiency,
         should_deep_fetch=should_deep_fetch,
         fetch_reason=fetch_reason,
+        filtered_out=filtered_out,
     )
 
 
