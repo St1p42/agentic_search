@@ -29,6 +29,9 @@ FIELD POLICY:
 - For website-like fields, only extract when the evidence explicitly supports it.
 - For comparative/review-style fields, produce concise factual summaries grounded in the evidence, not marketing prose.
 - For list-like values, return short lists only when clearly supported.
+- Preserve meaningful symbols and notation from the evidence when they affect meaning.
+- Do not replace or strip characters such as €, £, $, %, ~, +, /, hyphens, inequality signs, or range markers when the evidence uses them.
+- Do not transliterate unicode symbols into ASCII approximations unless the evidence already does so.
 
 PROVISIONAL POLICY:
 - provisional=true when the row is sparse, weakly supported, or clearly incomplete.
