@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import cast
 
 from pydantic import HttpUrl
@@ -50,7 +51,47 @@ class FakeAssessorClient:
         return response_model.model_validate(self.output_payload)
 
 
-def _as_structured_client(fake_client: FakeAssessorClient) -> StructuredLlmClient:
+class BatchAwareFakeAssessorClient:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, str]] = []
+
+    def parse(
+        self,
+        *,
+        model: str,
+        system_prompt: str,
+        user_content: str,
+        response_model: type[StructuredOutputT],
+        reasoning_effort: str | None = None,
+    ) -> StructuredOutputT:
+        _ = reasoning_effort
+        payload = json.loads(user_content)
+        self.calls.append(
+            {
+                "model": model,
+                "system_prompt": system_prompt,
+                "user_content": user_content,
+                "response_model": response_model.__name__,
+            }
+        )
+        return response_model.model_validate(
+            {
+                "assessed_sources": [
+                    {
+                        "source_url": source["source_url"],
+                        "source_role": "corroboration",
+                        "source_quality": "high",
+                        "officiality": "third_party",
+                        "estimated_aspect_coverage": ["focus_area"],
+                        "evidence_sufficiency": 0.7,
+                    }
+                    for source in payload["sources"]
+                ]
+            }
+        )
+
+
+def _as_structured_client(fake_client: object) -> StructuredLlmClient:
     return cast(StructuredLlmClient, cast(object, fake_client))
 
 
@@ -254,3 +295,52 @@ def test_evidence_builder_skips_filtered_sources() -> None:
     )
 
     assert output.chunks_by_entity == {}
+
+
+def test_llm_assessor_stage_batches_surviving_sources_for_llm() -> None:
+    search_results = [
+        make_search_result(
+            url=f"https://news.example.com/company-{index}",
+            title=f"Company {index} raises funding",
+            snippet=f"Company {index} appears in industry coverage.",
+            domain="news.example.com",
+            rank=index,
+        )
+        for index in range(1, 8)
+    ]
+    brave_context_output = make_brave_context_output(
+        passages_by_url={
+            result.url: [
+                make_brave_context_passage(
+                    source_url=str(result.url),
+                    passage_text=f"{result.title}. More details about company {index}.",
+                    metadata={"title": result.title},
+                )
+            ]
+            for index, result in enumerate(search_results, start=1)
+        }
+    )
+    fake_client = BatchAwareFakeAssessorClient()
+    assessor = LlmSourceAssessorStage(
+        model="gpt-5-mini",
+        llm_client=_as_structured_client(fake_client),
+    )
+
+    output = assessor.run(
+        planner_output=make_planner_output(),
+        searcher_output=make_searcher_output(
+            raw_results=search_results,
+            shortlisted_results=search_results,
+        ),
+        brave_context_output=brave_context_output,
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=[f"Company {index}" for index in range(1, 8)],
+            name_to_source_urls={},
+            mention_counts={f"Company {index}": 1 for index in range(1, 8)},
+        ),
+    )
+
+    assert len(fake_client.calls) == 2
+    assert [len(json.loads(call["user_content"])["sources"]) for call in fake_client.calls] == [5, 2]
+    assert len(output.assessed_sources) == 7
+    assert all(source.filtered_out is False for source in output.assessed_sources)
