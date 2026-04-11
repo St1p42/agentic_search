@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Extractor stage interface plus placeholder and LLM-backed implementations."""
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Protocol
 
@@ -28,6 +29,7 @@ from backend.app.prompts import EXTRACTOR_SYSTEM_PROMPT
 
 MAX_EVIDENCE_CHUNKS_PER_ENTITY = 12
 MAX_EXTRACTOR_ENTITIES = 10
+MAX_EXTRACTOR_CONCURRENCY = 3
 
 
 class ExtractorStage(Protocol):
@@ -103,45 +105,69 @@ class LlmExtractorStage:
             entity.entity_name: entity
             for entity in (prior_output.entities if prior_output else [])
         }
-        entities: list[ExtractedEntity] = []
         ranked_entity_names = _ranked_entity_names(
             candidate_names=extractor_light_output.candidate_names,
             evidence_store=evidence_store,
         )
+        entities_by_name: dict[str, ExtractedEntity] = {}
+        pending_names: list[str] = []
 
         for entity_name in ranked_entity_names:
             chunks = evidence_store.chunks_by_entity.get(entity_name, [])
             if not chunks:
-                entities.append(
-                    prior_by_name.get(entity_name)
-                    or _empty_extracted_entity(
-                        entity_name=entity_name,
-                        schema_columns=planner_output.schema_columns,
-                    )
+                entities_by_name[entity_name] = prior_by_name.get(entity_name) or _empty_extracted_entity(
+                    entity_name=entity_name,
+                    schema_columns=planner_output.schema_columns,
                 )
                 continue
+            pending_names.append(entity_name)
 
-            model_output = self._client().parse(
-                model=self.model,
-                system_prompt=EXTRACTOR_SYSTEM_PROMPT,
-                user_content=_build_extractor_payload(
-                    planner_output=planner_output,
-                    entity_name=entity_name,
-                    evidence_chunks=chunks,
-                ),
-                response_model=ExtractorEntityModelOutput,
-                reasoning_effort=self.reasoning_effort,
-            )
-            entities.append(
-                _to_extracted_entity(
-                    anchor_entity_name=entity_name,
-                    planner_output=planner_output,
-                    evidence_chunks=chunks,
-                    model_output=model_output,
+        if pending_names:
+            max_workers = min(MAX_EXTRACTOR_CONCURRENCY, len(pending_names))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                extracted_entities = executor.map(
+                    lambda pending_entity_name: self._extract_entity(
+                        planner_output=planner_output,
+                        entity_name=pending_entity_name,
+                        evidence_chunks=evidence_store.chunks_by_entity.get(pending_entity_name, []),
+                    ),
+                    pending_names,
                 )
-            )
+                for extracted_entity in extracted_entities:
+                    entities_by_name[extracted_entity.entity_name] = extracted_entity
 
-        return ExtractorOutput(entities=entities)
+        return ExtractorOutput(
+            entities=[
+                entities_by_name[entity_name]
+                for entity_name in ranked_entity_names
+                if entity_name in entities_by_name
+            ]
+        )
+
+    def _extract_entity(
+        self,
+        *,
+        planner_output: PlannerOutput,
+        entity_name: str,
+        evidence_chunks: list[EvidenceChunk],
+    ) -> ExtractedEntity:
+        model_output = self._client().parse(
+            model=self.model,
+            system_prompt=EXTRACTOR_SYSTEM_PROMPT,
+            user_content=_build_extractor_payload(
+                planner_output=planner_output,
+                entity_name=entity_name,
+                evidence_chunks=evidence_chunks,
+            ),
+            response_model=ExtractorEntityModelOutput,
+            reasoning_effort=self.reasoning_effort,
+        )
+        return _to_extracted_entity(
+            anchor_entity_name=entity_name,
+            planner_output=planner_output,
+            evidence_chunks=evidence_chunks,
+            model_output=model_output,
+        )
 
     def _client(self) -> StructuredLlmClient:
         if self._llm_client is not None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 
 from pydantic import HttpUrl
 
@@ -9,6 +11,7 @@ from backend.app.contracts import (
     ExtractorLightOutput,
     PlannerOutput,
 )
+from backend.app.api_clients import StructuredLlmClient
 from backend.app.stages.extractor import (
     ExtractorColumnDecision,
     ExtractorEntityModelOutput,
@@ -16,7 +19,7 @@ from backend.app.stages.extractor import (
 )
 
 
-class FakeStructuredLlmClient:
+class FakeStructuredLlmClient(StructuredLlmClient):
     def __init__(self) -> None:
         self.calls: list[dict[str, str]] = []
 
@@ -50,6 +53,53 @@ class FakeStructuredLlmClient:
                 )
             ],
         )
+
+
+class ConcurrentFakeStructuredLlmClient(StructuredLlmClient):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self._lock = threading.Lock()
+        self._in_flight = 0
+        self.max_in_flight = 0
+
+    def parse(
+        self,
+        *,
+        model: str,
+        system_prompt: str,
+        user_content: str,
+        response_model: type[ExtractorEntityModelOutput],
+        reasoning_effort: str | None = None,
+    ) -> ExtractorEntityModelOutput:
+        _ = model
+        _ = system_prompt
+        _ = response_model
+        _ = reasoning_effort
+        payload = json.loads(user_content)
+        entity_name = payload["entity_anchor"]
+
+        with self._lock:
+            self.calls.append(entity_name)
+            self._in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self._in_flight)
+
+        try:
+            time.sleep(0.05)
+            return ExtractorEntityModelOutput(
+                entity_name=entity_name,
+                provisional=False,
+                fields=[
+                    ExtractorColumnDecision(
+                        column_name="focus_area",
+                        value=f"{entity_name} focus",
+                        confidence=0.9,
+                        supporting_chunk_ids=["c1"],
+                    )
+                ],
+            )
+        finally:
+            with self._lock:
+                self._in_flight -= 1
 
 
 def test_llm_extractor_stage_anchors_entity_and_maps_chunk_evidence() -> None:
@@ -155,3 +205,54 @@ def test_llm_extractor_stage_keeps_only_top_ranked_ten_entities() -> None:
     assert [json.loads(call["user_content"])["entity_anchor"] for call in llm_client.calls] == [
         f"Entity {index:02d}" for index in range(1, 11)
     ]
+
+
+def test_llm_extractor_stage_runs_multiple_entity_requests_concurrently_and_preserves_order() -> None:
+    llm_client = ConcurrentFakeStructuredLlmClient()
+    stage = LlmExtractorStage(model="gpt-5-mini", llm_client=llm_client)
+
+    candidate_names = [f"Entity {index:02d}" for index in range(1, 6)]
+    chunks_by_entity = {
+        entity_name: [
+            {
+                "text": f"{entity_name} has usable evidence for extraction.",
+                "source_url": f"https://example.com/{index:02d}",
+                "source_title": entity_name,
+                "source_role": "corroboration",
+                "source_quality": "high",
+                "officiality": "third_party",
+                "origin": "brave_llm",
+                "aspect_coverage": ["focus_area"],
+            }
+        ]
+        for index, entity_name in enumerate(candidate_names, start=1)
+    }
+
+    output = stage.run(
+        planner_output=PlannerOutput(
+            entity_type="startup",
+            query_mode="topic_entity_discovery",
+            schema_columns=["name", "focus_area"],
+            core_aspects=["focus_area"],
+            base_query="AI startups in healthcare",
+            initial_query_rewrites=[],
+            is_topic_query=True,
+            normalized_query="AI startups in healthcare",
+        ),
+        extractor_light_output=ExtractorLightOutput(
+            candidate_names=candidate_names,
+            name_to_source_urls={},
+            mention_counts={entity_name: 1 for entity_name in candidate_names},
+        ),
+        evidence_store=EvidenceStore(
+            chunks_by_entity=chunks_by_entity,
+            entity_scores={entity_name: float(6 - index) for index, entity_name in enumerate(candidate_names, start=1)},
+        ),
+    )
+
+    assert [entity.entity_name for entity in output.entities] == candidate_names
+    assert [entity.fields["focus_area"].value for entity in output.entities] == [
+        f"{entity_name} focus" for entity_name in candidate_names
+    ]
+    assert llm_client.max_in_flight > 1
+    assert llm_client.max_in_flight <= 3
