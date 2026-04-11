@@ -4,7 +4,7 @@ Agentic Search is a bounded multi-stage pipeline that takes a topic query, searc
 
 - UPD: accessible at
 
-  https://agentic-search-jvk1.onrender.com/demo](https://agentic-entity-search.vercel.app/
+  https://agentic-entity-search.vercel.app/
 
   (might take around a minute or so to wake up the server as I am using a free-tier deployment plan).
 
