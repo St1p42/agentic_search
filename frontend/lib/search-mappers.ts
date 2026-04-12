@@ -138,7 +138,7 @@ function emptyFieldValue(): FieldValue {
 }
 
 export function mapPipelineResponse(response: BackendPipelineResponse): FrontendSearchResult {
-  const schema = buildInferredSchema({
+  const baseSchema = buildInferredSchema({
     entityType: response.normalized_query,
     columnKeys: response.inferred_schema,
   });
@@ -154,7 +154,7 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
       fundingStage: emptyFieldValue(),
     };
 
-    schema.columns.forEach((column) => {
+    baseSchema.columns.forEach((column) => {
       const backendField = column.key === 'name'
         ? row.fields.name ?? { value: row.name, confidence: 1, evidence: [] }
         : row.fields[column.key];
@@ -170,6 +170,7 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
 
     return frontendRow;
   });
+  const schema = applySparseColumnSuppression(baseSchema, rows);
 
   const sourcesByUrl = new Map<string, Source>();
   rows.forEach((row) => {
@@ -238,6 +239,31 @@ export function mapSchemaPreview(preview: BackendSchemaPreview): InferredSchema 
       label: column.label,
       type: column.type,
     })),
+  };
+}
+
+function applySparseColumnSuppression(schema: InferredSchema, rows: EntityRow[]): InferredSchema {
+  if (rows.length < 3) {
+    return schema;
+  }
+
+  return {
+    ...schema,
+    columns: schema.columns.filter((column) => {
+      if (column.key === 'name') {
+        return true;
+      }
+
+      const filledCount = rows.reduce((count, row) => {
+        const field = row[column.key];
+        if (typeof field === 'object' && field !== null && 'value' in field && field.value !== null) {
+          return count + 1;
+        }
+        return count;
+      }, 0);
+
+      return filledCount / rows.length > 0.3;
+    }),
   };
 }
 
