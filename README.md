@@ -1,6 +1,7 @@
 # Agentic Search
 
 Agentic Search is a bounded multi-stage pipeline that takes a topic query, searches the web, gathers lightweight evidence, extracts structured entities with field-level provenance, and returns a table with top-k found entities.
+
 You can try it out at https://agentic-entity-search.vercel.app/
 
 ## High-Level Approach
