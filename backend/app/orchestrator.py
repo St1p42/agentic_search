@@ -24,6 +24,7 @@ from backend.app.contracts import (
     ExtractorLightOutput,
     ExtractorOutput,
     FinalizingTableStageUiModel,
+    HeuristicAssessingSourceQualityStageUiModel,
     IdentifyingCandidatesStageUiModel,
     JinaFetcherOutput,
     OfficialityLevel,
@@ -45,6 +46,7 @@ from backend.app.contracts import (
     StageUiDetails,
     StartedSearchStageUiModel,
 )
+from backend.app.stages.assessor import LlmSourceAssessorStage
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
@@ -312,12 +314,7 @@ class PipelineOrchestrator:
                 remaining_fetch_budget=0,
             ),
             completed_data_factory=lambda result: _ui_event_data(
-                AssessingSourceQualityStageUiModel(
-                    sources_assessed=len(result.assessed_sources),
-                    heuristic_filtered_sources=_heuristic_filtered_sources_count(result),
-                    sources_sent_to_llm=_sources_sent_to_llm_count(result),
-                    sources_kept_for_analysis=_sources_kept_for_analysis_count(result),
-                ).to_ui_details()
+                _assessor_stage_ui_details(assessor=self.assessor, assessor_output=result)
             ),
         )
         self._build_and_merge_evidence_store(
@@ -445,6 +442,26 @@ def _sources_sent_to_llm_count(assessor_output: AssessorOutput) -> int:
         for source in assessor_output.assessed_sources
         if not source.filtered_out
     )
+
+
+def _assessor_stage_ui_details(
+    *,
+    assessor: object,
+    assessor_output: AssessorOutput,
+):
+    if isinstance(assessor, LlmSourceAssessorStage):
+        return AssessingSourceQualityStageUiModel(
+            sources_assessed=len(assessor_output.assessed_sources),
+            heuristic_filtered_sources=_heuristic_filtered_sources_count(assessor_output),
+            sources_sent_to_llm=_sources_sent_to_llm_count(assessor_output),
+            sources_kept_for_analysis=_sources_kept_for_analysis_count(assessor_output),
+        ).to_ui_details()
+
+    return HeuristicAssessingSourceQualityStageUiModel(
+        sources_reviewed=len(assessor_output.assessed_sources),
+        filtered_out=_heuristic_filtered_sources_count(assessor_output),
+        used_for_evidence=_sources_kept_for_analysis_count(assessor_output),
+    ).to_ui_details()
 
 
 def _missing_fields_count(entities: list[ExtractedEntity]) -> int:

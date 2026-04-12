@@ -165,6 +165,24 @@ class AssessingSourceQualityStageUiModel(BaseModel):
         )
 
 
+class HeuristicAssessingSourceQualityStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sources_reviewed: int
+    filtered_out: int
+    used_for_evidence: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Reviewed sources and kept the strongest evidence",
+            metrics=[
+                StageMetric(key="sourcesReviewed", label="Sources reviewed", value=self.sources_reviewed),
+                StageMetric(key="filteredOut", label="Filtered out", value=self.filtered_out),
+                StageMetric(key="usedForEvidence", label="Used for evidence", value=self.used_for_evidence),
+            ],
+        )
+
+
 class RetrievingEvidenceStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
