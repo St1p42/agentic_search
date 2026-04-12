@@ -162,3 +162,40 @@ def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> 
     assert output.candidate_names == ["Apple iPhone 17 Pro Max"]
     assert output.name_to_source_urls == {"Apple iPhone 17 Pro Max": [acme_url]}
     assert output.mention_counts == {"Apple iPhone 17 Pro Max": 1}
+
+
+def test_llm_extractor_light_stage_filters_generic_and_boilerplate_candidates() -> None:
+    source_url = HttpUrl("https://example.com/healthcare-ai")
+    brave_context_output = make_brave_context_output(
+        passages_by_url={
+            source_url: [
+                make_brave_context_passage(
+                    source_url=str(source_url),
+                    passage_text=(
+                        "Acme Health is featured alongside AI startups in healthcare. "
+                        "About Us and Team describe the company. "
+                        "Apple/Samsung is a comparison, while Platform is generic."
+                    ),
+                    metadata={"title": "Healthcare AI overview"},
+                )
+            ]
+        }
+    )
+    fake_client = FakeExtractorLightClient(
+        ExtractorLightModelOutput(
+            candidate_names=["Acme Health", "AI startups", "About Us", "Apple/Samsung", "Platform"],
+        )
+    )
+    extractor_light = LlmExtractorLightStage(
+        model="gpt-5-mini",
+        llm_client=_as_structured_client(fake_client),
+    )
+
+    output = extractor_light.run(
+        planner_output=make_planner_output(),
+        brave_context_output=brave_context_output,
+    )
+
+    assert output.candidate_names == ["Acme Health"]
+    assert output.name_to_source_urls == {"Acme Health": [source_url]}
+    assert output.mention_counts == {"Acme Health": 1}

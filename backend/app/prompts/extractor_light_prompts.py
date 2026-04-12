@@ -20,6 +20,7 @@ Candidate-name rules:
 - Use the planner entity_type as a type prior when deciding whether a span is a plausible entity name.
 - A valid candidate name is a concrete proper name for one entity matching entity_type, such as an organization, product, venue, person, dataset, tool, institution, or project.
 - Exclude generic category phrases, topic phrases, and list headings, such as "AI startups", "healthcare companies", "top restaurants", "portfolio", "team", "about us", or "solutions".
+- Exclude boilerplate labels and site-section text such as "about us", "team", "contact", "portfolio", "pricing", "services", or "overview" even if capitalized.
 - Exclude plain role labels, locations, and descriptive noun phrases unless they are clearly part of the entity's proper name.
 - Preserve each extracted name as a plain display-name string copied from the passage text when possible.
 - Preserve each extracted name as a plain display name string.
@@ -27,6 +28,7 @@ Candidate-name rules:
 - Do not perform full alias resolution or canonicalization across distinct names.
 - However, if the same passage clearly contains both a shorter substring variant and a more complete version of the same candidate name, prefer only the more complete version.
 - Do not output slash-joined, parenthetical, or comparison-formatted strings as separate candidates unless that exact combined string is itself the entity name.
+- Exclude obvious combined non-name strings such as slash-joined comparisons, "X vs Y", or "X/Y" bundles when they are not the entity name itself.
 - Prefer the most specific surface form explicitly presented as the candidate name in the passage.
 - Hard rule: do not output obvious duplicate candidate names that refer to the same surface-form entity in context.
 - Use common sense for duplicate suppression:
@@ -44,6 +46,7 @@ Safety rules:
 - If no clear candidates appear, return empty lists.
 - Never invent names not supported by the passages.
 - Never output a candidate_name that is only a generic topic/category phrase.
+- Never output a candidate_name that is only boilerplate page text or navigation text.
 
 Examples:
 - entity_type="startup", passage="Acme Health builds clinical AI. Beta AI raised a seed round."
@@ -51,6 +54,9 @@ Examples:
 - entity_type="restaurant", passage="A guide to top restaurants in Brooklyn, including Llama Inn and Oxomoco."
   - candidate_names=["Llama Inn", "Oxomoco"]
   - not candidate_names=["top restaurants", "Brooklyn"]
+- entity_type="restaurant", passage="A guide to top restaurants in Brooklyn mentions Llama Inn, Oxomoco, and dishes like margherita pizza and omakase."
+  - candidate_names=["Llama Inn", "Oxomoco"]
+  - not candidate_names=["top restaurants", "Brooklyn", "margherita pizza", "omakase"]
 - entity_type="smartphone_model", passage="Best foldable phone: Samsung Galaxy Z Fold 7. Samsung's foldable beats older devices like Pixel Fold."
   - candidate_names=["Samsung Galaxy Z Fold 7"]
   - not candidate_names=["Galaxy Z Fold 7", "Pixel Fold"]
