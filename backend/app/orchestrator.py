@@ -314,6 +314,8 @@ class PipelineOrchestrator:
             completed_data_factory=lambda result: _ui_event_data(
                 AssessingSourceQualityStageUiModel(
                     sources_assessed=len(result.assessed_sources),
+                    heuristic_filtered_sources=_heuristic_filtered_sources_count(result),
+                    sources_sent_to_llm=_sources_sent_to_llm_count(result),
                     sources_kept_for_analysis=_sources_kept_for_analysis_count(result),
                 ).to_ui_details()
             ),
@@ -430,6 +432,18 @@ def _sources_kept_for_analysis_count(assessor_output: AssessorOutput) -> int:
             and source.source_quality != SourceQuality.LOW
             and source.officiality != OfficialityLevel.LOW_QUALITY
         )
+    )
+
+
+def _heuristic_filtered_sources_count(assessor_output: AssessorOutput) -> int:
+    return sum(1 for source in assessor_output.assessed_sources if source.filtered_out)
+
+
+def _sources_sent_to_llm_count(assessor_output: AssessorOutput) -> int:
+    return sum(
+        1
+        for source in assessor_output.assessed_sources
+        if not source.filtered_out
     )
 
 

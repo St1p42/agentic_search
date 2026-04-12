@@ -47,6 +47,9 @@ class QualityHeuristicsAssessor:
         if fallback_only:
             score -= 2
             reasons.append("fallback_only_context")
+            if not snippet or len(snippet) < THIN_SNIPPET_CHAR_THRESHOLD:
+                score -= 1
+                reasons.append("fallback_only_thin_source")
         if total_context_chars < THIN_CONTEXT_CHAR_THRESHOLD:
             score -= 1
             reasons.append("thin_context")
@@ -57,6 +60,9 @@ class QualityHeuristicsAssessor:
         if has_low_quality_host_marker(str(result.url)):
             score -= 3
             reasons.append("low_quality_host")
+            if fallback_only or not snippet:
+                score -= 1
+                reasons.append("low_quality_host_with_weak_content")
 
         result_path = path(str(result.url))
         if len(result_path) > LONG_PATH_CHAR_THRESHOLD or path_segment_count(str(result.url)) > LONG_PATH_SEGMENT_THRESHOLD:

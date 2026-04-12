@@ -297,7 +297,7 @@ def test_evidence_builder_skips_filtered_sources() -> None:
     assert output.chunks_by_entity == {}
 
 
-def test_llm_assessor_stage_batches_surviving_sources_for_llm() -> None:
+def test_llm_assessor_stage_sends_one_surviving_source_per_llm_request() -> None:
     search_results = [
         make_search_result(
             url=f"https://news.example.com/company-{index}",
@@ -340,7 +340,7 @@ def test_llm_assessor_stage_batches_surviving_sources_for_llm() -> None:
         ),
     )
 
-    assert len(fake_client.calls) == 2
-    assert [len(json.loads(call["user_content"])["sources"]) for call in fake_client.calls] == [5, 2]
+    assert len(fake_client.calls) == 7
+    assert [len(json.loads(call["user_content"])["sources"]) for call in fake_client.calls] == [1] * 7
     assert len(output.assessed_sources) == 7
     assert all(source.filtered_out is False for source in output.assessed_sources)

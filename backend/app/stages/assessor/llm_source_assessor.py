@@ -23,8 +23,7 @@ from backend.app.stages.assessor.models import HeuristicSourceAssessment
 
 MAX_ASSESSMENT_PASSAGES_PER_URL = 3
 MAX_ASSESSMENT_PASSAGE_CHARS = 800
-MAX_ASSESSOR_BATCH_SIZE = 5
-MAX_CONCURRENT_ASSESSOR_BATCHES = 3
+MAX_CONCURRENT_ASSESSOR_REQUESTS = 4
 
 
 class AssessorSourceDecision(BaseModel):
@@ -68,32 +67,31 @@ class LlmSourceAssessor:
         if not search_results:
             return {}
 
-        search_result_batches = _batch_search_results(search_results, MAX_ASSESSOR_BATCH_SIZE)
-        max_workers = min(MAX_CONCURRENT_ASSESSOR_BATCHES, len(search_result_batches))
+        max_workers = min(MAX_CONCURRENT_ASSESSOR_REQUESTS, len(search_results))
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            batched_outputs = executor.map(
-                lambda batch: self._assess_batch(
+            outputs = executor.map(
+                lambda result: self._assess_one(
                     planner_output=planner_output,
-                    search_results=batch,
+                    search_result=result,
                     brave_context_output=brave_context_output,
                     heuristic_signals_by_url=heuristic_signals_by_url,
                     heuristic_assessments_by_url=heuristic_assessments_by_url,
                     pass_type=pass_type,
                 ),
-                search_result_batches,
+                search_results,
             )
             return {
                 str(source_assessment.source_url): source_assessment
-                for batch_output in batched_outputs
-                for source_assessment in batch_output.assessed_sources
+                for output in outputs
+                for source_assessment in output.assessed_sources
             }
 
-    def _assess_batch(
+    def _assess_one(
         self,
         *,
         planner_output: PlannerOutput,
-        search_results: list[SearchResultItem],
+        search_result: SearchResultItem,
         brave_context_output: BraveContextOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
@@ -104,7 +102,7 @@ class LlmSourceAssessor:
             system_prompt=ASSESSOR_SYSTEM_PROMPT,
             user_content=_build_assessor_payload(
                 planner_output=planner_output,
-                search_results=search_results,
+                search_results=[search_result],
                 brave_context_output=brave_context_output,
                 heuristic_signals_by_url=heuristic_signals_by_url,
                 heuristic_assessments_by_url=heuristic_assessments_by_url,
@@ -178,10 +176,3 @@ def _build_assessor_payload(
         },
         ensure_ascii=True,
     )
-
-
-def _batch_search_results(values: list[SearchResultItem], batch_size: int) -> list[list[SearchResultItem]]:
-    return [
-        values[start : start + batch_size]
-        for start in range(0, len(values), batch_size)
-    ]

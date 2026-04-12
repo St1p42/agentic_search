@@ -137,6 +137,8 @@ class AssessingSourceQualityStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sources_assessed: int
+    heuristic_filtered_sources: int
+    sources_sent_to_llm: int
     sources_kept_for_analysis: int
 
     def to_ui_details(self) -> StageUiDetails:
@@ -144,6 +146,16 @@ class AssessingSourceQualityStageUiModel(BaseModel):
             summary="Filtered for sources strong enough to keep using",
             metrics=[
                 StageMetric(key="sourcesAssessed", label="Sources assessed", value=self.sources_assessed),
+                StageMetric(
+                    key="heuristicFilteredSources",
+                    label="Heuristic-filtered sources",
+                    value=self.heuristic_filtered_sources,
+                ),
+                StageMetric(
+                    key="sourcesSentToLlm",
+                    label="Sources sent to LLM",
+                    value=self.sources_sent_to_llm,
+                ),
                 StageMetric(
                     key="sourcesKeptForAnalysis",
                     label="Sources kept for analysis",
