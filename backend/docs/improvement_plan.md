@@ -231,34 +231,6 @@ Improve both:
 
 ---
 
-### 4. Demo Query Curation and UX Visibility
-
-#### Problem
-
-Even a good system can look weak if shown on poor example queries or without enough pipeline visibility.
-
-#### Goal
-
-Make the demo stable and easy to explain.
-
-#### Recommended Direction
-
-- maintain a shortlist of representative demo queries that perform well
-- use SSE breakdowns to explain pipeline behavior
-- ensure sparse-result behavior is clear and graceful
-
-#### Candidate Tasks
-
-- choose 3-5 demo queries across different domains
-- verify they return coherent outputs with acceptable latency
-- optionally show assessor/extractor metrics in the UI more clearly
-
-#### Success Criteria
-
-- demo queries are stable enough for presentation
-- a reviewer can understand what the system is doing and why
-
----
 
 ## Phase 2: Retrieval Migration (Future)
 
