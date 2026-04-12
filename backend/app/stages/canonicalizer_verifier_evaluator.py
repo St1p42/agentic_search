@@ -11,6 +11,7 @@ from backend.app.contracts import (
     ExtractorOutput,
     PlannerOutput,
 )
+from backend.app.stages.final_row_pruner import FinalRowPruner
 
 
 class CanonicalizerVerifierEvaluatorStage(Protocol):
@@ -34,14 +35,18 @@ class PlaceholderCanonicalizerVerifierEvaluatorStage:
 
 
 class ThinFinalizerStage:
+    def __init__(self, pruner: FinalRowPruner | None = None) -> None:
+        self._pruner = pruner or FinalRowPruner()
+
     def run(
         self,
         planner_output: PlannerOutput,
         extractor_output: ExtractorOutput,
     ) -> CanonicalizerVerifierEvaluatorOutput:
         _ = planner_output
+        canonical_rows = [_canonical_entity(entity) for entity in extractor_output.entities]
         return CanonicalizerVerifierEvaluatorOutput(
-            final_rows=[_canonical_entity(entity) for entity in extractor_output.entities]
+            final_rows=self._pruner.prune(canonical_rows)
         )
 
 

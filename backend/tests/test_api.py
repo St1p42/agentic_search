@@ -361,6 +361,32 @@ def test_finalizer_test_endpoint_returns_final_rows() -> None:
     assert "diagnostics" not in response.json()
 
 
+def test_finalizer_test_endpoint_prunes_name_only_rows() -> None:
+    extractor_output = make_extractor_output(
+        entities=[
+            make_extracted_entity(
+                fields={
+                    "name": make_field_value(value="Acme Health", confidence=1.0),
+                    "website": make_field_value(value=None, confidence=0.0),
+                    "location": make_field_value(value=None, confidence=0.0),
+                    "focus_area": make_field_value(value=None, confidence=0.0),
+                }
+            )
+        ]
+    )
+
+    response = client.post(
+        "/api/v1/finalizer/test",
+        json={
+            "planner_output": _planner_output().model_dump(mode="json"),
+            "extractor_output": extractor_output.model_dump(mode="json"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["final_rows"] == []
+
+
 def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> None:
     class FakeEndpointJinaFetcher:
         def run(
