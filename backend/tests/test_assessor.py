@@ -8,10 +8,13 @@ from pydantic import HttpUrl
 from backend.app.api_clients.llm_client import StructuredLlmClient, StructuredOutputT
 from backend.app.contracts import AssessorPass, OfficialityLevel, SourceQuality, SourceRole
 from backend.app.helpers.evidence_store_builder import DefaultEvidenceStoreBuilder
+from backend.app.config import AssessorRuntimeConfig
 from backend.app.stages.assessor import (
     AssessorModelOutput,
     AssessorSourceDecision,
+    HeuristicSourceAssessorStage,
     LlmSourceAssessorStage,
+    build_source_assessor_stage,
 )
 from backend.tests.fixtures.factories import (
     make_assessed_source,
@@ -344,3 +347,11 @@ def test_llm_assessor_stage_sends_one_surviving_source_per_llm_request() -> None
     assert [len(json.loads(call["user_content"])["sources"]) for call in fake_client.calls] == [1] * 7
     assert len(output.assessed_sources) == 7
     assert all(source.filtered_out is False for source in output.assessed_sources)
+
+
+def test_build_source_assessor_stage_returns_heuristic_mode_without_llm() -> None:
+    assessor = build_source_assessor_stage(
+        runtime_config=AssessorRuntimeConfig(mode="heuristic"),
+    )
+
+    assert isinstance(assessor, HeuristicSourceAssessorStage)
