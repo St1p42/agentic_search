@@ -64,7 +64,11 @@ class OfficialityHeuristicsAssessor:
                 reasons=reasons,
             )
 
-        if has_third_party_pattern(result.title, result.snippet, str(result.url)) and best_domain_match < 0.72:
+        if (
+            has_third_party_pattern(result.title, result.snippet, str(result.url))
+            and best_domain_match < 0.78
+            and best_title_match < 0.72
+        ):
             reasons.append("editorial_or_directory_pattern")
             return OfficialityHeuristicAssessment(
                 officiality=OfficialityLevel.THIRD_PARTY,

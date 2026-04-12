@@ -13,7 +13,8 @@ from backend.app.stages.assessor.quality_heuristics_assessor import QualityHeuri
 
 
 LOW_QUALITY_DROP_CONFIDENCE = 0.8
-MEDIUM_THIRD_PARTY_DROP_CONFIDENCE = 0.7
+MEDIUM_THIRD_PARTY_DROP_CONFIDENCE = 0.65
+WEAK_THIRD_PARTY_DROP_CONFIDENCE = 0.62
 
 
 class HeuristicSourceAssessor:
@@ -62,6 +63,23 @@ class HeuristicSourceAssessor:
                 officiality=officiality,
                 filtered_out=True,
                 filter_reason="medium_quality_third_party",
+            )
+        if (
+            quality.quality == SourceQuality.MEDIUM
+            and officiality.officiality in {OfficialityLevel.THIRD_PARTY, None}
+            and "fallback_only_context" in quality.reasons
+            and (
+                "thin_context" in quality.reasons
+                or "thin_snippet" in quality.reasons
+                or "very_low_relevance" in quality.reasons
+            )
+            and quality.confidence >= WEAK_THIRD_PARTY_DROP_CONFIDENCE
+        ):
+            return HeuristicSourceAssessment(
+                quality=quality,
+                officiality=officiality,
+                filtered_out=True,
+                filter_reason="weak_third_party_source",
             )
 
         return HeuristicSourceAssessment(

@@ -102,7 +102,7 @@ def test_llm_assessor_stage_returns_source_triage_only() -> None:
     official_result = make_search_result(
         url="https://acmehealth.com/about",
         title="About Acme Health",
-        snippet="Acme Health builds clinical AI systems.",
+        snippet="Acme Health is a healthcare AI startup building clinical AI systems for hospitals in Boston.",
         domain="acmehealth.com",
         rank=1,
     )
@@ -122,7 +122,10 @@ def test_llm_assessor_stage_returns_source_triage_only() -> None:
             official_result.url: [
                 make_brave_context_passage(
                     source_url=str(official_result.url),
-                    passage_text="Acme Health develops clinical AI in Boston.",
+                    passage_text=(
+                        "Acme Health is a healthcare AI startup based in Boston. "
+                        "The company develops clinical AI systems for hospitals and care teams."
+                    ),
                     metadata={"title": "About Acme Health"},
                 )
             ],
@@ -196,7 +199,7 @@ def test_llm_assessor_stage_filters_low_quality_sources_before_llm() -> None:
     official_result = make_search_result(
         url="https://acmehealth.com/about",
         title="About Acme Health",
-        snippet="Acme Health builds clinical AI systems.",
+        snippet="Acme Health is a healthcare AI startup building clinical AI systems for hospitals in Boston.",
         domain="acmehealth.com",
         rank=1,
     )
@@ -209,7 +212,10 @@ def test_llm_assessor_stage_filters_low_quality_sources_before_llm() -> None:
             official_result.url: [
                 make_brave_context_passage(
                     source_url=str(official_result.url),
-                    passage_text="Acme Health develops clinical AI in Boston.",
+                    passage_text=(
+                        "Acme Health is a healthcare AI startup based in Boston. "
+                        "The company develops clinical AI systems for hospitals and care teams."
+                    ),
                     metadata={"title": "About Acme Health"},
                 )
             ],
@@ -304,8 +310,11 @@ def test_llm_assessor_stage_sends_one_surviving_source_per_llm_request() -> None
     search_results = [
         make_search_result(
             url=f"https://news.example.com/company-{index}",
-            title=f"Company {index} raises funding",
-            snippet=f"Company {index} appears in industry coverage.",
+            title=f"Healthcare AI startup Company {index} raises funding",
+            snippet=(
+                f"Company {index} is a healthcare AI startup that appears in industry coverage "
+                "for hospital automation and clinical software."
+            ),
             domain="news.example.com",
             rank=index,
         )
@@ -316,7 +325,10 @@ def test_llm_assessor_stage_sends_one_surviving_source_per_llm_request() -> None
             result.url: [
                 make_brave_context_passage(
                     source_url=str(result.url),
-                    passage_text=f"{result.title}. More details about company {index}.",
+                    passage_text=(
+                        f"{result.title}. Company {index} is a healthcare AI startup with products "
+                        "for hospitals and clinical workflows. The article includes funding details."
+                    ),
                     metadata={"title": result.title},
                 )
             ]
@@ -355,3 +367,98 @@ def test_build_source_assessor_stage_returns_heuristic_mode_without_llm() -> Non
     )
 
     assert isinstance(assessor, HeuristicSourceAssessorStage)
+
+
+def test_heuristic_assessor_filters_weak_third_party_roundup_source() -> None:
+    weak_roundup_result = make_search_result(
+        url="https://news.example.com/top-healthcare-ai-startups",
+        title="Top Healthcare AI Startups",
+        snippet="AI startup list.",
+        domain="news.example.com",
+        rank=3,
+    )
+    searcher_output = make_searcher_output(
+        raw_results=[weak_roundup_result],
+        shortlisted_results=[weak_roundup_result],
+    )
+    brave_context_output = make_brave_context_output(
+        passages_by_url={
+            weak_roundup_result.url: [
+                make_brave_context_passage(
+                    source_url=str(weak_roundup_result.url),
+                    passage_text="list entry",
+                    metadata={"title": weak_roundup_result.title, "fallback": True},
+                )
+            ]
+        }
+    )
+    assessor = HeuristicSourceAssessorStage()
+
+    output = assessor.run(
+        planner_output=make_planner_output(
+            normalized_query="healthcare AI startups",
+            base_query="healthcare AI startups",
+            core_aspects=["funding", "focus_area"],
+        ),
+        searcher_output=searcher_output,
+        brave_context_output=brave_context_output,
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Acme Health"],
+            name_to_source_urls={"Acme Health": [weak_roundup_result.url]},
+            mention_counts={"Acme Health": 1},
+        ),
+    )
+
+    assert len(output.assessed_sources) == 1
+    assessed_source = output.assessed_sources[0]
+    assert assessed_source.filtered_out is True
+    assert assessed_source.fetch_reason in {"medium_quality_third_party", "weak_third_party_source", "low_quality"}
+
+
+def test_heuristic_assessor_keeps_official_source_with_real_context() -> None:
+    official_result = make_search_result(
+        url="https://acmehealth.com/about",
+        title="About Acme Health",
+        snippet="Acme Health builds clinical AI systems for hospitals.",
+        domain="acmehealth.com",
+        rank=1,
+    )
+    searcher_output = make_searcher_output(
+        raw_results=[official_result],
+        shortlisted_results=[official_result],
+    )
+    brave_context_output = make_brave_context_output(
+        passages_by_url={
+            official_result.url: [
+                make_brave_context_passage(
+                    source_url=str(official_result.url),
+                    passage_text=(
+                        "Acme Health builds clinical AI systems for hospitals and health systems. "
+                        "The company serves providers across the United States."
+                    ),
+                    metadata={"title": official_result.title},
+                )
+            ]
+        }
+    )
+    assessor = HeuristicSourceAssessorStage()
+
+    output = assessor.run(
+        planner_output=make_planner_output(
+            normalized_query="healthcare AI startups",
+            base_query="healthcare AI startups",
+            core_aspects=["funding", "focus_area"],
+        ),
+        searcher_output=searcher_output,
+        brave_context_output=brave_context_output,
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Acme Health"],
+            name_to_source_urls={"Acme Health": [official_result.url]},
+            mention_counts={"Acme Health": 2},
+        ),
+    )
+
+    assert len(output.assessed_sources) == 1
+    assessed_source = output.assessed_sources[0]
+    assert assessed_source.filtered_out is False
+    assert assessed_source.officiality in {OfficialityLevel.OFFICIAL, OfficialityLevel.NEAR_OFFICIAL}

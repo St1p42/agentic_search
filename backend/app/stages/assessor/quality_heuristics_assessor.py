@@ -7,6 +7,7 @@ from backend.app.stages.assessor.utils import has_low_quality_host_marker, path,
 
 THIN_SNIPPET_CHAR_THRESHOLD = 80
 THIN_CONTEXT_CHAR_THRESHOLD = 80
+VERY_THIN_FALLBACK_CONTEXT_CHAR_THRESHOLD = 140
 LONG_PATH_CHAR_THRESHOLD = 90
 LONG_PATH_SEGMENT_THRESHOLD = 6
 
@@ -31,11 +32,11 @@ class QualityHeuristicsAssessor:
             score -= 4
             reasons.append("missing_snippet")
         elif len(snippet) < THIN_SNIPPET_CHAR_THRESHOLD:
-            score -= 1
+            score -= 2
             reasons.append("thin_snippet")
 
         if heuristic_signals.relevance_hint < 0.05:
-            score -= 2
+            score -= 3
             reasons.append("very_low_relevance")
         elif heuristic_signals.relevance_hint < 0.12:
             score -= 1
@@ -45,13 +46,16 @@ class QualityHeuristicsAssessor:
             reasons.append("good_relevance")
 
         if fallback_only:
-            score -= 2
+            score -= 3
             reasons.append("fallback_only_context")
             if not snippet or len(snippet) < THIN_SNIPPET_CHAR_THRESHOLD:
-                score -= 1
+                score -= 2
                 reasons.append("fallback_only_thin_source")
+            if total_context_chars < VERY_THIN_FALLBACK_CONTEXT_CHAR_THRESHOLD:
+                score -= 1
+                reasons.append("very_thin_fallback_context")
         if total_context_chars < THIN_CONTEXT_CHAR_THRESHOLD:
-            score -= 1
+            score -= 2
             reasons.append("thin_context")
         elif total_context_chars >= 240:
             score += 1
@@ -61,7 +65,7 @@ class QualityHeuristicsAssessor:
             score -= 3
             reasons.append("low_quality_host")
             if fallback_only or not snippet:
-                score -= 1
+                score -= 2
                 reasons.append("low_quality_host_with_weak_content")
 
         result_path = path(str(result.url))
