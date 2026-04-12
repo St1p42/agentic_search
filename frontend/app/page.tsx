@@ -50,6 +50,7 @@ export default function Home() {
   const hasResults = isCompleted && searchState.rows.length > 0;
   const hasNoResults = isCompleted && searchState.rows.length === 0;
   const hasPreviewSchema = Boolean(searchState.schema);
+  const shouldShowLowRowNotice = hasResults && searchState.rows.length < 3;
 
   return (
     <div className={styles.app}>
@@ -93,6 +94,16 @@ export default function Home() {
                   freshness={searchState.freshness}
                   confidence={searchState.overallConfidence}
                 />
+              )}
+
+              {shouldShowLowRowNotice && (
+                <div className={styles.lowRowNotice}>
+                  <p className={styles.lowRowNoticeTitle}>Limited results for this query</p>
+                  <p className={styles.lowRowNoticeText}>
+                    We found only a small number of entities for this query. Broader coverage is still improving as
+                    the project evolves.
+                  </p>
+                </div>
               )}
 
               {viewMode === 'table' ? (
