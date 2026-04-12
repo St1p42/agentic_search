@@ -279,7 +279,9 @@ It is needed because the system should not jump directly from URL passages to fu
 ### What it owns
 
 - heuristic pre-signals in code
-- one batched semantic assessment pass over shortlisted sources
+- heuristic-first source routing before any LLM source judgment
+- immediate filtering of obviously weak sources
+- a narrower LLM fallback only for sources that survive heuristic filtering
 - classification of:
   - `source_role`
   - `source_quality`
@@ -296,6 +298,28 @@ Not all URLs should contribute equally to extraction. The Assessor provides the 
 - whether a URL is discovery-like, verification-like, or corroborative
 
 This stage is where source semantics enter the pipeline.
+
+### Active implementation notes
+
+The current active Assessor is no longer a single monolithic LLM triage step.
+
+Instead it works in two layers:
+
+1. heuristic source assessment
+2. narrower LLM fallback for non-filtered survivors
+
+The heuristic layer currently evaluates:
+
+- obvious low-quality/junk-source patterns
+- weak snippet/context signals
+- officiality hints from domain/name/path overlap
+- broad third-party/editorial patterns
+
+Sources can be marked `filtered_out` by the heuristic layer. Those sources remain in the assessed-source output for transparency, but they are not supposed to contribute evidence downstream.
+
+Only non-filtered sources are sent to the LLM fallback.
+
+The active LLM fallback is intentionally smaller in scope than the original design. It uses the heuristic outputs as hints and then assigns the final per-source labels for surviving URLs.
 
 ---
 
@@ -326,6 +350,7 @@ The builder is intentionally conservative:
 - ambiguous evidence can remain attached to more than one entity
 - unsupported evidence is not converted into structured fields here
 - provenance is preserved on every chunk
+- sources marked `filtered_out` by the Assessor are excluded from evidence attachment
 
 ### Interesting design decisions
 
