@@ -24,6 +24,7 @@ from backend.app.contracts import (
     ExtractorLightOutput,
     ExtractorOutput,
     FinalizingTableStageUiModel,
+    HeuristicAssessingSourceQualityStageUiModel,
     IdentifyingCandidatesStageUiModel,
     JinaFetcherOutput,
     OfficialityLevel,
@@ -35,6 +36,8 @@ from backend.app.contracts import (
     ProcessingSourcesStageUiModel,
     RetrievingEvidenceStageUiModel,
     RetrievingSourcesStageUiModel,
+    SchemaPreviewColumnUiModel,
+    SchemaPreviewUiModel,
     SearcherOutput,
     SseEvent,
     SseEventName,
@@ -43,6 +46,7 @@ from backend.app.contracts import (
     StageUiDetails,
     StartedSearchStageUiModel,
 )
+from backend.app.stages.assessor import LlmSourceAssessorStage
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
@@ -119,12 +123,7 @@ class PipelineOrchestrator:
             stage_name=StageName.PLANNER,
             message="Planning",
             action=lambda: self.planner.run(request.query),
-            completed_data_factory=lambda result: _ui_event_data(
-                PlanningStageUiModel(
-                    interpreted_query=result.normalized_query,
-                    columns_selected=len(result.schema_columns),
-                ).to_ui_details()
-            ),
+            completed_data_factory=lambda result: _planning_event_data(result),
         )
         if planner_output.error:
             raise ValueError(planner_output.error_message or "planner rejected query")
@@ -315,10 +314,7 @@ class PipelineOrchestrator:
                 remaining_fetch_budget=0,
             ),
             completed_data_factory=lambda result: _ui_event_data(
-                AssessingSourceQualityStageUiModel(
-                    sources_assessed=len(result.assessed_sources),
-                    sources_kept_for_analysis=_sources_kept_for_analysis_count(result),
-                ).to_ui_details()
+                _assessor_stage_ui_details(assessor=self.assessor, assessor_output=result)
             ),
         )
         self._build_and_merge_evidence_store(
@@ -412,18 +408,80 @@ def _ui_event_data(details: StageUiDetails) -> dict[str, object]:
     return details.model_dump(mode="json")
 
 
+def _planning_event_data(planner_output: PlannerOutput) -> dict[str, object]:
+    model = PlanningStageUiModel(
+        interpreted_query=planner_output.normalized_query,
+        columns_selected=len(planner_output.schema_columns),
+        schema_preview=_schema_preview_from_planner_output(planner_output),
+    )
+    return {
+        **_ui_event_data(model.to_ui_details()),
+        "schema_preview": model.schema_preview.model_dump(mode="json"),
+    }
+
+
 def _sources_kept_for_analysis_count(assessor_output: AssessorOutput) -> int:
     return sum(
         1
         for source in assessor_output.assessed_sources
-        if source.source_quality != SourceQuality.LOW and source.officiality != OfficialityLevel.LOW_QUALITY
+        if (
+            not source.filtered_out
+            and source.source_quality != SourceQuality.LOW
+            and source.officiality != OfficialityLevel.LOW_QUALITY
+        )
     )
+
+
+def _heuristic_filtered_sources_count(assessor_output: AssessorOutput) -> int:
+    return sum(1 for source in assessor_output.assessed_sources if source.filtered_out)
+
+
+def _sources_sent_to_llm_count(assessor_output: AssessorOutput) -> int:
+    return sum(
+        1
+        for source in assessor_output.assessed_sources
+        if not source.filtered_out
+    )
+
+
+def _assessor_stage_ui_details(
+    *,
+    assessor: object,
+    assessor_output: AssessorOutput,
+):
+    if isinstance(assessor, LlmSourceAssessorStage):
+        return AssessingSourceQualityStageUiModel(
+            sources_assessed=len(assessor_output.assessed_sources),
+            heuristic_filtered_sources=_heuristic_filtered_sources_count(assessor_output),
+            sources_sent_to_llm=_sources_sent_to_llm_count(assessor_output),
+            sources_kept_for_analysis=_sources_kept_for_analysis_count(assessor_output),
+        ).to_ui_details()
+
+    return HeuristicAssessingSourceQualityStageUiModel(
+        sources_reviewed=len(assessor_output.assessed_sources),
+        filtered_out=_heuristic_filtered_sources_count(assessor_output),
+        used_for_evidence=_sources_kept_for_analysis_count(assessor_output),
+    ).to_ui_details()
 
 
 def _missing_fields_count(entities: list[ExtractedEntity]) -> int:
     return sum(
         1
         for entity in entities
-        for field in entity.fields.values()
-        if field.value is None
+        for field_value in entity.fields.values()
+        if field_value.value is None
+    )
+
+
+def _schema_preview_from_planner_output(planner_output: PlannerOutput) -> SchemaPreviewUiModel:
+    return SchemaPreviewUiModel(
+        entity_type=planner_output.entity_type,
+        columns=[
+            SchemaPreviewColumnUiModel(
+                key=column,
+                label=column.replace("_", " ").title(),
+                type="url" if column in {"website", "url"} or column.endswith("_url") else "text",
+            )
+            for column in planner_output.schema_columns
+        ],
     )

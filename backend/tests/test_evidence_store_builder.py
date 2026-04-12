@@ -4,41 +4,31 @@ from pydantic import HttpUrl
 
 from backend.app.contracts import (
     AssessedSource,
-    AssessorOutput,
-    AssessorPass,
-    BraveContextOutput,
     BraveContextPassage,
-    EvidenceChunk,
     EvidenceOrigin,
-    EvidenceStore,
-    ExtractorLightOutput,
-    HeuristicSourceSignals,
     OfficialityLevel,
     SearchResultItem,
     SourceQuality,
     SourceRole,
 )
 from backend.app.helpers.evidence_store_builder import DefaultEvidenceStoreBuilder
-
-
-def _search_result(url: str, title: str, snippet: str, domain: str) -> SearchResultItem:
-    return SearchResultItem(
-        url=HttpUrl(url),
-        title=title,
-        snippet=snippet,
-        domain=domain,
-        rank=1,
-        query_sources=["best phones 2026"],
-        result_type="search_result",
-        provider_metadata={"source": "brave_web_search"},
-    )
+from backend.tests.fixtures.factories import (
+    make_assessed_source,
+    make_assessor_output,
+    make_brave_context_output,
+    make_evidence_chunk,
+    make_evidence_store,
+    make_extractor_light_output,
+    make_heuristic_signals,
+    make_search_result,
+)
 
 
 def _assessed_source(result: SearchResultItem, passage: BraveContextPassage) -> AssessedSource:
-    return AssessedSource(
+    return make_assessed_source(
         result=result,
         brave_context_passages=[passage],
-        heuristic_signals=HeuristicSourceSignals(
+        heuristic_signals=make_heuristic_signals(
             relevance_hint=1.0,
             domain_match_hint=0.0,
             official_path_hint=0.0,
@@ -62,17 +52,19 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
     mapped_url = HttpUrl("https://example.com/mapped")
     fallback_url = HttpUrl("https://example.com/fallback")
 
-    mapped_result = _search_result(
-        str(mapped_url),
-        "Mapped Source",
-        "Mapped snippet",
-        "example.com",
+    mapped_result = make_search_result(
+        url=str(mapped_url),
+        title="Mapped Source",
+        snippet="Mapped snippet",
+        domain="example.com",
+        query_sources=["best phones 2026"],
     )
-    fallback_result = _search_result(
-        str(fallback_url),
-        "Fallback Source",
-        "Fallback snippet",
-        "example.com",
+    fallback_result = make_search_result(
+        url=str(fallback_url),
+        title="Fallback Source",
+        snippet="Fallback snippet",
+        domain="example.com",
+        query_sources=["best phones 2026"],
     )
 
     mapped_passage = BraveContextPassage(
@@ -87,25 +79,22 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
     )
 
     output = builder.run(
-        brave_context_output=BraveContextOutput(
+        brave_context_output=make_brave_context_output(
             passages_by_url={
                 mapped_url: [mapped_passage],
                 fallback_url: [fallback_passage],
             }
         ),
-        extractor_light_output=ExtractorLightOutput(
+        extractor_light_output=make_extractor_light_output(
             candidate_names=["Acme Phone"],
             name_to_source_urls={"Acme Phone": [mapped_url]},
             mention_counts={"Acme Phone": 2},
         ),
-        assessor_output=AssessorOutput(
-            pass_type=AssessorPass.FIRST_PASS,
+        assessor_output=make_assessor_output(
             assessed_sources=[
                 _assessed_source(mapped_result, mapped_passage),
                 _assessed_source(fallback_result, fallback_passage),
             ],
-            verification_gaps=[],
-            selected_jina_urls=[],
         ),
     )
 
@@ -124,11 +113,12 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
 def test_evidence_store_builder_keeps_ambiguous_matches_and_dedupes_existing_chunks() -> None:
     builder = DefaultEvidenceStoreBuilder()
     shared_url = HttpUrl("https://example.com/shared")
-    shared_result = _search_result(
-        str(shared_url),
-        "Shared Source",
-        "Shared snippet",
-        "example.com",
+    shared_result = make_search_result(
+        url=str(shared_url),
+        title="Shared Source",
+        snippet="Shared snippet",
+        domain="example.com",
+        query_sources=["best phones 2026"],
     )
     shared_passage = BraveContextPassage(
         source_url=shared_url,
@@ -139,9 +129,9 @@ def test_evidence_store_builder_keeps_ambiguous_matches_and_dedupes_existing_chu
         metadata={"title": "Shared Source"},
     )
     shared_assessed_source = _assessed_source(shared_result, shared_passage)
-    existing_chunk = EvidenceChunk(
+    existing_chunk = make_evidence_chunk(
         text="Alpha Phone is built for creators and has a polished camera system.",
-        source_url=shared_url,
+        source_url=str(shared_url),
         source_title="Shared Source",
         source_role=SourceRole.CORROBORATION,
         source_quality=SourceQuality.HIGH,
@@ -151,19 +141,16 @@ def test_evidence_store_builder_keeps_ambiguous_matches_and_dedupes_existing_chu
     )
 
     output = builder.run(
-        brave_context_output=BraveContextOutput(passages_by_url={shared_url: [shared_passage]}),
-        extractor_light_output=ExtractorLightOutput(
+        brave_context_output=make_brave_context_output(passages_by_url={shared_url: [shared_passage]}),
+        extractor_light_output=make_extractor_light_output(
             candidate_names=["Alpha Phone", "Beta Phone"],
             name_to_source_urls={},
             mention_counts={"Alpha Phone": 2, "Beta Phone": 2},
         ),
-        assessor_output=AssessorOutput(
-            pass_type=AssessorPass.FIRST_PASS,
+        assessor_output=make_assessor_output(
             assessed_sources=[shared_assessed_source],
-            verification_gaps=[],
-            selected_jina_urls=[],
         ),
-        existing_store=EvidenceStore(chunks_by_entity={"Alpha Phone": [existing_chunk]}),
+        existing_store=make_evidence_store(chunks_by_entity={"Alpha Phone": [existing_chunk]}),
     )
 
     assert len(output.chunks_by_entity["Alpha Phone"]) == 1
@@ -186,20 +173,23 @@ def test_evidence_store_builder_does_not_stop_on_weak_one_off_entity_mentions() 
         ),
         metadata={"title": "Window Source"},
     )
-    result = _search_result(str(source_url), "Window Source", "Window snippet", "example.com")
+    result = make_search_result(
+        url=str(source_url),
+        title="Window Source",
+        snippet="Window snippet",
+        domain="example.com",
+        query_sources=["best phones 2026"],
+    )
 
     output = builder.run(
-        brave_context_output=BraveContextOutput(passages_by_url={source_url: [passage]}),
-        extractor_light_output=ExtractorLightOutput(
+        brave_context_output=make_brave_context_output(passages_by_url={source_url: [passage]}),
+        extractor_light_output=make_extractor_light_output(
             candidate_names=["Acme Phone", "Weak Model"],
             name_to_source_urls={"Acme Phone": [source_url]},
             mention_counts={"Acme Phone": 2, "Weak Model": 1},
         ),
-        assessor_output=AssessorOutput(
-            pass_type=AssessorPass.FIRST_PASS,
+        assessor_output=make_assessor_output(
             assessed_sources=[_assessed_source(result, passage)],
-            verification_gaps=[],
-            selected_jina_urls=[],
         ),
     )
 

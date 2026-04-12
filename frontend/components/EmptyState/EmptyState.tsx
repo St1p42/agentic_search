@@ -1,7 +1,7 @@
 import styles from './EmptyState.module.css';
 
 interface EmptyStateProps {
-  type: 'idle' | 'connecting' | 'error' | 'no-results';
+  type: 'idle' | 'connecting' | 'planning' | 'error' | 'no-results';
   errorMessage?: string;
   onExampleClick?: (query: string) => void;
 }
@@ -19,6 +19,18 @@ export function EmptyState({ type, errorMessage, onExampleClick }: EmptyStatePro
         <div className={styles.spinner} />
         <h2 className={styles.title}>Connecting to research engine</h2>
         <p className={styles.description}>Preparing to analyze your query...</p>
+      </div>
+    );
+  }
+
+  if (type === 'planning') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.spinner} />
+        <h2 className={styles.title}>Planning your search</h2>
+        <p className={styles.description}>
+          Choosing the result columns and search strategy before gathering evidence.
+        </p>
       </div>
     );
   }

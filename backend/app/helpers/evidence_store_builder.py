@@ -196,6 +196,8 @@ def _is_non_low_source(assessed_source: AssessedSource | None) -> bool:
     if assessed_source is None:
         return False
     return (
+        not assessed_source.filtered_out
+        and
         assessed_source.source_quality != SourceQuality.LOW
         and assessed_source.officiality != OfficialityLevel.LOW_QUALITY
     )
@@ -246,6 +248,8 @@ def _brave_source_record(
     passage: BraveContextPassage,
     assessed_source: AssessedSource | None,
 ) -> SourceRecord | None:
+    if assessed_source is not None and assessed_source.filtered_out:
+        return None
     text = passage.passage_text.strip()
     if not text:
         return None
@@ -275,6 +279,8 @@ def _jina_source_records(
         if not document.fetch_succeeded:
             continue
         assessed_source = assessed_sources_by_url.get(str(document.url))
+        if assessed_source is not None and assessed_source.filtered_out:
+            continue
         for chunk_text in _document_text_chunks(document):
             text = chunk_text.strip()
             if not text:

@@ -45,6 +45,15 @@ interface FrontendSearchResult {
   overallConfidence: number;
 }
 
+export interface BackendSchemaPreview {
+  entity_type: string;
+  columns: Array<{
+    key: string;
+    label: string;
+    type: InferredSchema['columns'][number]['type'];
+  }>;
+}
+
 function formatColumnLabel(columnKey: string): string {
   return columnKey
     .split('_')
@@ -129,14 +138,10 @@ function emptyFieldValue(): FieldValue {
 }
 
 export function mapPipelineResponse(response: BackendPipelineResponse): FrontendSearchResult {
-  const schema: InferredSchema = {
+  const baseSchema = buildInferredSchema({
     entityType: response.normalized_query,
-    columns: response.inferred_schema.map((columnKey) => ({
-      key: columnKey,
-      label: formatColumnLabel(columnKey),
-      type: inferColumnType(columnKey),
-    })),
-  };
+    columnKeys: response.inferred_schema,
+  });
 
   const rows = response.final_top_10_rows.map((row, index) => {
     const frontendRow: EntityRow = {
@@ -149,7 +154,7 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
       fundingStage: emptyFieldValue(),
     };
 
-    schema.columns.forEach((column) => {
+    baseSchema.columns.forEach((column) => {
       const backendField = column.key === 'name'
         ? row.fields.name ?? { value: row.name, confidence: 1, evidence: [] }
         : row.fields[column.key];
@@ -165,6 +170,7 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
 
     return frontendRow;
   });
+  const schema = applySparseColumnSuppression(baseSchema, rows);
 
   const sourcesByUrl = new Map<string, Source>();
   rows.forEach((row) => {
@@ -211,6 +217,53 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
       confidenceValues.length > 0
         ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length
         : 0,
+  };
+}
+
+export function buildInferredSchema(input: { entityType: string; columnKeys: string[] }): InferredSchema {
+  return {
+    entityType: input.entityType,
+    columns: input.columnKeys.map((columnKey) => ({
+      key: columnKey,
+      label: formatColumnLabel(columnKey),
+      type: inferColumnType(columnKey),
+    })),
+  };
+}
+
+export function mapSchemaPreview(preview: BackendSchemaPreview): InferredSchema {
+  return {
+    entityType: preview.entity_type,
+    columns: preview.columns.map((column) => ({
+      key: column.key,
+      label: column.label,
+      type: column.type,
+    })),
+  };
+}
+
+function applySparseColumnSuppression(schema: InferredSchema, rows: EntityRow[]): InferredSchema {
+  if (rows.length < 3) {
+    return schema;
+  }
+
+  return {
+    ...schema,
+    columns: schema.columns.filter((column) => {
+      if (column.key === 'name') {
+        return true;
+      }
+
+      const filledCount = rows.reduce((count, row) => {
+        const field = row[column.key];
+        if (typeof field === 'object' && field !== null && 'value' in field && field.value !== null) {
+          return count + 1;
+        }
+        return count;
+      }, 0);
+
+      return filledCount / rows.length > 0.3;
+    }),
   };
 }
 

@@ -16,6 +16,7 @@ from backend.app.config import (
 )
 from backend.app.contracts import BraveContextOutput, ExtractorLightOutput, PlannerOutput
 from backend.app.prompts import EXTRACTOR_LIGHT_SYSTEM_PROMPT
+from backend.app.stages.entity_name_filter import EntityNameFilter
 
 
 MIN_CANDIDATE_NAME_CHARS = 2
@@ -58,11 +59,13 @@ class LlmExtractorLightStage:
         model: str = DEFAULT_EXTRACTOR_LIGHT_MODEL,
         llm_client: StructuredLlmClient | None = None,
         runtime_config: ExtractorLightRuntimeConfig | None = None,
+        entity_name_filter: EntityNameFilter | None = None,
     ) -> None:
         self.model = model
         self.reasoning_effort = "minimal"
         self._llm_client = llm_client
         self._runtime_config = runtime_config
+        self._entity_name_filter = entity_name_filter or EntityNameFilter()
 
     def run(
         self,
@@ -87,8 +90,10 @@ class LlmExtractorLightStage:
             reasoning_effort=self.reasoning_effort,
         )
         return _to_extractor_light_output(
+            planner_output=planner_output,
             model_output=model_output,
             brave_context_output=brave_context_output,
+            entity_name_filter=self._entity_name_filter,
         )
 
     def _client(self) -> StructuredLlmClient:
@@ -141,8 +146,10 @@ def _build_extractor_light_payload(
 
 def _to_extractor_light_output(
     *,
+    planner_output: PlannerOutput,
     model_output: ExtractorLightModelOutput,
     brave_context_output: BraveContextOutput,
+    entity_name_filter: EntityNameFilter,
 ) -> ExtractorLightOutput:
     candidate_names = _normalize_candidate_names(model_output.candidate_names)
     name_to_source_urls: dict[str, list[HttpUrl]] = {}
@@ -163,16 +170,18 @@ def _to_extractor_light_output(
             candidate_name=candidate_name,
             passage_texts_by_url=passage_texts_by_url,
         )
-        if not _should_keep_candidate_name(
-            candidate_name=candidate_name,
-            source_urls=source_urls,
-            mention_count=mention_count,
-        ):
+        if not _should_keep_candidate_name(candidate_name=candidate_name):
             continue
         name_to_source_urls[candidate_name] = source_urls
         mention_counts[candidate_name] = mention_count
 
     candidate_names_out, name_to_source_urls, mention_counts = _dedupe_subset_variants(
+        name_to_source_urls=name_to_source_urls,
+        mention_counts=mention_counts,
+    )
+    candidate_names_out, name_to_source_urls, mention_counts = entity_name_filter.filter(
+        planner_output=planner_output,
+        candidate_names=candidate_names_out,
         name_to_source_urls=name_to_source_urls,
         mention_counts=mention_counts,
     )
@@ -261,17 +270,11 @@ def _normalize_match_text(text: str) -> str:
 def _should_keep_candidate_name(
     *,
     candidate_name: str,
-    source_urls: list[HttpUrl],
-    mention_count: int,
 ) -> bool:
     normalized_name = candidate_name.strip()
     if len(normalized_name) < MIN_CANDIDATE_NAME_CHARS:
         return False
     if len(normalized_name) > MAX_CANDIDATE_NAME_CHARS:
-        return False
-    if not source_urls:
-        return False
-    if mention_count <= 0:
         return False
     return True
 

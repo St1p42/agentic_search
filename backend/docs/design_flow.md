@@ -259,6 +259,19 @@ It is needed because the system should not jump directly from URL passages to fu
 - no alias resolution beyond pragmatic name extraction
 - no final eligibility decisions
 
+### Active implementation notes
+
+The active ExtractorLight still uses one bounded LLM call over the aggregated Brave-context passages, but it now has a small deterministic cleanup layer after model output.
+
+That cleanup is intentionally narrow. It removes only obvious non-entity strings such as:
+
+- generic topic/category phrases
+- boilerplate page labels
+- malformed combined comparison strings
+- weak generic single-token nouns
+
+The goal is not to deterministically prove that every candidate is valid. The goal is to catch the clearest misses before they create downstream extractor waste.
+
 ---
 
 ## 7. Assessor
@@ -279,7 +292,7 @@ It is needed because the system should not jump directly from URL passages to fu
 ### What it owns
 
 - heuristic pre-signals in code
-- one batched semantic assessment pass over shortlisted sources
+- immediate filtering of obviously weak sources
 - classification of:
   - `source_role`
   - `source_quality`
@@ -296,6 +309,36 @@ Not all URLs should contribute equally to extraction. The Assessor provides the 
 - whether a URL is discovery-like, verification-like, or corroborative
 
 This stage is where source semantics enter the pipeline.
+
+### Active implementation notes
+
+The current active Assessor is heuristic-only by default.
+
+There is still an optional LLM-backed assessor mode in code for comparison or fallback use, but it is not the active default path.
+
+The active heuristic layer evaluates:
+
+- obvious low-quality/junk-source patterns
+- weak snippet/context signals
+- officiality hints from domain/name/path overlap
+- broad third-party/editorial patterns
+- fallback-only or very thin evidence
+
+The active heuristic layer also applies a small number of deterministic drop rules, including:
+
+- confident low-quality sources
+- medium-quality third-party sources with sufficiently strong weak-source signals
+- weak third-party or ambiguous sources with fallback-only and thin evidence patterns
+
+Sources can be marked `filtered_out` by the heuristic layer. Those sources remain in the assessed-source output for transparency, but they are not supposed to contribute evidence downstream.
+
+For non-filtered sources, the stage still assigns deterministic source semantics used downstream:
+
+- `source_role`
+- `source_quality`
+- `officiality`
+- `estimated_aspect_coverage`
+- `evidence_sufficiency`
 
 ---
 
@@ -326,6 +369,7 @@ The builder is intentionally conservative:
 - ambiguous evidence can remain attached to more than one entity
 - unsupported evidence is not converted into structured fields here
 - provenance is preserved on every chunk
+- sources marked `filtered_out` by the Assessor are excluded from evidence attachment
 
 ### Interesting design decisions
 
@@ -431,13 +475,23 @@ The active Extractor is one LLM call per retained entity and uses minimal reason
 
 ### Active behavior
 
-The Finalizer is intentionally thin in the current implementation.
+The Finalizer is intentionally thin in the current implementation, but it is no longer a pure pass-through.
 
 It does not do evaluator-style ranking or diagnostics anymore. It simply converts extracted entities into the user-facing row shape:
 
 - `name`
 - `fields`
 - `source_urls`
+
+Before returning rows, it applies a deterministic final-row pruning pass to remove obvious failures.
+
+The active pruning rules remove rows that:
+
+- have no grounded `name`
+- are fully empty
+- have no grounded non-name field
+
+In practice this means the Finalizer drops total failures and name-only rows, while preserving sparse but still grounded rows.
 
 This is a deliberate downscope. The real value now is already in the Extractor output; the Finalizer is a response shaper, not an evaluation engine.
 
@@ -493,10 +547,10 @@ The active system is a bounded deterministic pipeline where:
 - the Planner turns a raw query into entity type, schema, aspects, and intent-covering rewrites
 - the Searcher turns those rewrites into a bounded URL pool
 - Brave LLM Context provides shallow URL-linked evidence
-- ExtractorLight establishes entity anchors early
-- the Assessor adds source semantics
+- ExtractorLight establishes entity anchors early and removes obvious non-entity strings
+- the Assessor adds heuristic source semantics and filters weak sources
 - the Evidence Store Builder converts URL evidence into an entity-centric store and computes entity scores
 - the Extractor performs the real top-10 gating and field extraction with provenance
-- the Finalizer returns only the user-facing rows
+- the Finalizer prunes obvious row failures and returns only the user-facing rows
 
 That is the source of truth for the current implementation.

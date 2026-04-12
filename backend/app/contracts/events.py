@@ -34,6 +34,21 @@ class StageUiDetails(BaseModel):
     metrics: list[StageMetric] = Field(default_factory=list)
 
 
+class SchemaPreviewColumnUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    label: str
+    type: Literal["text", "url", "number", "date"] = "text"
+
+
+class SchemaPreviewUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entity_type: str
+    columns: list[SchemaPreviewColumnUiModel] = Field(default_factory=list)
+
+
 class StartedSearchStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -48,6 +63,7 @@ class PlanningStageUiModel(BaseModel):
 
     interpreted_query: str
     columns_selected: int
+    schema_preview: SchemaPreviewUiModel
 
     def to_ui_details(self) -> StageUiDetails:
         return StageUiDetails(
@@ -121,6 +137,8 @@ class AssessingSourceQualityStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sources_assessed: int
+    heuristic_filtered_sources: int
+    sources_sent_to_llm: int
     sources_kept_for_analysis: int
 
     def to_ui_details(self) -> StageUiDetails:
@@ -129,10 +147,38 @@ class AssessingSourceQualityStageUiModel(BaseModel):
             metrics=[
                 StageMetric(key="sourcesAssessed", label="Sources assessed", value=self.sources_assessed),
                 StageMetric(
+                    key="heuristicFilteredSources",
+                    label="Heuristic-filtered sources",
+                    value=self.heuristic_filtered_sources,
+                ),
+                StageMetric(
+                    key="sourcesSentToLlm",
+                    label="Sources sent to LLM",
+                    value=self.sources_sent_to_llm,
+                ),
+                StageMetric(
                     key="sourcesKeptForAnalysis",
                     label="Sources kept for analysis",
                     value=self.sources_kept_for_analysis,
                 ),
+            ],
+        )
+
+
+class HeuristicAssessingSourceQualityStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sources_reviewed: int
+    filtered_out: int
+    used_for_evidence: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Reviewed sources and kept the strongest evidence",
+            metrics=[
+                StageMetric(key="sourcesReviewed", label="Sources reviewed", value=self.sources_reviewed),
+                StageMetric(key="filteredOut", label="Filtered out", value=self.filtered_out),
+                StageMetric(key="usedForEvidence", label="Used for evidence", value=self.used_for_evidence),
             ],
         )
 

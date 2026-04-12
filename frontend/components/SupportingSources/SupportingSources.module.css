@@ -59,19 +59,27 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 10px;
 }
 
 .domain {
+  flex: 1 1 180px;
+  min-width: 0;
   font-size: 12px;
   font-weight: 500;
   color: #2e5f50;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .badges {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 .badge {
@@ -81,6 +89,8 @@
   letter-spacing: 0.03em;
   padding: 3px 7px;
   border-radius: 4px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .badge_official {
