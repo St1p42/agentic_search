@@ -2,7 +2,11 @@
 
 Agentic Search is a bounded multi-stage pipeline that takes a topic query, searches the web, gathers lightweight evidence, extracts structured entities with field-level provenance, and returns a table with top-k found entities.
 
-You can try it out at https://agentic-entity-search.vercel.app/
+The deployed project is publicly accessible here:
+
+- https://agentic-entity-search.vercel.app/
+
+You do not need to set anything up locally to try the product. The local setup instructions below are only for running or modifying the codebase yourself.
 
 ## High-Level Approach
 
@@ -21,11 +25,11 @@ Key design decisions:
 
 - Planner owns semantic query rewrites based on likely user intent slices.
 - Searcher is mechanical: execute queries, prune weak URLs, merge results, and build a bounded shortlist.
-- ExtractorLight exists to establish candidate entities before any full field extraction.
-- Assessor adds source semantics: source role, source quality, and officiality.
+- ExtractorLight exists to establish candidate entities before any full field extraction, then removes obvious non-entity strings with a small deterministic cleanup layer.
+- Assessor is heuristic-only by default and adds source semantics such as source role, source quality, and officiality.
 - Evidence is stored in an entity-centric evidence store, not kept URL-centric all the way through.
 - The Extractor performs pre-extraction top-10 gating to reduce latency and cost.
-- The Finalizer is intentionally thin and only shapes the user-facing rows.
+- The Finalizer is intentionally thin and prunes obvious row failures before returning the user-facing rows.
 
 ## Detailed Documentation
 
@@ -69,7 +73,7 @@ SEARCHER_MODE=brave
 
 Notes:
 
-- The active pipeline also uses LLM-backed ExtractorLight, Assessor, and Extractor stages.
+- The active pipeline uses LLM-backed Planner, ExtractorLight, and Extractor stages by default. The Assessor defaults to a heuristic-only mode, but still supports an optional LLM-backed mode for comparison.
 - If `OPENAI_API_KEY` is missing, the LLM-backed stages will not work.
 - If `BRAVE_SEARCH_API_KEY` is missing, search and Brave LLM Context will not work.
 
@@ -128,8 +132,8 @@ pytest backend/tests -q
 - The current pipeline is **not yet latency-optimized**.  
   A faster version would likely come from being more selective much earlier: pruning weak sources sooner, issuing fewer but better query expansions, merging search results more carefully, and passing smaller, more targeted evidence chunks into downstream stages. Additional gains are likely from making source assessment leaner and adding an optional **per-entity evidence summarization step** so later stages consume compressed evidence rather than raw accumulated context.
 
-- The **frontend is intentionally minimal** in v1.  
-  It is currently a simple HTML page served by the backend and is functional rather than polished. A fuller version would improve usability, progress visibility, evidence inspection, and general presentation quality.
+- The **frontend is still a demo-oriented interface**, even though the deployed site is usable and significantly more polished than the original backend-served HTML page.  
+  There is still room to improve query guidance, evidence inspection, and broader result consistency across weaker topics.
 
 - There is no **verification-query sub-pass** in the active runtime flow.  
   In the fuller design, this step would issue targeted follow-up searches for promising entities that are missing strong verification sources. The goal is to improve the likelihood that important schema columns can be filled with grounded evidence rather than left empty or weakly supported.
