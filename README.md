@@ -79,6 +79,8 @@ Notes:
 
 ## Run the Server
 
+### Backend
+
 From the repo root:
 
 ```bash
@@ -89,19 +91,61 @@ Then open:
 
 - [http://127.0.0.1:8000/demo](http://127.0.0.1:8000/demo)
 
+This is the simpler backend-served demo page. The primary local frontend experience is the Next.js app described below.
+
+### Frontend
+
+The Next.js frontend lives under `frontend/` and expects the backend server to be running first.
+
+By default, the frontend proxies API requests to:
+
+- `http://127.0.0.1:8000`
+
+So for normal local development:
+
+1. start the backend server
+2. start the frontend dev server
+
+From the `frontend/` directory:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open:
+
+- [http://127.0.0.1:3000](http://127.0.0.1:3000)
+
+If you want the frontend to point at a different backend, set either:
+
+```env
+BACKEND_URL=http://127.0.0.1:8000
+```
+
+or:
+
+```env
+NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
+```
+
 ## How to Use It
 
 ### Browser Demo
 
 Open:
 
-- [http://127.0.0.1:8000/demo](http://127.0.0.1:8000/demo)
+- [http://127.0.0.1:3000](http://127.0.0.1:3000)
 
 This page:
 
 - accepts a normal text query
 - streams stage progress live over SSE
-- renders the final results as an HTML table
+- renders the final results as the primary demo UI
+
+Optional simpler backend-served demo:
+
+- [http://127.0.0.1:8000/demo](http://127.0.0.1:8000/demo)
 
 ### Raw JSON Endpoint
 
@@ -125,33 +169,19 @@ For raw event streaming:
 pytest backend/tests -q
 ```
 
-## Known Limitations
+## Project Status
 
-- The active implementation is intentionally downscoped from the broader north-star design in order to ship a working v1 within the challenge timeline.
+The project is currently at the end of its Phase 1 demo-ready milestone:
 
-- The current pipeline is **not yet latency-optimized**.  
-  A faster version would likely come from being more selective much earlier: pruning weak sources sooner, issuing fewer but better query expansions, merging search results more carefully, and passing smaller, more targeted evidence chunks into downstream stages. Additional gains are likely from making source assessment leaner and adding an optional **per-entity evidence summarization step** so later stages consume compressed evidence rather than raw accumulated context.
+- the active pipeline is stable enough to demo publicly
+- the frontend is usable as a recruiter-facing product surface
+- the remaining work is focused on improving quality, coverage, latency, and retrieval depth rather than shipping a first usable version
 
-- The **frontend is still a demo-oriented interface**, even though the deployed site is usable and significantly more polished than the original backend-served HTML page.  
-  There is still room to improve query guidance, evidence inspection, and broader result consistency across weaker topics.
+The broader roadmap is documented here:
 
-- There is no **verification-query sub-pass** in the active runtime flow.  
-  In the fuller design, this step would issue targeted follow-up searches for promising entities that are missing strong verification sources. The goal is to improve the likelihood that important schema columns can be filled with grounded evidence rather than left empty or weakly supported.
+- [backend/docs/improvement_plan.md](/Users/a123/PycharmProjects/agentic_search/backend/docs/improvement_plan.md)
 
-- There is no **repair round** in the active runtime flow.  
-  In the fuller design, the system would inspect the provisional final table for weak rows, under-covered aspects, or missing important fields, then run one bounded follow-up retrieval/extraction pass to improve coverage before returning results.
-
-- There is no **Jina-based selective deep-fetch step** in the active runtime flow.  
-  In the fuller design, this would provide more direct page content beyond Brave LLM Context, giving the system better evidence for extraction and verification. It would also enable lightweight in-memory chunking and more focused downstream context selection, rather than relying only on the pre-extracted context returned by Brave.
-
-- There is no **MMR/diversity selector** in the active runtime flow.  
-  In the fuller design, the system would first keep a somewhat larger candidate pool, then apply an MMR-style selection step to choose a more diverse final top-10 (across planner-derived aspects).
-
-- Some **extraction quality issues** can still remain when retrieved text mixes closely related entities, product variants, or overlapping mentions on the same page.  
-  This can lead to partial field leakage or less precise row construction. Additional retrieval refinement and stronger evidence separation would likely improve this.
-
-- The current retrieval/extraction pipeline can still be improved overall.  
-  Better early source selection, stronger evidence filtering, and richer source coverage would likely improve both entity discovery quality and schema completeness.
+That document covers the next planned phases, including deeper retrieval, stronger verification, richer evidence selection, and overall performance improvements.
 
 ## Deployment Note
 

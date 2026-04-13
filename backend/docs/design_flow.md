@@ -1,6 +1,6 @@
 # Agentic Search — Active System Flow
 
-## Challenge
+## Goal
 
 Build a system that takes a topic query such as "AI startups in healthcare", "top pizza places in Brooklyn", or "open source database tools" and produces a structured table of discovered entities with relevant attributes, sourced from the web.
 
@@ -536,7 +536,7 @@ These are valid future extensions, but they were excluded to keep the current sy
 - inspectable
 - bounded
 - fast enough to iterate
-- aligned to the minimum challenge requirements
+- aligned to the current demo-ready scope
 
 ---
 
