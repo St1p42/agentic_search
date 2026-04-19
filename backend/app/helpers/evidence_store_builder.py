@@ -64,9 +64,9 @@ class EvidenceStoreBuilder(Protocol):
         self,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
+        existing_store: EvidenceStore | None = None,
         chunk_ranking_output: ChunkRankingOutput | None = None,
         brave_context_output: RetrievedSourcesOutput | None = None,
-        existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
         """Build or merge the entity-centric evidence store."""
 
@@ -76,9 +76,9 @@ class DefaultEvidenceStoreBuilder:
         self,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
+        existing_store: EvidenceStore | None = None,
         chunk_ranking_output: ChunkRankingOutput | None = None,
         brave_context_output: RetrievedSourcesOutput | None = None,
-        existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
         chunk_ranking_output = chunk_ranking_output or _chunk_ranking_output_from_retrieved_sources(
             brave_context_output or RetrievedSourcesOutput()
@@ -120,9 +120,9 @@ class PlaceholderEvidenceStoreBuilder:
         self,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
+        existing_store: EvidenceStore | None = None,
         chunk_ranking_output: ChunkRankingOutput | None = None,
         brave_context_output: RetrievedSourcesOutput | None = None,
-        existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
         _ = chunk_ranking_output
         _ = brave_context_output
