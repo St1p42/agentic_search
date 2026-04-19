@@ -232,6 +232,34 @@ class JinaFetcherOutput(BaseModel):
     url_sources: list[UrlSource] = Field(default_factory=list)
 
 
+class ScoredChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chunk_id: str
+    source_id: str
+    source_url: HttpUrl
+    source_title: str
+    text: str
+    base_score: float = 0.0
+    best_rewrite_score: float = 0.0
+    support_bonus: float = 0.0
+    support_count: int = Field(default=0, ge=0)
+    query_scores: dict[str, float] = Field(default_factory=dict)
+    matched_queries: list[str] = Field(default_factory=list)
+    best_query: str | None = None
+    aspect_overlap_score: float = 0.0
+    title_overlap_score: float = 0.0
+    official_domain_boost: float = 0.0
+    boilerplate_penalty: float = 0.0
+    final_score: float = 0.0
+
+
+class ChunkRankingOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scored_chunks: list[ScoredChunk] = Field(default_factory=list)
+
+
 class ExtractedEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

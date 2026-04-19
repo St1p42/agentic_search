@@ -6,6 +6,11 @@ from backend.app.helpers.brave_context_fetcher import (
     PlaceholderBraveContextFetcher,
     build_brave_context_fetcher,
 )
+from backend.app.helpers.chunk_retrieval_preprocessor import (
+    ChunkRetrievalPreprocessor,
+    DefaultChunkRetrievalPreprocessor,
+)
+from backend.app.helpers.chunk_ranker import ChunkRanker, DefaultChunkRanker
 from backend.app.helpers.evidence_store_builder import (
     DefaultEvidenceStoreBuilder,
     EvidenceStoreBuilder,
@@ -23,7 +28,11 @@ from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
 
 __all__ = [
     "BraveContextFetcher",
+    "ChunkRetrievalPreprocessor",
+    "ChunkRanker",
     "DefaultBraveContextFetcher",
+    "DefaultChunkRetrievalPreprocessor",
+    "DefaultChunkRanker",
     "DefaultOutputMerger",
     "DefaultEvidenceStoreBuilder",
     "DefaultJinaFetcher",

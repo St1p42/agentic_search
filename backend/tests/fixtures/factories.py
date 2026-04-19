@@ -19,10 +19,12 @@ from backend.app.contracts import (
     HeuristicSourceSignals,
     OfficialityLevel,
     PlannerOutput,
+    RetrievedChunk,
     SearchResultItem,
     SearcherOutput,
     SourceQuality,
     SourceRole,
+    UrlSource,
 )
 
 
@@ -189,6 +191,40 @@ def make_assessor_output(
         assessed_sources=assessed_sources or [],
         verification_gaps=verification_gaps or [],
         selected_jina_urls=selected_jina_urls or [],
+    )
+
+
+def make_retrieved_chunk(
+    *,
+    chunk_id: str = "jina:https://acmehealth.com/about#0",
+    source_id: str = "jina:https://acmehealth.com/about",
+    text: str = "Acme Health develops clinical AI systems for hospitals and care teams.",
+    sequence_index: int = 0,
+) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=chunk_id,
+        source_id=source_id,
+        text=text,
+        sequence_index=sequence_index,
+    )
+
+
+def make_url_source(
+    *,
+    source_id: str = "jina:https://acmehealth.com/about",
+    url: str = "https://acmehealth.com/about",
+    title: str = "About Acme Health",
+    origin: EvidenceOrigin = EvidenceOrigin.JINA,
+    metadata: dict[str, str | int | float | bool | None] | None = None,
+    chunks: list[RetrievedChunk] | None = None,
+) -> UrlSource:
+    return UrlSource(
+        source_id=source_id,
+        url=HttpUrl(url),
+        title=title,
+        origin=origin,
+        metadata=metadata or {},
+        chunks=chunks or [make_retrieved_chunk(source_id=source_id)],
     )
 
 
