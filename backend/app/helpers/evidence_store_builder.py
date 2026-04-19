@@ -14,7 +14,6 @@ from backend.app.contracts import (
     AssessorOutput,
     BraveContextOutput,
     BraveContextPassage,
-    DeepFetchedDocument,
     EvidenceChunk,
     EvidenceOrigin,
     EvidenceStore,
@@ -275,37 +274,29 @@ def _jina_source_records(
     assessed_sources_by_url: dict[str, AssessedSource],
 ) -> list[SourceRecord]:
     records: list[SourceRecord] = []
-    for document in jina_fetcher_output.fetched_documents:
-        if not document.fetch_succeeded:
+    for url_source in jina_fetcher_output.url_sources:
+        if bool(url_source.metadata.get("fetch_succeeded")) is False:
             continue
-        assessed_source = assessed_sources_by_url.get(str(document.url))
+        assessed_source = assessed_sources_by_url.get(str(url_source.url))
         if assessed_source is not None and assessed_source.filtered_out:
             continue
-        for chunk_text in _document_text_chunks(document):
-            text = chunk_text.strip()
+        for chunk in url_source.chunks:
+            text = chunk.text.strip()
             if not text:
                 continue
             records.append(
                 SourceRecord(
-                    source_url=str(document.url),
+                    source_url=str(url_source.url),
                     text=text,
                     metadata=_base_chunk_metadata(
-                        source_url=document.url,
-                        source_title=document.title,
+                        source_url=url_source.url,
+                        source_title=url_source.title,
                         assessed_source=assessed_source,
                         origin=EvidenceOrigin.JINA,
                     ),
                 )
             )
     return records
-
-
-def _document_text_chunks(document: DeepFetchedDocument) -> list[str]:
-    if document.chunks:
-        return [chunk.text for chunk in document.chunks if chunk.text.strip()]
-    if document.text:
-        return [document.text]
-    return []
 
 
 def _base_chunk_metadata(
@@ -586,7 +577,7 @@ def _source_score(chunk: EvidenceChunk) -> float:
 
 
 def _chunk_key(chunk: EvidenceChunk) -> tuple[str, str, str]:
-    return (str(chunk.source_url), chunk.origin.value, chunk.text)
+    return str(chunk.source_url), chunk.origin.value, chunk.text
 
 
 def _candidate_matcher(candidate_name: str) -> tuple[str, frozenset[str]]:

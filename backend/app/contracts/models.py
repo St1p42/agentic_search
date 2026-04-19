@@ -138,17 +138,6 @@ class UrlSource(BaseModel):
     chunks: list[RetrievedChunk] = Field(default_factory=list)
 
 
-class DeepFetchedDocument(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    url: HttpUrl
-    title: str
-    text: str | None = None
-    chunks: list[RetrievedChunk] = Field(default_factory=list)
-    fetch_succeeded: bool = True
-    error_message: str | None = None
-
-
 class BraveContextPassage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -240,7 +229,6 @@ class EvidenceStore(BaseModel):
 class JinaFetcherOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    fetched_documents: list[DeepFetchedDocument]
     url_sources: list[UrlSource] = Field(default_factory=list)
 
 

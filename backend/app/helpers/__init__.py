@@ -12,6 +12,7 @@ from backend.app.helpers.evidence_store_builder import (
     PlaceholderEvidenceStoreBuilder,
     build_evidence_store_builder,
 )
+from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
 from backend.app.helpers.jina_fetcher import (
     DefaultJinaFetcher,
     JinaFetcher,
@@ -26,6 +27,7 @@ __all__ = [
     "DefaultOutputMerger",
     "DefaultEvidenceStoreBuilder",
     "DefaultJinaFetcher",
+    "HierarchicalTextChunker",
     "EvidenceStoreBuilder",
     "JinaFetcher",
     "OutputMerger",

@@ -7,7 +7,6 @@ from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
     BraveContextOutput,
-    DeepFetchedDocument,
     EvidenceOrigin,
     EvidenceStore,
     ExtractorLightOutput,
@@ -15,7 +14,6 @@ from backend.app.contracts import (
     JinaFetcherOutput,
     PipelineRequest,
     PlannerOutput,
-    RetrievedChunk,
     SearcherOutput,
     UrlSource,
 )
@@ -390,7 +388,7 @@ def test_finalizer_test_endpoint_prunes_name_only_rows() -> None:
     assert response.json()["final_rows"] == []
 
 
-def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> None:
+def test_jina_fetcher_test_endpoint_returns_url_sources(monkeypatch) -> None:
     class FakeEndpointJinaFetcher:
         def run(
             self,
@@ -400,37 +398,13 @@ def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> No
             _ = assessor_output
             _ = remaining_fetch_budget
             return JinaFetcherOutput(
-                fetched_documents=[
-                    DeepFetchedDocument(
-                        url=HttpUrl("https://acmehealth.com/about"),
-                        title="Acme Health",
-                        text="Acme Health builds clinical AI.",
-                        chunks=[
-                            RetrievedChunk(
-                                chunk_id="jina:https://acmehealth.com/about#0",
-                                source_id="jina:https://acmehealth.com/about",
-                                text="Acme Health builds clinical AI.",
-                                sequence_index=0,
-                            )
-                        ],
-                        fetch_succeeded=True,
-                        error_message=None,
-                    )
-                ],
                 url_sources=[
                     UrlSource(
                         source_id="jina:https://acmehealth.com/about",
                         url=HttpUrl("https://acmehealth.com/about"),
                         title="Acme Health",
                         origin=EvidenceOrigin.JINA,
-                        chunks=[
-                            RetrievedChunk(
-                                chunk_id="jina:https://acmehealth.com/about#0",
-                                source_id="jina:https://acmehealth.com/about",
-                                text="Acme Health builds clinical AI.",
-                                sequence_index=0,
-                            )
-                        ],
+                        chunks=[],
                     )
                 ],
             )
@@ -449,14 +423,6 @@ def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> No
     )
 
     assert response.status_code == 200
-    assert response.json()["fetched_documents"][0]["chunks"] == [
-        {
-            "chunk_id": "jina:https://acmehealth.com/about#0",
-            "source_id": "jina:https://acmehealth.com/about",
-            "text": "Acme Health builds clinical AI.",
-            "sequence_index": 0,
-        }
-    ]
     assert response.json()["url_sources"] == [
         {
             "source_id": "jina:https://acmehealth.com/about",
@@ -464,13 +430,6 @@ def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> No
             "title": "Acme Health",
             "origin": "jina",
             "metadata": {},
-            "chunks": [
-                {
-                    "chunk_id": "jina:https://acmehealth.com/about#0",
-                    "source_id": "jina:https://acmehealth.com/about",
-                    "text": "Acme Health builds clinical AI.",
-                    "sequence_index": 0,
-                }
-            ],
+            "chunks": [],
         }
     ]

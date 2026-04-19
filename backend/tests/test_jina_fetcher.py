@@ -5,7 +5,8 @@ from pydantic import HttpUrl
 from backend.app.api_clients import JinaReaderClient, JinaReaderDocument
 from backend.app.config import JinaFetcherRuntimeConfig
 from backend.app.contracts import AssessorOutput, AssessorPass
-from backend.app.helpers.jina_fetcher import DefaultJinaFetcher, chunk_document_text
+from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
+from backend.app.helpers.jina_fetcher import DefaultJinaFetcher
 
 
 class FakeJinaReaderClient(JinaReaderClient):
@@ -48,6 +49,7 @@ def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> Non
             timeout_seconds=30.0,
             max_chunks_per_doc=2,
             max_chars_per_chunk=80,
+            min_chars_per_chunk=20,
         ),
         jina_reader_client=fake_client,
     )
@@ -65,35 +67,28 @@ def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> Non
         remaining_fetch_budget=2,
     )
 
-    assert len(output.fetched_documents) == 2
-    assert output.fetched_documents[0].fetch_succeeded is True
-    assert output.fetched_documents[0].title == "Acme Health"
-    assert [chunk.text for chunk in output.fetched_documents[0].chunks] == [
-        "Title: Acme Health\n\n# About\nAcme Health builds clinical AI.",
-        "# Team\nFounded in Boston.\n\n# Product\nSupports hospital workflows.",
-    ]
-    assert output.fetched_documents[0].chunks[0].source_id == "jina:https://acmehealth.com/about"
-    assert output.fetched_documents[0].chunks[0].chunk_id == "jina:https://acmehealth.com/about#0"
+    assert len(output.url_sources) == 2
     assert output.url_sources[0].source_id == "jina:https://acmehealth.com/about"
     assert output.url_sources[0].title == "Acme Health"
     assert [chunk.text for chunk in output.url_sources[0].chunks] == [
         "Title: Acme Health\n\n# About\nAcme Health builds clinical AI.",
         "# Team\nFounded in Boston.\n\n# Product\nSupports hospital workflows.",
     ]
+    assert output.url_sources[0].chunks[0].source_id == "jina:https://acmehealth.com/about"
+    assert output.url_sources[0].chunks[0].chunk_id == "jina:https://acmehealth.com/about#0"
     assert output.url_sources[1].metadata == {
         "fetch_succeeded": False,
         "error_message": "upstream timeout",
     }
-    assert output.fetched_documents[1].fetch_succeeded is False
-    assert output.fetched_documents[1].error_message == "upstream timeout"
 
 
-def test_chunk_document_text_avoids_tiny_tail_chunks_for_single_large_section() -> None:
-    chunks = chunk_document_text(
-        "alpha " * 40,
-        source_id="jina:https://example.com/page",
+def test_hierarchical_chunker_avoids_tiny_tail_chunks_for_single_large_section() -> None:
+    chunks = HierarchicalTextChunker(
+        target_chunk_chars=100,
         max_chunks=10,
-        max_chars_per_chunk=100,
+    ).chunk(
+        text="alpha " * 40,
+        source_id="jina:https://example.com/page",
     )
 
     assert len(chunks) == 3
