@@ -52,11 +52,13 @@ from backend.app.contracts.models import (
     PlannerOutput,
     PipelineRequest,
     PipelineResponse,
+    RetrievedChunk,
     SearchResultItem,
     SearcherOutput,
     SourceQuality,
     SourceRole,
     StageName,
+    UrlSource,
 )
 
 __all__ = [
@@ -103,6 +105,7 @@ __all__ = [
     "ProcessingSourcesStageUiModel",
     "SearchResultItem",
     "SearcherOutput",
+    "RetrievedChunk",
     "SchemaPreviewColumnUiModel",
     "SchemaPreviewUiModel",
     "SourceQuality",
@@ -115,4 +118,5 @@ __all__ = [
     "StartedSearchStageUiModel",
     "RetrievingEvidenceStageUiModel",
     "RetrievingSourcesStageUiModel",
+    "UrlSource",
 ]

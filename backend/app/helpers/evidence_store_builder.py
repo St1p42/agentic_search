@@ -302,7 +302,7 @@ def _jina_source_records(
 
 def _document_text_chunks(document: DeepFetchedDocument) -> list[str]:
     if document.chunks:
-        return list(document.chunks)
+        return [chunk.text for chunk in document.chunks if chunk.text.strip()]
     if document.text:
         return [document.text]
     return []

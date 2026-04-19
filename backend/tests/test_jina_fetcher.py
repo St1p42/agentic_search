@@ -68,10 +68,22 @@ def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> Non
     assert len(output.fetched_documents) == 2
     assert output.fetched_documents[0].fetch_succeeded is True
     assert output.fetched_documents[0].title == "Acme Health"
-    assert output.fetched_documents[0].chunks == [
+    assert [chunk.text for chunk in output.fetched_documents[0].chunks] == [
         "Title: Acme Health\n\n# About\nAcme Health builds clinical AI.",
         "# Team\nFounded in Boston.\n\n# Product\nSupports hospital workflows.",
     ]
+    assert output.fetched_documents[0].chunks[0].source_id == "jina:https://acmehealth.com/about"
+    assert output.fetched_documents[0].chunks[0].chunk_id == "jina:https://acmehealth.com/about#0"
+    assert output.url_sources[0].source_id == "jina:https://acmehealth.com/about"
+    assert output.url_sources[0].title == "Acme Health"
+    assert [chunk.text for chunk in output.url_sources[0].chunks] == [
+        "Title: Acme Health\n\n# About\nAcme Health builds clinical AI.",
+        "# Team\nFounded in Boston.\n\n# Product\nSupports hospital workflows.",
+    ]
+    assert output.url_sources[1].metadata == {
+        "fetch_succeeded": False,
+        "error_message": "upstream timeout",
+    }
     assert output.fetched_documents[1].fetch_succeeded is False
     assert output.fetched_documents[1].error_message == "upstream timeout"
 
@@ -79,10 +91,12 @@ def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> Non
 def test_chunk_document_text_avoids_tiny_tail_chunks_for_single_large_section() -> None:
     chunks = chunk_document_text(
         "alpha " * 40,
+        source_id="jina:https://example.com/page",
         max_chunks=10,
         max_chars_per_chunk=100,
     )
 
     assert len(chunks) == 3
-    assert all(len(chunk) <= 100 for chunk in chunks)
-    assert len(chunks[-1]) >= 20
+    assert all(len(chunk.text) <= 100 for chunk in chunks)
+    assert len(chunks[-1].text) >= 20
+    assert chunks[0].source_id == "jina:https://example.com/page"

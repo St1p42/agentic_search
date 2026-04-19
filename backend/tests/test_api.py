@@ -8,13 +8,16 @@ from backend.app.contracts import (
     AssessorPass,
     BraveContextOutput,
     DeepFetchedDocument,
+    EvidenceOrigin,
     EvidenceStore,
     ExtractorLightOutput,
     ExtractorOutput,
     JinaFetcherOutput,
     PipelineRequest,
     PlannerOutput,
+    RetrievedChunk,
     SearcherOutput,
+    UrlSource,
 )
 from backend.app.main import app
 from backend.app.orchestrator import PipelineOrchestrator
@@ -402,11 +405,34 @@ def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> No
                         url=HttpUrl("https://acmehealth.com/about"),
                         title="Acme Health",
                         text="Acme Health builds clinical AI.",
-                        chunks=["Acme Health builds clinical AI."],
+                        chunks=[
+                            RetrievedChunk(
+                                chunk_id="jina:https://acmehealth.com/about#0",
+                                source_id="jina:https://acmehealth.com/about",
+                                text="Acme Health builds clinical AI.",
+                                sequence_index=0,
+                            )
+                        ],
                         fetch_succeeded=True,
                         error_message=None,
                     )
-                ]
+                ],
+                url_sources=[
+                    UrlSource(
+                        source_id="jina:https://acmehealth.com/about",
+                        url=HttpUrl("https://acmehealth.com/about"),
+                        title="Acme Health",
+                        origin=EvidenceOrigin.JINA,
+                        chunks=[
+                            RetrievedChunk(
+                                chunk_id="jina:https://acmehealth.com/about#0",
+                                source_id="jina:https://acmehealth.com/about",
+                                text="Acme Health builds clinical AI.",
+                                sequence_index=0,
+                            )
+                        ],
+                    )
+                ],
             )
 
     monkeypatch.setattr(
@@ -424,5 +450,27 @@ def test_jina_fetcher_test_endpoint_returns_fetched_documents(monkeypatch) -> No
 
     assert response.status_code == 200
     assert response.json()["fetched_documents"][0]["chunks"] == [
-        "Acme Health builds clinical AI."
+        {
+            "chunk_id": "jina:https://acmehealth.com/about#0",
+            "source_id": "jina:https://acmehealth.com/about",
+            "text": "Acme Health builds clinical AI.",
+            "sequence_index": 0,
+        }
+    ]
+    assert response.json()["url_sources"] == [
+        {
+            "source_id": "jina:https://acmehealth.com/about",
+            "url": "https://acmehealth.com/about",
+            "title": "Acme Health",
+            "origin": "jina",
+            "metadata": {},
+            "chunks": [
+                {
+                    "chunk_id": "jina:https://acmehealth.com/about#0",
+                    "source_id": "jina:https://acmehealth.com/about",
+                    "text": "Acme Health builds clinical AI.",
+                    "sequence_index": 0,
+                }
+            ],
+        }
     ]

@@ -7,7 +7,14 @@ from typing import Protocol
 
 from backend.app.api_clients import HttpJinaReaderClient, JinaReaderClient
 from backend.app.config import JinaFetcherRuntimeConfig, load_jina_fetcher_runtime_config
-from backend.app.contracts import AssessorOutput, DeepFetchedDocument, JinaFetcherOutput
+from backend.app.contracts import (
+    AssessorOutput,
+    DeepFetchedDocument,
+    EvidenceOrigin,
+    JinaFetcherOutput,
+    RetrievedChunk,
+    UrlSource,
+)
 
 
 SECTION_SPLIT_PATTERN = re.compile(r"\n{2,}|(?=\n#{1,4}\s+)")
@@ -53,22 +60,35 @@ class DefaultJinaFetcher:
         config = self._config()
         selected_urls = assessor_output.selected_jina_urls[: max(0, remaining_fetch_budget)]
         fetched_documents: list[DeepFetchedDocument] = []
+        url_sources: list[UrlSource] = []
 
         for selected_url in selected_urls:
             try:
                 document = self._client().fetch_url(url=str(selected_url))
+                source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(selected_url))
+                chunks = chunk_document_text(
+                    document.text,
+                    source_id=source_id,
+                    max_chunks=config.max_chunks_per_doc,
+                    max_chars_per_chunk=config.max_chars_per_chunk,
+                )
                 fetched_documents.append(
                     DeepFetchedDocument(
                         url=selected_url,
                         title=document.title,
                         text=document.text,
-                        chunks=chunk_document_text(
-                            document.text,
-                            max_chunks=config.max_chunks_per_doc,
-                            max_chars_per_chunk=config.max_chars_per_chunk,
-                        ),
+                        chunks=chunks,
                         fetch_succeeded=True,
                         error_message=None,
+                    )
+                )
+                url_sources.append(
+                    UrlSource(
+                        source_id=source_id,
+                        url=selected_url,
+                        title=document.title,
+                        origin=EvidenceOrigin.JINA,
+                        chunks=chunks,
                     )
                 )
             except Exception as exc:
@@ -82,8 +102,18 @@ class DefaultJinaFetcher:
                         error_message=str(exc),
                     )
                 )
+                url_sources.append(
+                    UrlSource(
+                        source_id=_source_id(origin=EvidenceOrigin.JINA, source_url=str(selected_url)),
+                        url=selected_url,
+                        title=str(selected_url),
+                        origin=EvidenceOrigin.JINA,
+                        metadata={"fetch_succeeded": False, "error_message": str(exc)},
+                        chunks=[],
+                    )
+                )
 
-        return JinaFetcherOutput(fetched_documents=fetched_documents)
+        return JinaFetcherOutput(fetched_documents=fetched_documents, url_sources=url_sources)
 
     def _config(self) -> JinaFetcherRuntimeConfig:
         return self._runtime_config or load_jina_fetcher_runtime_config()
@@ -119,9 +149,10 @@ def build_jina_fetcher(
 def chunk_document_text(
     text: str,
     *,
+    source_id: str,
     max_chunks: int,
     max_chars_per_chunk: int,
-) -> list[str]:
+) -> list[RetrievedChunk]:
     normalized_text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
     if not normalized_text:
         return []
@@ -133,8 +164,9 @@ def chunk_document_text(
         for section in SECTION_SPLIT_PATTERN.split(normalized_text)
         if section.strip()
     ]
-    chunks: list[str] = []
+    chunks: list[RetrievedChunk] = []
     current_chunk = ""
+    next_sequence_index = 0
 
     for section in sections:
         for section_part in _split_oversized_section(
@@ -147,15 +179,46 @@ def chunk_document_text(
             if len(current_chunk) + len(section_part) + 2 <= max_chars_per_chunk:
                 current_chunk = f"{current_chunk}\n\n{section_part}"
                 continue
-            chunks.append(current_chunk.strip())
+            chunks.append(
+                _retrieved_chunk(
+                    source_id=source_id,
+                    text=current_chunk.strip(),
+                    sequence_index=next_sequence_index,
+                )
+            )
+            next_sequence_index += 1
             if len(chunks) >= max_chunks:
                 return chunks
             current_chunk = section_part
 
     if current_chunk and len(chunks) < max_chunks:
-        chunks.append(current_chunk.strip())
+        chunks.append(
+            _retrieved_chunk(
+                source_id=source_id,
+                text=current_chunk.strip(),
+                sequence_index=next_sequence_index,
+            )
+        )
 
     return chunks[:max_chunks]
+
+
+def _retrieved_chunk(
+    *,
+    source_id: str,
+    text: str,
+    sequence_index: int,
+) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=f"{source_id}#{sequence_index}",
+        source_id=source_id,
+        text=text,
+        sequence_index=sequence_index,
+    )
+
+
+def _source_id(*, origin: EvidenceOrigin, source_url: str) -> str:
+    return f"{origin.value}:{source_url}"
 
 
 def _split_oversized_section(section: str, *, max_chars_per_chunk: int) -> list[str]:

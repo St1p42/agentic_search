@@ -118,13 +118,33 @@ class SearcherOutput(BaseModel):
     shortlisted_results: list[SearchResultItem]
 
 
+class RetrievedChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    chunk_id: str
+    source_id: str
+    text: str
+    sequence_index: int = Field(ge=0)
+
+
+class UrlSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    url: HttpUrl
+    title: str
+    origin: EvidenceOrigin
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    chunks: list[RetrievedChunk] = Field(default_factory=list)
+
+
 class DeepFetchedDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: HttpUrl
     title: str
     text: str | None = None
-    chunks: list[str] = Field(default_factory=list)
+    chunks: list[RetrievedChunk] = Field(default_factory=list)
     fetch_succeeded: bool = True
     error_message: str | None = None
 
@@ -141,6 +161,8 @@ class BraveContextOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     passages_by_url: dict[HttpUrl, list[BraveContextPassage]] = Field(default_factory=dict)
+    retrieved_chunks_by_url: dict[HttpUrl, list[RetrievedChunk]] = Field(default_factory=dict)
+    url_sources: list[UrlSource] = Field(default_factory=list)
 
 
 class HeuristicSourceSignals(BaseModel):
@@ -219,6 +241,7 @@ class JinaFetcherOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     fetched_documents: list[DeepFetchedDocument]
+    url_sources: list[UrlSource] = Field(default_factory=list)
 
 
 class ExtractedEntity(BaseModel):

@@ -10,7 +10,15 @@ from pydantic import HttpUrl
 
 from backend.app.api_clients import BraveLlmContextClient, HttpBraveLlmContextClient
 from backend.app.config import BraveContextRuntimeConfig, load_brave_context_runtime_config
-from backend.app.contracts import BraveContextOutput, BraveContextPassage, SearchResultItem, SearcherOutput
+from backend.app.contracts import (
+    BraveContextOutput,
+    BraveContextPassage,
+    EvidenceOrigin,
+    RetrievedChunk,
+    SearchResultItem,
+    SearcherOutput,
+    UrlSource,
+)
 from backend.app.helpers.brave_context_cleanup import clean_brave_context_passage_text
 
 
@@ -22,7 +30,7 @@ class BraveContextFetcher(Protocol):
 class PlaceholderBraveContextFetcher:
     def run(self, searcher_output: SearcherOutput) -> BraveContextOutput:
         _ = searcher_output
-        return BraveContextOutput(passages_by_url={})
+        return BraveContextOutput(passages_by_url={}, retrieved_chunks_by_url={}, url_sources=[])
 
 
 class DefaultBraveContextFetcher:
@@ -37,14 +45,38 @@ class DefaultBraveContextFetcher:
     def run(self, searcher_output: SearcherOutput) -> BraveContextOutput:
         config = self._config()
         passages_by_url: dict[HttpUrl, list[BraveContextPassage]] = {}
+        retrieved_chunks_by_url: dict[HttpUrl, list[RetrievedChunk]] = {}
+        url_sources: list[UrlSource] = []
 
         for result in searcher_output.shortlisted_results[: config.max_urls]:
-            passages_by_url[result.url] = self._fetch_passages_for_result(
+            passages = self._fetch_passages_for_result(
                 result=result,
                 config=config,
             )
+            passages_by_url[result.url] = passages
+            source_id = _source_id(origin=EvidenceOrigin.BRAVE_LLM, source_url=str(result.url))
+            retrieved_chunks = _retrieved_chunks_for_result(
+                result=result,
+                passages=passages,
+                source_id=source_id,
+            )
+            retrieved_chunks_by_url[result.url] = retrieved_chunks
+            url_sources.append(
+                UrlSource(
+                    source_id=source_id,
+                    url=result.url,
+                    title=result.title,
+                    origin=EvidenceOrigin.BRAVE_LLM,
+                    metadata={"hostname": result.domain},
+                    chunks=retrieved_chunks,
+                )
+            )
 
-        return BraveContextOutput(passages_by_url=passages_by_url)
+        return BraveContextOutput(
+            passages_by_url=passages_by_url,
+            retrieved_chunks_by_url=retrieved_chunks_by_url,
+            url_sources=url_sources,
+        )
 
     def _config(self) -> BraveContextRuntimeConfig:
         return self._runtime_config or load_brave_context_runtime_config()
@@ -160,3 +192,40 @@ def _truncate_passage_text(text: str, max_passage_chars: int) -> str:
     if last_space >= max_passage_chars // 2:
         truncated = truncated[:last_space].rstrip()
     return truncated.rstrip(".,;:-")
+
+
+def _retrieved_chunks_for_result(
+    *,
+    result: SearchResultItem,
+    passages: list[BraveContextPassage],
+    source_id: str,
+) -> list[RetrievedChunk]:
+    chunks: list[RetrievedChunk] = []
+    for index, passage in enumerate(passages):
+        text = passage.passage_text.strip()
+        if not text:
+            continue
+        chunks.append(
+            RetrievedChunk(
+                chunk_id=f"{source_id}#{index}",
+                source_id=source_id,
+                text=text,
+                sequence_index=index,
+            )
+        )
+    return chunks
+
+
+def _source_title_for_passage(
+    *,
+    result: SearchResultItem,
+    passage: BraveContextPassage,
+) -> str:
+    title = passage.metadata.get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+    return result.title
+
+
+def _source_id(*, origin: EvidenceOrigin, source_url: str) -> str:
+    return f"{origin.value}:{source_url}"
