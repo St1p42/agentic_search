@@ -9,9 +9,9 @@ from backend.app.api_clients import OpenAiStructuredLlmClient, StructuredLlmClie
 from backend.app.config import DEFAULT_ASSESSOR_MODEL, AssessorRuntimeConfig, load_assessor_runtime_config
 from backend.app.contracts import (
     AssessorPass,
-    BraveContextOutput,
     HeuristicSourceSignals,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearchResultItem,
     SourceQuality,
     SourceRole,
@@ -59,7 +59,7 @@ class LlmSourceAssessor:
         *,
         planner_output: PlannerOutput,
         search_results: list[SearchResultItem],
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
         pass_type: AssessorPass,
@@ -74,7 +74,7 @@ class LlmSourceAssessor:
                 lambda result: self._assess_one(
                     planner_output=planner_output,
                     search_result=result,
-                    brave_context_output=brave_context_output,
+                    retrieved_sources_output=retrieved_sources_output,
                     heuristic_signals_by_url=heuristic_signals_by_url,
                     heuristic_assessments_by_url=heuristic_assessments_by_url,
                     pass_type=pass_type,
@@ -92,7 +92,7 @@ class LlmSourceAssessor:
         *,
         planner_output: PlannerOutput,
         search_result: SearchResultItem,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
         pass_type: AssessorPass,
@@ -103,7 +103,7 @@ class LlmSourceAssessor:
             user_content=_build_assessor_payload(
                 planner_output=planner_output,
                 search_results=[search_result],
-                brave_context_output=brave_context_output,
+                retrieved_sources_output=retrieved_sources_output,
                 heuristic_signals_by_url=heuristic_signals_by_url,
                 heuristic_assessments_by_url=heuristic_assessments_by_url,
                 pass_type=pass_type,
@@ -128,7 +128,7 @@ def _build_assessor_payload(
     *,
     planner_output: PlannerOutput,
     search_results: list[SearchResultItem],
-    brave_context_output: BraveContextOutput,
+    retrieved_sources_output: RetrievedSourcesOutput,
     heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
     heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
     pass_type: AssessorPass,
@@ -156,11 +156,11 @@ def _build_assessor_payload(
                 "heuristic_officiality_confidence": heuristic_assessment.officiality.confidence,
                 "heuristic_officiality_reasons": heuristic_assessment.officiality.reasons,
                 "passages": [
-                    passage.passage_text[:MAX_ASSESSMENT_PASSAGE_CHARS]
-                    for passage in brave_context_output.passages_by_url.get(result.url, [])[
+                    chunk.text[:MAX_ASSESSMENT_PASSAGE_CHARS]
+                    for chunk in _chunks_for_result(retrieved_sources_output, result.url)[
                         :MAX_ASSESSMENT_PASSAGES_PER_URL
                     ]
-                    if passage.passage_text.strip()
+                    if chunk.text.strip()
                 ],
             }
         )
@@ -176,3 +176,10 @@ def _build_assessor_payload(
         },
         ensure_ascii=True,
     )
+
+
+def _chunks_for_result(retrieved_sources_output: RetrievedSourcesOutput, source_url: HttpUrl):
+    for url_source in retrieved_sources_output.url_sources:
+        if url_source.url == source_url:
+            return url_source.chunks
+    return []

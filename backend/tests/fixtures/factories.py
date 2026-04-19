@@ -6,8 +6,8 @@ from backend.app.contracts import (
     AssessedSource,
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
-    BraveContextPassage,
+    ChunkRankingOutput,
+    ChunkScore,
     EvidenceChunk,
     EvidenceItem,
     EvidenceOrigin,
@@ -19,7 +19,9 @@ from backend.app.contracts import (
     HeuristicSourceSignals,
     OfficialityLevel,
     PlannerOutput,
+    RankedChunk,
     RetrievedChunk,
+    RetrievedSourcesOutput,
     SearchResultItem,
     SearcherOutput,
     SourceQuality,
@@ -92,24 +94,56 @@ def make_searcher_output(
     )
 
 
+def make_retrieved_sources_output(
+    *,
+    url_sources: list[UrlSource] | None = None,
+) -> RetrievedSourcesOutput:
+    return RetrievedSourcesOutput(url_sources=url_sources or [])
+
+
 def make_brave_context_passage(
     *,
     source_url: str = "https://acmehealth.com/about",
     passage_text: str = "Acme Health develops clinical AI systems for hospitals and care teams.",
     metadata: dict[str, str | bool] | None = None,
-) -> BraveContextPassage:
-    return BraveContextPassage(
-        source_url=HttpUrl(source_url),
-        passage_text=passage_text,
-        metadata=metadata or {"title": "About Acme Health"},
+) -> RetrievedChunk:
+    source_id = f"brave_llm:{source_url}"
+    chunk_suffix = "fallback" if bool((metadata or {}).get("fallback")) else "0"
+    return RetrievedChunk(
+        chunk_id=f"{source_id}#{chunk_suffix}",
+        source_id=source_id,
+        text=passage_text,
+        sequence_index=0,
     )
 
 
 def make_brave_context_output(
     *,
-    passages_by_url: dict[HttpUrl, list[BraveContextPassage]] | None = None,
-) -> BraveContextOutput:
-    return BraveContextOutput(passages_by_url=passages_by_url or {})
+    passages_by_url: dict[HttpUrl, list[RetrievedChunk]] | None = None,
+) -> RetrievedSourcesOutput:
+    url_sources: list[UrlSource] = []
+    for source_url, passages in (passages_by_url or {}).items():
+        source_id = f"brave_llm:{source_url}"
+        chunks = [
+            RetrievedChunk(
+                chunk_id=passage.chunk_id or f"{source_id}#{index}",
+                source_id=source_id,
+                text=passage.text,
+                sequence_index=index,
+            )
+            for index, passage in enumerate(passages)
+        ]
+        url_sources.append(
+            UrlSource(
+                source_id=source_id,
+                url=source_url,
+                title=f"Source {source_url.host}",
+                origin=EvidenceOrigin.BRAVE_LLM,
+                metadata={"fallback": any(chunk.chunk_id.endswith("#fallback") for chunk in chunks)},
+                chunks=chunks,
+            )
+        )
+    return RetrievedSourcesOutput(url_sources=url_sources)
 
 
 def make_extractor_light_output(
@@ -148,7 +182,8 @@ def make_heuristic_signals(
 def make_assessed_source(
     *,
     result: SearchResultItem | None = None,
-    brave_context_passages: list[BraveContextPassage] | None = None,
+    retrieved_chunks: list[RetrievedChunk] | None = None,
+    brave_context_passages: list[RetrievedChunk] | None = None,
     heuristic_signals: HeuristicSourceSignals | None = None,
     source_role: SourceRole = SourceRole.VERIFICATION,
     source_quality: SourceQuality = SourceQuality.HIGH,
@@ -160,12 +195,12 @@ def make_assessed_source(
     filtered_out: bool = False,
 ) -> AssessedSource:
     search_result = result or make_search_result()
-    passages = brave_context_passages or [
-        make_brave_context_passage(source_url=str(search_result.url))
+    chunks = retrieved_chunks or brave_context_passages or [
+        make_retrieved_chunk(source_id=f"source:{search_result.url}")
     ]
     return AssessedSource(
         result=search_result,
-        brave_context_passages=passages,
+        retrieved_chunks=chunks,
         heuristic_signals=heuristic_signals
         or make_heuristic_signals(source_metadata={"hostname": search_result.domain}),
         source_role=source_role,
@@ -225,6 +260,28 @@ def make_url_source(
         origin=origin,
         metadata=metadata or {},
         chunks=chunks or [make_retrieved_chunk(source_id=source_id)],
+    )
+
+
+def make_chunk_ranking_output(
+    *,
+    url_sources: list[UrlSource] | None = None,
+    ranked_chunks: list[RankedChunk] | None = None,
+    selected_chunk_ids: list[str] | None = None,
+) -> ChunkRankingOutput:
+    sources = url_sources or [make_url_source()]
+    ranks = ranked_chunks if ranked_chunks is not None else [
+        RankedChunk(
+            source_id=sources[0].source_id,
+            chunk_id=sources[0].chunks[0].chunk_id,
+            rank=1,
+            score=ChunkScore(final_score=1.0),
+        )
+    ]
+    return ChunkRankingOutput(
+        url_sources=sources,
+        ranked_chunks=ranks,
+        selected_chunk_ids=selected_chunk_ids if selected_chunk_ids is not None else [ranks[0].chunk_id],
     )
 
 

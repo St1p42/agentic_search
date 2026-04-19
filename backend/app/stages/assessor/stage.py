@@ -7,10 +7,10 @@ from backend.app.config import AssessorRuntimeConfig, load_assessor_runtime_conf
 from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
     EvidenceStore,
     ExtractorLightOutput,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearcherOutput,
 )
 from backend.app.stages.assessor.decision_policy import HeuristicDecisionPolicy, LlmDecisionPolicy
@@ -24,11 +24,12 @@ class SourceAssessorStage(Protocol):
         self,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
+        retrieved_sources_output: RetrievedSourcesOutput | None = None,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
         remaining_fetch_budget: int = 0,
+        brave_context_output: RetrievedSourcesOutput | None = None,
     ) -> AssessorOutput:
         """Classify shortlisted sources for first-pass downstream extraction."""
 
@@ -38,14 +39,16 @@ class PlaceholderSourceAssessorStage:
         self,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
+        retrieved_sources_output: RetrievedSourcesOutput | None = None,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
         remaining_fetch_budget: int = 0,
+        brave_context_output: RetrievedSourcesOutput | None = None,
     ) -> AssessorOutput:
         _ = planner_output
         _ = searcher_output
+        _ = retrieved_sources_output
         _ = brave_context_output
         _ = extractor_light_output
         _ = evidence_store
@@ -73,16 +76,17 @@ class HeuristicSourceAssessorStage:
         self,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
+        retrieved_sources_output: RetrievedSourcesOutput | None = None,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
         remaining_fetch_budget: int = 0,
+        brave_context_output: RetrievedSourcesOutput | None = None,
     ) -> AssessorOutput:
         return self._pipeline.run(
             planner_output=planner_output,
             searcher_output=searcher_output,
-            brave_context_output=brave_context_output,
+            retrieved_sources_output=retrieved_sources_output or brave_context_output or RetrievedSourcesOutput(),
             extractor_light_output=extractor_light_output,
             pass_type=pass_type,
             evidence_store=evidence_store,
@@ -113,16 +117,17 @@ class LlmSourceAssessorStage:
         self,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
+        retrieved_sources_output: RetrievedSourcesOutput | None = None,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
         remaining_fetch_budget: int = 0,
+        brave_context_output: RetrievedSourcesOutput | None = None,
     ) -> AssessorOutput:
         return self._pipeline.run(
             planner_output=planner_output,
             searcher_output=searcher_output,
-            brave_context_output=brave_context_output,
+            retrieved_sources_output=retrieved_sources_output or brave_context_output or RetrievedSourcesOutput(),
             extractor_light_output=extractor_light_output,
             pass_type=pass_type,
             evidence_store=evidence_store,

@@ -7,11 +7,10 @@ from pydantic import HttpUrl
 
 from backend.app.api_clients import JinaReaderClient, JinaReaderDocument
 from backend.app.config import JinaFetcherRuntimeConfig
-from backend.app.contracts import AssessorOutput, AssessorPass
+from backend.tests.fixtures.factories import make_planner_output, make_search_result, make_searcher_output
 from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
 from backend.app.helpers.jina_fetcher import DefaultJinaFetcher
 from backend.app.helpers.jina_eval_dataset_writer import JsonlJinaEvalDatasetWriter
-from backend.tests.fixtures.factories import make_planner_output
 
 
 class FakeJinaReaderClient(JinaReaderClient):
@@ -60,16 +59,17 @@ def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> Non
     )
 
     output = fetcher.run(
-        assessor_output=AssessorOutput(
-            pass_type=AssessorPass.JINA_SELECTION,
-            assessed_sources=[],
-            verification_gaps=[],
-            selected_jina_urls=[
-                HttpUrl("https://acmehealth.com/about"),
-                HttpUrl("https://broken.example.com"),
+        searcher_output=make_searcher_output(
+            raw_results=[
+                make_search_result(url="https://acmehealth.com/about", title="Acme Health", domain="acmehealth.com"),
+                make_search_result(url="https://broken.example.com", title="Broken", domain="broken.example.com", rank=2),
+            ],
+            shortlisted_results=[
+                make_search_result(url="https://acmehealth.com/about", title="Acme Health", domain="acmehealth.com"),
+                make_search_result(url="https://broken.example.com", title="Broken", domain="broken.example.com", rank=2),
             ],
         ),
-        remaining_fetch_budget=2,
+        fetch_budget=2,
     )
 
     assert len(output.url_sources) == 2
@@ -138,22 +138,20 @@ def test_default_jina_fetcher_writes_deduped_eval_rows_when_query_bundle_is_prov
         normalized_query="AI startups in healthcare",
         initial_query_rewrites=["clinical AI startups", "hospital workflow automation startups"],
     )
-    assessor_output = AssessorOutput(
-        pass_type=AssessorPass.JINA_SELECTION,
-        assessed_sources=[],
-        verification_gaps=[],
-        selected_jina_urls=[HttpUrl("https://acmehealth.com/about")],
+    searcher_output = make_searcher_output(
+        raw_results=[make_search_result(url="https://acmehealth.com/about", title="Acme Health", domain="acmehealth.com")],
+        shortlisted_results=[make_search_result(url="https://acmehealth.com/about", title="Acme Health", domain="acmehealth.com")],
     )
 
     fetcher.run(
-        assessor_output=assessor_output,
-        remaining_fetch_budget=1,
+        searcher_output=searcher_output,
+        fetch_budget=1,
         request_query="find healthcare AI startups",
         planner_output=planner_output,
     )
     fetcher.run(
-        assessor_output=assessor_output,
-        remaining_fetch_budget=1,
+        searcher_output=searcher_output,
+        fetch_budget=1,
         request_query="find healthcare AI startups",
         planner_output=planner_output,
     )

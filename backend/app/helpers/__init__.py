@@ -28,7 +28,6 @@ from backend.app.helpers.jina_eval_dataset_writer import (
     JinaEvalDatasetWriter,
     JsonlJinaEvalDatasetWriter,
 )
-from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
 
 __all__ = [
     "BraveContextFetcher",
@@ -37,7 +36,6 @@ __all__ = [
     "DefaultBraveContextFetcher",
     "DefaultChunkRetrievalPreprocessor",
     "DefaultChunkRanker",
-    "DefaultOutputMerger",
     "DefaultEvidenceStoreBuilder",
     "DefaultJinaFetcher",
     "HierarchicalTextChunker",
@@ -45,7 +43,6 @@ __all__ = [
     "JinaFetcher",
     "JinaEvalDatasetWriter",
     "JsonlJinaEvalDatasetWriter",
-    "OutputMerger",
     "PlaceholderBraveContextFetcher",
     "PlaceholderEvidenceStoreBuilder",
     "PlaceholderJinaFetcher",

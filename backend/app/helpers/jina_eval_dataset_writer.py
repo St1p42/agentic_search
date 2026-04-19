@@ -42,7 +42,7 @@ class JinaEvalRow(TypedDict):
     label_reason: str | None
 
 
-class JsonlJinaEvalDatasetWriter:
+class JsonlJinaEvalDatasetWriter(JinaEvalDatasetWriter):
     def __init__(self, dataset_path: Path | None = None) -> None:
         self._dataset_path = dataset_path or DEFAULT_JINA_EVAL_DATASET_PATH
 

@@ -6,7 +6,7 @@ from typing import Protocol
 
 from backend.app.api_clients import HttpJinaReaderClient, JinaReaderClient
 from backend.app.config import JinaFetcherRuntimeConfig, load_jina_fetcher_runtime_config
-from backend.app.contracts import AssessorOutput, EvidenceOrigin, JinaFetcherOutput, PlannerOutput, UrlSource
+from backend.app.contracts import EvidenceOrigin, PlannerOutput, RetrievedSourcesOutput, SearchResultItem, SearcherOutput, UrlSource
 from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
 from backend.app.helpers.jina_eval_dataset_writer import (
     JinaEvalDatasetWriter,
@@ -17,27 +17,27 @@ from backend.app.helpers.jina_eval_dataset_writer import (
 class JinaFetcher(Protocol):
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
         request_query: str | None = None,
         planner_output: PlannerOutput | None = None,
-    ) -> JinaFetcherOutput:
+    ) -> RetrievedSourcesOutput:
         """Fetch selected Jina pages and return source-grouped chunked text."""
 
 
 class PlaceholderJinaFetcher:
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
         request_query: str | None = None,
         planner_output: PlannerOutput | None = None,
-    ) -> JinaFetcherOutput:
-        _ = assessor_output
-        _ = remaining_fetch_budget
+    ) -> RetrievedSourcesOutput:
+        _ = searcher_output
+        _ = fetch_budget
         _ = request_query
         _ = planner_output
-        return JinaFetcherOutput(url_sources=[])
+        return RetrievedSourcesOutput(url_sources=[])
 
 
 class DefaultJinaFetcher:
@@ -53,29 +53,29 @@ class DefaultJinaFetcher:
 
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
         request_query: str | None = None,
         planner_output: PlannerOutput | None = None,
-    ) -> JinaFetcherOutput:
+    ) -> RetrievedSourcesOutput:
         config = self._config()
         chunker = HierarchicalTextChunker(
             target_chunk_chars=config.max_chars_per_chunk,
             min_chunk_chars=config.min_chars_per_chunk,
             max_chunks=config.max_chunks_per_doc,
         )
-        selected_urls = assessor_output.selected_jina_urls[: max(0, remaining_fetch_budget)]
+        selected_results = _selected_results(searcher_output, fetch_budget)
         url_sources: list[UrlSource] = []
 
-        for selected_url in selected_urls:
-            source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(selected_url))
+        for result in selected_results:
+            source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(result.url))
             try:
-                document = self._client().fetch_url(url=str(selected_url))
+                document = self._client().fetch_url(url=str(result.url))
                 chunks = chunker.chunk(text=document.text, source_id=source_id)
                 url_sources.append(
                     UrlSource(
                         source_id=source_id,
-                        url=selected_url,
+                        url=result.url,
                         title=document.title,
                         origin=EvidenceOrigin.JINA,
                         chunks=chunks,
@@ -85,15 +85,15 @@ class DefaultJinaFetcher:
                 url_sources.append(
                     UrlSource(
                         source_id=source_id,
-                        url=selected_url,
-                        title=str(selected_url),
+                        url=result.url,
+                        title=result.title,
                         origin=EvidenceOrigin.JINA,
                         metadata={"fetch_succeeded": False, "error_message": str(exc)},
                         chunks=[],
                     )
                 )
 
-        output = JinaFetcherOutput(url_sources=url_sources)
+        output = RetrievedSourcesOutput(url_sources=url_sources)
         if request_query and planner_output:
             self._eval_dataset_writer.write(
                 request_query=request_query,
@@ -137,3 +137,7 @@ def build_jina_fetcher(
 
 def _source_id(*, origin: EvidenceOrigin, source_url: str) -> str:
     return f"{origin.value}:{source_url}"
+
+
+def _selected_results(searcher_output: SearcherOutput, fetch_budget: int) -> list[SearchResultItem]:
+    return searcher_output.shortlisted_results[: max(0, fetch_budget)]

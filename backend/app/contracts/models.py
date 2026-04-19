@@ -138,22 +138,6 @@ class UrlSource(BaseModel):
     chunks: list[RetrievedChunk] = Field(default_factory=list)
 
 
-class BraveContextPassage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    source_url: HttpUrl
-    passage_text: str
-    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
-
-
-class BraveContextOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    passages_by_url: dict[HttpUrl, list[BraveContextPassage]] = Field(default_factory=dict)
-    retrieved_chunks_by_url: dict[HttpUrl, list[RetrievedChunk]] = Field(default_factory=dict)
-    url_sources: list[UrlSource] = Field(default_factory=list)
-
-
 class HeuristicSourceSignals(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -169,7 +153,7 @@ class AssessedSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     result: SearchResultItem
-    brave_context_passages: list[BraveContextPassage] = Field(default_factory=list)
+    retrieved_chunks: list[RetrievedChunk] = Field(default_factory=list)
     heuristic_signals: HeuristicSourceSignals
     source_role: SourceRole = SourceRole.DISCOVERY
     source_quality: SourceQuality = SourceQuality.MEDIUM
@@ -226,20 +210,16 @@ class EvidenceStore(BaseModel):
     entity_scores: dict[str, float] = Field(default_factory=dict)
 
 
-class JinaFetcherOutput(BaseModel):
+class RetrievedSourcesOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url_sources: list[UrlSource] = Field(default_factory=list)
 
 
-class ScoredChunk(BaseModel):
+class ChunkScore(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    chunk_id: str
-    source_id: str
-    source_url: HttpUrl
-    source_title: str
-    text: str
+    final_score: float = 0.0
     base_score: float = 0.0
     best_rewrite_score: float = 0.0
     query_variant_coverage_score: float = 0.0
@@ -249,17 +229,29 @@ class ScoredChunk(BaseModel):
     best_query: str | None = None
     max_query_span_score: float = 0.0
     anchor_coverage_score: float = 0.0
-    aspect_overlap_score: float = 0.0
-    title_overlap_score: float = 0.0
-    official_domain_boost: float = 0.0
-    boilerplate_penalty: float = 0.0
-    final_score: float = 0.0
+
+
+class RankedChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    chunk_id: str
+    rank: int = Field(ge=1)
+    score: ChunkScore
 
 
 class ChunkRankingOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    scored_chunks: list[ScoredChunk] = Field(default_factory=list)
+    url_sources: list[UrlSource] = Field(default_factory=list)
+    ranked_chunks: list[RankedChunk] = Field(default_factory=list)
+    selected_chunk_ids: list[str] = Field(default_factory=list)
+
+
+BraveContextOutput = RetrievedSourcesOutput
+JinaFetcherOutput = RetrievedSourcesOutput
+BraveContextPassage = RetrievedChunk
+ScoredChunk = RankedChunk
 
 
 class ExtractedEntity(BaseModel):

@@ -12,16 +12,18 @@ from pydantic import HttpUrl
 from backend.app.contracts import (
     AssessedSource,
     AssessorOutput,
-    BraveContextOutput,
-    BraveContextPassage,
+    ChunkRankingOutput,
     EvidenceChunk,
     EvidenceOrigin,
     EvidenceStore,
     ExtractorLightOutput,
-    JinaFetcherOutput,
     OfficialityLevel,
+    RankedChunk,
+    ChunkScore,
+    RetrievedSourcesOutput,
     SourceQuality,
     SourceRole,
+    UrlSource,
 )
 
 
@@ -60,10 +62,10 @@ class SentenceUnit:
 class EvidenceStoreBuilder(Protocol):
     def run(
         self,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
-        jina_fetcher_output: JinaFetcherOutput | None = None,
+        chunk_ranking_output: ChunkRankingOutput | None = None,
+        brave_context_output: RetrievedSourcesOutput | None = None,
         existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
         """Build or merge the entity-centric evidence store."""
@@ -72,12 +74,15 @@ class EvidenceStoreBuilder(Protocol):
 class DefaultEvidenceStoreBuilder:
     def run(
         self,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
-        jina_fetcher_output: JinaFetcherOutput | None = None,
+        chunk_ranking_output: ChunkRankingOutput | None = None,
+        brave_context_output: RetrievedSourcesOutput | None = None,
         existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
+        chunk_ranking_output = chunk_ranking_output or _chunk_ranking_output_from_retrieved_sources(
+            brave_context_output or RetrievedSourcesOutput()
+        )
         chunks_by_entity = _clone_existing_chunks(existing_store)
         seen_keys_by_entity = _index_existing_chunk_keys(chunks_by_entity)
         assessed_sources_by_url = _assessed_sources_by_url(assessor_output)
@@ -89,8 +94,7 @@ class DefaultEvidenceStoreBuilder:
             assessed_sources_by_url=assessed_sources_by_url,
         )
         source_records = _source_records(
-            brave_context_output=brave_context_output,
-            jina_fetcher_output=jina_fetcher_output,
+            chunk_ranking_output=chunk_ranking_output,
             assessed_sources_by_url=assessed_sources_by_url,
         )
 
@@ -114,16 +118,16 @@ class DefaultEvidenceStoreBuilder:
 class PlaceholderEvidenceStoreBuilder:
     def run(
         self,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
-        jina_fetcher_output: JinaFetcherOutput | None = None,
+        chunk_ranking_output: ChunkRankingOutput | None = None,
+        brave_context_output: RetrievedSourcesOutput | None = None,
         existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
+        _ = chunk_ranking_output
         _ = brave_context_output
         _ = extractor_light_output
         _ = assessor_output
-        _ = jina_fetcher_output
         return existing_store or EvidenceStore(chunks_by_entity={}, entity_scores={})
 
 
@@ -142,8 +146,8 @@ def _clone_existing_chunks(existing_store: EvidenceStore | None) -> dict[str, li
 
 def _index_existing_chunk_keys(
     chunks_by_entity: dict[str, list[EvidenceChunk]],
-) -> dict[str, set[tuple[str, str, str]]]:
-    seen_keys_by_entity: dict[str, set[tuple[str, str, str]]] = defaultdict(set)
+) -> dict[str, set[tuple[str, str]]]:
+    seen_keys_by_entity: dict[str, set[tuple[str, str]]] = defaultdict(set)
     for entity_name, chunks in chunks_by_entity.items():
         seen_keys_by_entity[entity_name].update(_chunk_key(chunk) for chunk in chunks)
     return seen_keys_by_entity
@@ -204,99 +208,80 @@ def _is_non_low_source(assessed_source: AssessedSource | None) -> bool:
 
 def _source_records(
     *,
-    brave_context_output: BraveContextOutput,
-    jina_fetcher_output: JinaFetcherOutput | None,
+    chunk_ranking_output: ChunkRankingOutput,
     assessed_sources_by_url: dict[str, AssessedSource],
 ) -> list[SourceRecord]:
-    records = _brave_source_records(
-        brave_context_output=brave_context_output,
-        assessed_sources_by_url=assessed_sources_by_url,
-    )
-    if jina_fetcher_output:
+    records: list[SourceRecord] = []
+    selected_chunk_ids = set(chunk_ranking_output.selected_chunk_ids)
+    if not selected_chunk_ids:
+        return records
+    for url_source in chunk_ranking_output.url_sources:
+        if url_source.metadata.get("fetch_succeeded") is False:
+            continue
+        assessed_source = assessed_sources_by_url.get(str(url_source.url))
+        if assessed_source is not None and assessed_source.filtered_out:
+            continue
         records.extend(
-            _jina_source_records(
-                jina_fetcher_output=jina_fetcher_output,
-                assessed_sources_by_url=assessed_sources_by_url,
+            _source_records_for_url_source(
+                url_source=url_source,
+                selected_chunk_ids=selected_chunk_ids,
+                assessed_source=assessed_source,
             )
         )
     return records
 
 
-def _brave_source_records(
+def _source_records_for_url_source(
     *,
-    brave_context_output: BraveContextOutput,
-    assessed_sources_by_url: dict[str, AssessedSource],
+    url_source: UrlSource,
+    selected_chunk_ids: set[str],
+    assessed_source: AssessedSource | None,
 ) -> list[SourceRecord]:
     records: list[SourceRecord] = []
-    for source_url, passages in brave_context_output.passages_by_url.items():
-        assessed_source = assessed_sources_by_url.get(str(source_url))
-        for passage in passages:
-            source_record = _brave_source_record(
-                source_url=source_url,
-                passage=passage,
-                assessed_source=assessed_source,
+    for chunk in url_source.chunks:
+        if chunk.chunk_id not in selected_chunk_ids:
+            continue
+        text = chunk.text.strip()
+        if not text:
+            continue
+        records.append(
+            SourceRecord(
+                source_url=str(url_source.url),
+                text=text,
+                metadata=_base_chunk_metadata(
+                    source_url=url_source.url,
+                    source_title=url_source.title,
+                    assessed_source=assessed_source,
+                    origin=url_source.origin,
+                ),
             )
-            if source_record is not None:
-                records.append(source_record)
+        )
     return records
 
 
-def _brave_source_record(
-    *,
-    source_url: HttpUrl,
-    passage: BraveContextPassage,
-    assessed_source: AssessedSource | None,
-) -> SourceRecord | None:
-    if assessed_source is not None and assessed_source.filtered_out:
-        return None
-    text = passage.passage_text.strip()
-    if not text:
-        return None
-    return SourceRecord(
-        source_url=str(source_url),
-        text=text,
-        metadata=_base_chunk_metadata(
-            source_url=source_url,
-            source_title=_source_title(
-                source_url=source_url,
-                metadata=passage.metadata,
-                assessed_source=assessed_source,
-            ),
-            assessed_source=assessed_source,
-            origin=EvidenceOrigin.BRAVE_LLM,
-        ),
-    )
-
-
-def _jina_source_records(
-    *,
-    jina_fetcher_output: JinaFetcherOutput,
-    assessed_sources_by_url: dict[str, AssessedSource],
-) -> list[SourceRecord]:
-    records: list[SourceRecord] = []
-    for url_source in jina_fetcher_output.url_sources:
-        if bool(url_source.metadata.get("fetch_succeeded")) is False:
-            continue
-        assessed_source = assessed_sources_by_url.get(str(url_source.url))
-        if assessed_source is not None and assessed_source.filtered_out:
-            continue
+def _chunk_ranking_output_from_retrieved_sources(
+    retrieved_sources_output: RetrievedSourcesOutput,
+) -> ChunkRankingOutput:
+    ranked_chunks: list[RankedChunk] = []
+    selected_chunk_ids: list[str] = []
+    rank = 1
+    for url_source in retrieved_sources_output.url_sources:
         for chunk in url_source.chunks:
-            text = chunk.text.strip()
-            if not text:
-                continue
-            records.append(
-                SourceRecord(
-                    source_url=str(url_source.url),
-                    text=text,
-                    metadata=_base_chunk_metadata(
-                        source_url=url_source.url,
-                        source_title=url_source.title,
-                        assessed_source=assessed_source,
-                        origin=EvidenceOrigin.JINA,
-                    ),
+            ranked_chunks.append(
+                RankedChunk(
+                    source_id=url_source.source_id,
+                    chunk_id=chunk.chunk_id,
+                    rank=rank,
+                    score=ChunkScore(final_score=0.0),
                 )
             )
-    return records
+            selected_chunk_ids.append(chunk.chunk_id)
+            rank += 1
+    return ChunkRankingOutput(
+        url_sources=retrieved_sources_output.url_sources,
+        ranked_chunks=ranked_chunks,
+        selected_chunk_ids=selected_chunk_ids,
+    )
 
 
 def _base_chunk_metadata(
@@ -321,7 +306,7 @@ def _attach_source_record(
     *,
     source_record: SourceRecord,
     chunks_by_entity: dict[str, list[EvidenceChunk]],
-    seen_keys_by_entity: dict[str, set[tuple[str, str, str]]],
+    seen_keys_by_entity: dict[str, set[tuple[str, str]]],
     candidate_names: list[str],
     candidate_matchers: dict[str, tuple[str, frozenset[str]]],
     candidate_urls: dict[str, set[str]],
@@ -539,7 +524,7 @@ def _evidence_chunk(*, text: str, metadata: BaseChunkMetadata) -> EvidenceChunk:
 def _append_chunk(
     *,
     chunks_by_entity: dict[str, list[EvidenceChunk]],
-    seen_keys_by_entity: dict[str, set[tuple[str, str, str]]],
+    seen_keys_by_entity: dict[str, set[tuple[str, str]]],
     entity_name: str,
     chunk: EvidenceChunk,
 ) -> None:
@@ -576,8 +561,8 @@ def _source_score(chunk: EvidenceChunk) -> float:
     return 0.0
 
 
-def _chunk_key(chunk: EvidenceChunk) -> tuple[str, str, str]:
-    return str(chunk.source_url), chunk.origin.value, chunk.text
+def _chunk_key(chunk: EvidenceChunk) -> tuple[str, str]:
+    return str(chunk.source_url), chunk.text
 
 
 def _candidate_matcher(candidate_name: str) -> tuple[str, frozenset[str]]:

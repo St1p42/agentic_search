@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 from pydantic import HttpUrl
 
-from backend.app.contracts import AssessorPass, BraveContextOutput, HeuristicSourceSignals, PlannerOutput, SearchResultItem
+from backend.app.contracts import AssessorPass, HeuristicSourceSignals, PlannerOutput, RetrievedSourcesOutput, SearchResultItem
 from backend.app.stages.assessor.llm_source_assessor import AssessorSourceDecision, LlmSourceAssessor
 from backend.app.stages.assessor.models import HeuristicSourceAssessment
 
 
-class SourceDecisionPolicy(Protocol):
+class SourceDecisionPolicy(ABC):
+    @abstractmethod
     def decide(
         self,
         *,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
         pass_type: AssessorPass,
@@ -28,14 +29,14 @@ class HeuristicDecisionPolicy(SourceDecisionPolicy):
         self,
         *,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
         pass_type: AssessorPass,
         shortlisted_results: list[SearchResultItem],
     ) -> dict[str, AssessorSourceDecision]:
         _ = planner_output
-        _ = brave_context_output
+        _ = retrieved_sources_output
         _ = heuristic_signals_by_url
         _ = heuristic_assessments_by_url
         _ = pass_type
@@ -51,7 +52,7 @@ class LlmDecisionPolicy(SourceDecisionPolicy):
         self,
         *,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         heuristic_assessments_by_url: dict[HttpUrl, HeuristicSourceAssessment],
         pass_type: AssessorPass,
@@ -65,7 +66,7 @@ class LlmDecisionPolicy(SourceDecisionPolicy):
         return self._llm_assessor.assess(
             planner_output=planner_output,
             search_results=llm_results,
-            brave_context_output=brave_context_output,
+            retrieved_sources_output=retrieved_sources_output,
             heuristic_signals_by_url=heuristic_signals_by_url,
             heuristic_assessments_by_url=heuristic_assessments_by_url,
             pass_type=pass_type,

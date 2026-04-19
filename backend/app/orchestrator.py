@@ -14,9 +14,9 @@ from backend.app.contracts import (
     AssessorPass,
     AssessorOutput,
     BuildingEntitiesStageUiModel,
-    BraveContextOutput,
     BudgetState,
     CanonicalizerVerifierEvaluatorOutput,
+    ChunkRankingOutput,
     ErrorCode,
     EventPayload,
     EvidenceStore,
@@ -26,7 +26,6 @@ from backend.app.contracts import (
     FinalizingTableStageUiModel,
     HeuristicAssessingSourceQualityStageUiModel,
     IdentifyingCandidatesStageUiModel,
-    JinaFetcherOutput,
     OfficialityLevel,
     PipelineError,
     PipelineRequest,
@@ -34,6 +33,7 @@ from backend.app.contracts import (
     PlanningStageUiModel,
     PlannerOutput,
     ProcessingSourcesStageUiModel,
+    RetrievedSourcesOutput,
     RetrievingEvidenceStageUiModel,
     RetrievingSourcesStageUiModel,
     SchemaPreviewColumnUiModel,
@@ -50,9 +50,13 @@ from backend.app.stages.assessor import LlmSourceAssessorStage
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
+    ChunkRanker,
+    DefaultChunkRanker,
     DefaultEvidenceStoreBuilder,
     EvidenceStoreBuilder,
+    JinaFetcher,
     PlaceholderBraveContextFetcher,
+    PlaceholderJinaFetcher,
 )
 from backend.app.stages import (
     CanonicalizerVerifierEvaluatorStage,
@@ -82,7 +86,8 @@ class PipelineState:
     planner_output: PlannerOutput
     budget: BudgetState
     searcher_output: SearcherOutput | None = None
-    brave_context_output: BraveContextOutput | None = None
+    retrieved_sources_output: RetrievedSourcesOutput | None = None
+    chunk_ranking_output: ChunkRankingOutput | None = None
     extractor_light_output: ExtractorLightOutput | None = None
     assessor_output: AssessorOutput | None = None
     evidence_store: EvidenceStore = field(default_factory=EvidenceStore)
@@ -101,6 +106,9 @@ class PipelineOrchestrator:
         extractor: ExtractorStage | None = None,
         finalizer: CanonicalizerVerifierEvaluatorStage | None = None,
         brave_context_fetcher: BraveContextFetcher | None = None,
+        jina_fetcher: JinaFetcher | None = None,
+        chunk_ranker: ChunkRanker | None = None,
+        retrieval_mode: str = "jina",
         evidence_store_builder: EvidenceStoreBuilder | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
@@ -112,6 +120,9 @@ class PipelineOrchestrator:
         self.extractor = extractor or PlaceholderExtractorStage()
         self.finalizer = finalizer or ThinFinalizerStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
+        self.jina_fetcher = jina_fetcher or PlaceholderJinaFetcher()
+        self.chunk_ranker = chunk_ranker or DefaultChunkRanker()
+        self.retrieval_mode = retrieval_mode
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
@@ -174,6 +185,9 @@ class PipelineOrchestrator:
             extractor=self.extractor,
             finalizer=self.finalizer,
             brave_context_fetcher=self.brave_context_fetcher,
+            jina_fetcher=self.jina_fetcher,
+            chunk_ranker=self.chunk_ranker,
+            retrieval_mode=self.retrieval_mode,
             evidence_store_builder=self.evidence_store_builder,
             budget_factory=self.budget_factory,
             event_emitter=PipelineEventEmitter(event_queue.put),
@@ -269,19 +283,29 @@ class PipelineOrchestrator:
         state.budget.used_search_rounds += 1
         state.budget.used_search_queries += len(state.searcher_output.executed_queries)
 
-        state.brave_context_output = self._run_stage(
+        state.retrieved_sources_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
             message="Processing sources",
-            action=lambda: self.brave_context_fetcher.run(state.searcher_output),
+            action=lambda: self._fetch_retrieved_sources(state),
             completed_data_factory=lambda result: _ui_event_data(
                 ProcessingSourcesStageUiModel(
-                    sources_processed=len(result.passages_by_url),
+                    sources_processed=len(result.url_sources),
                     relevant_details_found=sum(
-                        len([passage for passage in passages if passage.passage_text.strip()])
-                        for passages in result.passages_by_url.values()
+                        len([chunk for chunk in source.chunks if chunk.text.strip()])
+                        for source in result.url_sources
                     ),
                 ).to_ui_details()
+            ),
+        )
+        state.budget.used_deep_fetches += len(state.retrieved_sources_output.url_sources)
+        state.chunk_ranking_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Ranking evidence chunks",
+            action=lambda: self.chunk_ranker.run(
+                planner_output=state.planner_output,
+                url_sources=state.retrieved_sources_output.url_sources,
             ),
         )
         state.extractor_light_output = self._run_stage(
@@ -290,7 +314,7 @@ class PipelineOrchestrator:
             message="Identifying candidates",
             action=lambda: self.extractor_light.run(
                 planner_output=state.planner_output,
-                brave_context_output=state.brave_context_output,
+                chunk_ranking_output=state.chunk_ranking_output,
             ),
             completed_data_factory=lambda result: _ui_event_data(
                 IdentifyingCandidatesStageUiModel(
@@ -307,7 +331,7 @@ class PipelineOrchestrator:
             action=lambda: self.assessor.run(
                 planner_output=state.planner_output,
                 searcher_output=state.searcher_output,
-                brave_context_output=state.brave_context_output,
+                retrieved_sources_output=state.retrieved_sources_output,
                 extractor_light_output=state.extractor_light_output,
                 pass_type=AssessorPass.FIRST_PASS,
                 evidence_store=state.evidence_store,
@@ -319,7 +343,6 @@ class PipelineOrchestrator:
         )
         self._build_and_merge_evidence_store(
             state=state,
-            jina_fetcher_output=None,
             completed_data_factory=lambda result: _ui_event_data(
                 RetrievingEvidenceStageUiModel(
                     candidates_with_evidence=sum(1 for chunks in result.chunks_by_entity.values() if chunks),
@@ -363,7 +386,6 @@ class PipelineOrchestrator:
     def _build_and_merge_evidence_store(
         self,
         state: PipelineState,
-        jina_fetcher_output: JinaFetcherOutput | None,
         message: str = "Retrieving evidence",
         completed_data_factory: Callable[[EvidenceStore], dict[str, object]] | None = None,
     ) -> None:
@@ -372,14 +394,31 @@ class PipelineOrchestrator:
             stage_name=StageName.ASSESSOR,
             message=message,
             action=lambda: self.evidence_store_builder.run(
-                brave_context_output=state.brave_context_output,
+                chunk_ranking_output=state.chunk_ranking_output or ChunkRankingOutput(),
                 extractor_light_output=state.extractor_light_output,
                 assessor_output=state.assessor_output,
-                jina_fetcher_output=jina_fetcher_output,
                 existing_store=state.evidence_store,
             ),
             completed_data_factory=completed_data_factory,
         )
+
+    def _fetch_retrieved_sources(self, state: PipelineState) -> RetrievedSourcesOutput:
+        searcher_output = state.searcher_output or SearcherOutput(
+            executed_queries=[],
+            raw_results=[],
+            shortlisted_results=[],
+        )
+        fetch_budget = max(0, state.budget.max_deep_fetches - state.budget.used_deep_fetches)
+        if self.retrieval_mode == "jina":
+            return self.jina_fetcher.run(
+                searcher_output=searcher_output,
+                fetch_budget=fetch_budget,
+                request_query=state.original_query,
+                planner_output=state.planner_output,
+            )
+        if self.retrieval_mode == "brave_context":
+            return self.brave_context_fetcher.run(searcher_output)
+        raise ValueError(f"Unsupported retrieval mode: {self.retrieval_mode}")
 
     def _run_stage(
         self,

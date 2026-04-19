@@ -5,15 +5,15 @@ from typing import cast
 from pydantic import HttpUrl
 
 from backend.app.api_clients.llm_client import StructuredLlmClient, StructuredOutputT
-from backend.app.contracts import BraveContextOutput
 from backend.app.stages.extractor_light import (
     ExtractorLightModelOutput,
     LlmExtractorLightStage,
 )
 from backend.tests.fixtures.factories import (
-    make_brave_context_output,
-    make_brave_context_passage,
+    make_chunk_ranking_output,
     make_planner_output,
+    make_retrieved_chunk,
+    make_url_source,
 )
 
 
@@ -43,29 +43,41 @@ class FakeExtractorLightClient:
         return response_model.model_validate(self.output_payload)
 
 
-def _brave_context_output() -> BraveContextOutput:
+def _chunk_ranking_output():
     acme_url = HttpUrl("https://acmehealth.com/about")
     roundup_url = HttpUrl("https://roundup.example.com/health-ai")
-    return make_brave_context_output(
-        passages_by_url={
-            acme_url: [
-                make_brave_context_passage(
-                    source_url=str(acme_url),
-                    passage_text="Acme Health builds clinical AI systems. Acme Health serves hospitals.",
-                    metadata={"title": "About Acme Health"},
-                )
-            ],
-            roundup_url: [
-                make_brave_context_passage(
-                    source_url=str(roundup_url),
-                    passage_text=(
-                        "A roundup featuring Beta AI and Acme Health in healthcare AI. "
-                        "Beta AI's platform supports triage."
-                    ),
-                    metadata={"title": "Healthcare AI startups"},
-                )
-            ],
-        }
+    return make_chunk_ranking_output(
+        url_sources=[
+            make_url_source(
+                source_id="jina:https://acmehealth.com/about",
+                url=str(acme_url),
+                chunks=[
+                    make_retrieved_chunk(
+                        chunk_id="jina:https://acmehealth.com/about#0",
+                        source_id="jina:https://acmehealth.com/about",
+                        text="Acme Health builds clinical AI systems. Acme Health serves hospitals.",
+                    )
+                ],
+            ),
+            make_url_source(
+                source_id="jina:https://roundup.example.com/health-ai",
+                url=str(roundup_url),
+                chunks=[
+                    make_retrieved_chunk(
+                        chunk_id="jina:https://roundup.example.com/health-ai#0",
+                        source_id="jina:https://roundup.example.com/health-ai",
+                        text=(
+                            "A roundup featuring Beta AI and Acme Health in healthcare AI. "
+                            "Beta AI's platform supports triage."
+                        ),
+                    )
+                ],
+            ),
+        ],
+        selected_chunk_ids=[
+            "jina:https://acmehealth.com/about#0",
+            "jina:https://roundup.example.com/health-ai#0",
+        ],
     )
 
 
@@ -74,7 +86,7 @@ def _as_structured_client(fake_client: FakeExtractorLightClient) -> StructuredLl
 
 
 def test_llm_extractor_light_stage_builds_name_url_map_and_mentions() -> None:
-    brave_context_output = _brave_context_output()
+    chunk_ranking_output = _chunk_ranking_output()
     acme_url = HttpUrl("https://acmehealth.com/about")
     roundup_url = HttpUrl("https://roundup.example.com/health-ai")
     fake_client = FakeExtractorLightClient(
@@ -89,7 +101,7 @@ def test_llm_extractor_light_stage_builds_name_url_map_and_mentions() -> None:
 
     output = extractor_light.run(
         planner_output=make_planner_output(),
-        brave_context_output=brave_context_output,
+        chunk_ranking_output=chunk_ranking_output,
     )
 
     assert output.candidate_names == ["Acme Health", "Beta AI"]
@@ -101,7 +113,7 @@ def test_llm_extractor_light_stage_builds_name_url_map_and_mentions() -> None:
     }
     assert len(fake_client.calls) == 1
     assert "entity_type: startup" in fake_client.calls[0]["user_content"]
-    assert "[p1] Acme Health builds clinical AI systems." in fake_client.calls[0]["user_content"]
+    assert "[c1] Acme Health builds clinical AI systems." in fake_client.calls[0]["user_content"]
     assert "https://acmehealth.com/about" not in fake_client.calls[0]["user_content"]
     assert fake_client.calls[0]["reasoning_effort"] == "minimal"
 
@@ -119,7 +131,7 @@ def test_llm_extractor_light_stage_returns_empty_output_without_passages() -> No
 
     output = extractor_light.run(
         planner_output=make_planner_output(),
-        brave_context_output=make_brave_context_output(),
+        chunk_ranking_output=make_chunk_ranking_output(url_sources=[], ranked_chunks=[], selected_chunk_ids=[]),
     )
 
     assert output.candidate_names == []
@@ -130,19 +142,24 @@ def test_llm_extractor_light_stage_returns_empty_output_without_passages() -> No
 
 def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> None:
     acme_url = HttpUrl("https://example.com/apple")
-    brave_context_output = make_brave_context_output(
-        passages_by_url={
-            acme_url: [
-                make_brave_context_passage(
-                    source_url=str(acme_url),
-                    passage_text=(
-                        "Apple iPhone 17 Pro Max is the top pick. "
-                        "The iPhone 17 Pro Max camera system is excellent."
-                    ),
-                    metadata={"title": "Best phones"},
-                )
-            ]
-        }
+    chunk_ranking_output = make_chunk_ranking_output(
+        url_sources=[
+            make_url_source(
+                source_id="jina:https://example.com/apple",
+                url=str(acme_url),
+                chunks=[
+                    make_retrieved_chunk(
+                        chunk_id="jina:https://example.com/apple#0",
+                        source_id="jina:https://example.com/apple",
+                        text=(
+                            "Apple iPhone 17 Pro Max is the top pick. "
+                            "The iPhone 17 Pro Max camera system is excellent."
+                        ),
+                    )
+                ],
+            )
+        ],
+        selected_chunk_ids=["jina:https://example.com/apple#0"],
     )
     fake_client = FakeExtractorLightClient(
         ExtractorLightModelOutput(
@@ -156,7 +173,7 @@ def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> 
 
     output = extractor_light.run(
         planner_output=make_planner_output(),
-        brave_context_output=brave_context_output,
+        chunk_ranking_output=chunk_ranking_output,
     )
 
     assert output.candidate_names == ["Apple iPhone 17 Pro Max"]
@@ -166,20 +183,25 @@ def test_llm_extractor_light_stage_drops_shorter_overlapping_name_variants() -> 
 
 def test_llm_extractor_light_stage_filters_generic_and_boilerplate_candidates() -> None:
     source_url = HttpUrl("https://example.com/healthcare-ai")
-    brave_context_output = make_brave_context_output(
-        passages_by_url={
-            source_url: [
-                make_brave_context_passage(
-                    source_url=str(source_url),
-                    passage_text=(
-                        "Acme Health is featured alongside AI startups in healthcare. "
-                        "About Us and Team describe the company. "
-                        "Apple/Samsung is a comparison, while Platform is generic."
-                    ),
-                    metadata={"title": "Healthcare AI overview"},
-                )
-            ]
-        }
+    chunk_ranking_output = make_chunk_ranking_output(
+        url_sources=[
+            make_url_source(
+                source_id="jina:https://example.com/healthcare-ai",
+                url=str(source_url),
+                chunks=[
+                    make_retrieved_chunk(
+                        chunk_id="jina:https://example.com/healthcare-ai#0",
+                        source_id="jina:https://example.com/healthcare-ai",
+                        text=(
+                            "Acme Health is featured alongside AI startups in healthcare. "
+                            "About Us and Team describe the company. "
+                            "Apple/Samsung is a comparison, while Platform is generic."
+                        ),
+                    )
+                ],
+            )
+        ],
+        selected_chunk_ids=["jina:https://example.com/healthcare-ai#0"],
     )
     fake_client = FakeExtractorLightClient(
         ExtractorLightModelOutput(
@@ -193,7 +215,7 @@ def test_llm_extractor_light_stage_filters_generic_and_boilerplate_candidates() 
 
     output = extractor_light.run(
         planner_output=make_planner_output(),
-        brave_context_output=brave_context_output,
+        chunk_ranking_output=chunk_ranking_output,
     )
 
     assert output.candidate_names == ["Acme Health"]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.app.contracts import BraveContextPassage, HeuristicSourceSignals, SearchResultItem, SourceQuality
+from backend.app.contracts import HeuristicSourceSignals, SearchResultItem, SourceQuality, UrlSource
 from backend.app.stages.assessor.models import QualityHeuristicAssessment
 from backend.app.stages.assessor.utils import has_low_quality_host_marker, path, path_segment_count
 
@@ -17,17 +17,15 @@ class QualityHeuristicsAssessor:
         self,
         *,
         result: SearchResultItem,
-        brave_context_passages: list[BraveContextPassage],
+        url_source: UrlSource | None,
         heuristic_signals: HeuristicSourceSignals,
     ) -> QualityHeuristicAssessment:
         score = 0
         reasons: list[str] = []
 
         snippet = result.snippet.strip()
-        total_context_chars = sum(len(passage.passage_text.strip()) for passage in brave_context_passages)
-        fallback_only = bool(brave_context_passages) and all(
-            bool(passage.metadata.get("fallback")) for passage in brave_context_passages
-        )
+        total_context_chars = sum(len(chunk.text.strip()) for chunk in (url_source.chunks if url_source else []))
+        fallback_only = bool(url_source) and bool(url_source.metadata.get("fallback"))
         if not snippet:
             score -= 4
             reasons.append("missing_snippet")

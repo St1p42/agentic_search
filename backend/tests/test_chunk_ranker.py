@@ -47,14 +47,14 @@ def test_chunk_ranker_prefers_best_rewrite_plus_support_bonus() -> None:
 
     output = DefaultChunkRanker().run(planner_output, url_sources)
 
-    assert len(output.scored_chunks) == 2
-    assert output.scored_chunks[0].source_id == "jina:https://alpha.example/about"
-    assert output.scored_chunks[0].best_rewrite_score > 0.0
-    assert output.scored_chunks[0].query_variant_coverage_count >= 1
-    assert output.scored_chunks[0].query_variant_coverage_score > 0.0
-    assert output.scored_chunks[0].max_query_span_score > 0.0
-    assert output.scored_chunks[0].anchor_coverage_score > 0.0
-    assert output.scored_chunks[0].final_score > output.scored_chunks[1].final_score
+    assert len(output.ranked_chunks) == 2
+    assert output.ranked_chunks[0].source_id == "jina:https://alpha.example/about"
+    assert output.ranked_chunks[0].score.best_rewrite_score > 0.0
+    assert output.ranked_chunks[0].score.query_variant_coverage_count >= 1
+    assert output.ranked_chunks[0].score.query_variant_coverage_score > 0.0
+    assert output.ranked_chunks[0].score.max_query_span_score > 0.0
+    assert output.ranked_chunks[0].score.anchor_coverage_score > 0.0
+    assert output.ranked_chunks[0].score.final_score > output.ranked_chunks[1].score.final_score
 
 
 def test_chunk_ranker_uses_core_bm25_formula_only() -> None:
@@ -88,11 +88,7 @@ def test_chunk_ranker_uses_core_bm25_formula_only() -> None:
 
     output = DefaultChunkRanker().run(planner_output, url_sources)
 
-    assert len(output.scored_chunks) == 2
-    assert all(chunk.query_scores["base"] >= 0.0 for chunk in output.scored_chunks)
-    assert all(chunk.query_variant_coverage_score >= 0.0 for chunk in output.scored_chunks)
-    assert all(chunk.max_query_span_score >= 0.0 for chunk in output.scored_chunks)
-    assert output.scored_chunks[0].aspect_overlap_score == 0.0
-    assert output.scored_chunks[0].title_overlap_score == 0.0
-    assert output.scored_chunks[0].official_domain_boost == 0.0
-    assert output.scored_chunks[0].boilerplate_penalty == 0.0
+    assert len(output.ranked_chunks) == 2
+    assert all(chunk.score.query_scores["base"] >= 0.0 for chunk in output.ranked_chunks)
+    assert all(chunk.score.query_variant_coverage_score >= 0.0 for chunk in output.ranked_chunks)
+    assert all(chunk.score.max_query_span_score >= 0.0 for chunk in output.ranked_chunks)

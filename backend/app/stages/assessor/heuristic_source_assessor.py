@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from backend.app.contracts import (
-    BraveContextOutput,
     HeuristicSourceSignals,
     OfficialityLevel,
+    RetrievedSourcesOutput,
     SearchResultItem,
     SourceQuality,
 )
@@ -30,14 +30,14 @@ class HeuristicSourceAssessor:
         self,
         *,
         result: SearchResultItem,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         heuristic_signals: HeuristicSourceSignals,
         candidate_names: list[str],
     ) -> HeuristicSourceAssessment:
-        passages = brave_context_output.passages_by_url.get(result.url, [])
+        url_source = _url_source_for_result(result=result, retrieved_sources_output=retrieved_sources_output)
         quality = self.quality_assessor.assess(
             result=result,
-            brave_context_passages=passages,
+            url_source=url_source,
             heuristic_signals=heuristic_signals,
         )
         if quality.quality == SourceQuality.LOW and quality.confidence >= LOW_QUALITY_DROP_CONFIDENCE:
@@ -88,3 +88,14 @@ class HeuristicSourceAssessor:
             filtered_out=False,
             filter_reason=None,
         )
+
+
+def _url_source_for_result(
+    *,
+    result: SearchResultItem,
+    retrieved_sources_output: RetrievedSourcesOutput,
+):
+    for url_source in retrieved_sources_output.url_sources:
+        if url_source.url == result.url:
+            return url_source
+    return None

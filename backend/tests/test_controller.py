@@ -3,15 +3,14 @@ from __future__ import annotations
 from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
     BudgetState,
-    CanonicalizerVerifierEvaluatorOutput,
+    ChunkRankingOutput,
     EvidenceStore,
     ExtractorLightOutput,
     ExtractorOutput,
-    JinaFetcherOutput,
     PipelineRequest,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearcherOutput,
 )
 from backend.app.helpers import (
@@ -80,19 +79,19 @@ class NoopBraveContextFetcher(PlaceholderBraveContextFetcher):
     def run(
         self,
         searcher_output: SearcherOutput,
-    ) -> BraveContextOutput:
+    ) -> RetrievedSourcesOutput:
         _ = searcher_output
-        return BraveContextOutput(passages_by_url={})
+        return RetrievedSourcesOutput(url_sources=[])
 
 
 class NoopExtractorLight(PlaceholderExtractorLightStage):
     def run(
         self,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        chunk_ranking_output: ChunkRankingOutput,
     ) -> ExtractorLightOutput:
         _ = planner_output
-        _ = brave_context_output
+        _ = chunk_ranking_output
         return ExtractorLightOutput(candidate_names=[], name_to_source_urls={}, mention_counts={})
 
 
@@ -101,19 +100,21 @@ class NoopAssessor(PlaceholderSourceAssessorStage):
         self,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
+        retrieved_sources_output: RetrievedSourcesOutput | None = None,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
         remaining_fetch_budget: int = 0,
+        brave_context_output: RetrievedSourcesOutput | None = None,
     ) -> AssessorOutput:
         _ = planner_output
         _ = searcher_output
-        _ = brave_context_output
+        _ = retrieved_sources_output
         _ = extractor_light_output
         _ = pass_type
         _ = evidence_store
         _ = remaining_fetch_budget
+        _ = brave_context_output
         return AssessorOutput(
             pass_type=pass_type,
             assessed_sources=[],
@@ -125,16 +126,16 @@ class NoopAssessor(PlaceholderSourceAssessorStage):
 class NoopEvidenceStoreBuilder(PlaceholderEvidenceStoreBuilder):
     def run(
         self,
-        brave_context_output: BraveContextOutput,
         extractor_light_output: ExtractorLightOutput,
         assessor_output: AssessorOutput,
-        jina_fetcher_output: JinaFetcherOutput | None = None,
+        chunk_ranking_output: ChunkRankingOutput | None = None,
+        brave_context_output: RetrievedSourcesOutput | None = None,
         existing_store: EvidenceStore | None = None,
     ) -> EvidenceStore:
+        _ = chunk_ranking_output
         _ = brave_context_output
         _ = extractor_light_output
         _ = assessor_output
-        _ = jina_fetcher_output
         return existing_store or EvidenceStore(chunks_by_entity={})
 
 

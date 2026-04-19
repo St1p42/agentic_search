@@ -6,14 +6,14 @@ from pydantic import HttpUrl
 from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
+    ChunkRankingOutput,
     EvidenceOrigin,
     EvidenceStore,
     ExtractorLightOutput,
     ExtractorOutput,
-    JinaFetcherOutput,
     PipelineRequest,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearcherOutput,
     UrlSource,
 )
@@ -22,8 +22,7 @@ from backend.app.orchestrator import PipelineOrchestrator
 from backend.tests.fixtures.factories import (
     make_assessed_source,
     make_assessor_output,
-    make_brave_context_output,
-    make_brave_context_passage,
+    make_chunk_ranking_output,
     make_evidence_chunk,
     make_evidence_store,
     make_extracted_entity,
@@ -31,8 +30,11 @@ from backend.tests.fixtures.factories import (
     make_extractor_output,
     make_field_value,
     make_planner_output,
+    make_retrieved_chunk,
+    make_retrieved_sources_output,
     make_search_result,
     make_searcher_output,
+    make_url_source,
 )
 
 
@@ -132,31 +134,42 @@ def _searcher_output() -> SearcherOutput:
     )
 
 
-def _brave_context_output() -> BraveContextOutput:
+def _retrieved_sources_output() -> RetrievedSourcesOutput:
     search_result = make_search_result()
-    return make_brave_context_output(
-        passages_by_url={
-            search_result.url: [
-                make_brave_context_passage(
-                    source_url=str(search_result.url),
-                    passage_text=(
-                        "Acme Health develops clinical AI systems for hospitals and care teams."
-                    ),
-                    metadata={"title": "About Acme Health"},
-                )
-            ]
-        }
+    return make_retrieved_sources_output(
+        url_sources=[
+            make_url_source(
+                source_id="jina:https://acmehealth.com/about",
+                url=str(search_result.url),
+                chunks=[
+                    make_retrieved_chunk(
+                        chunk_id="jina:https://acmehealth.com/about#0",
+                        source_id="jina:https://acmehealth.com/about",
+                        text="Acme Health develops clinical AI systems for hospitals and care teams.",
+                    )
+                ],
+            )
+        ]
+    )
+
+
+def _chunk_ranking_output() -> ChunkRankingOutput:
+    sources_output = _retrieved_sources_output()
+    chunk_id = sources_output.url_sources[0].chunks[0].chunk_id
+    return make_chunk_ranking_output(
+        url_sources=sources_output.url_sources,
+        selected_chunk_ids=[chunk_id],
     )
 
 
 def _assessor_output() -> AssessorOutput:
     search_result = make_search_result()
-    brave_context_output = _brave_context_output()
+    retrieved_sources_output = _retrieved_sources_output()
     return make_assessor_output(
         assessed_sources=[
             make_assessed_source(
                 result=search_result,
-                brave_context_passages=brave_context_output.passages_by_url[search_result.url],
+                retrieved_chunks=retrieved_sources_output.url_sources[0].chunks,
             )
         ]
     )
@@ -166,13 +179,13 @@ def _evidence_store() -> EvidenceStore:
     return make_evidence_store(chunks_by_entity={"Acme Health": [make_evidence_chunk()]})
 
 
-def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
-    brave_context_output = _brave_context_output()
+def test_brave_context_test_endpoint_returns_url_sources(monkeypatch) -> None:
+    retrieved_sources_output = _retrieved_sources_output()
 
     class FakeEndpointBraveContextFetcher:
-        def run(self, searcher_output: SearcherOutput) -> BraveContextOutput:
+        def run(self, searcher_output: SearcherOutput) -> RetrievedSourcesOutput:
             _ = searcher_output
-            return brave_context_output
+            return retrieved_sources_output
 
     monkeypatch.setattr(
         "backend.app.main.build_brave_context_fetcher",
@@ -185,9 +198,9 @@ def test_brave_context_test_endpoint_returns_passages(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["passages_by_url"]["https://acmehealth.com/about"][0][
-        "passage_text"
-    ] == "Acme Health develops clinical AI systems for hospitals and care teams."
+    assert response.json()["url_sources"][0]["chunks"][0]["text"] == (
+        "Acme Health develops clinical AI systems for hospitals and care teams."
+    )
 
 
 def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> None:
@@ -197,10 +210,10 @@ def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> N
         def run(
             self,
             planner_output: PlannerOutput,
-            brave_context_output: BraveContextOutput,
+            chunk_ranking_output: ChunkRankingOutput,
         ) -> ExtractorLightOutput:
             _ = planner_output
-            _ = brave_context_output
+            _ = chunk_ranking_output
             return extractor_light_output
 
     monkeypatch.setattr(
@@ -212,7 +225,7 @@ def test_extractor_light_test_endpoint_returns_candidate_names(monkeypatch) -> N
         "/api/v1/extractor-light/test",
         json={
             "planner_output": _planner_output().model_dump(mode="json"),
-            "brave_context_output": _brave_context_output().model_dump(mode="json"),
+            "chunk_ranking_output": _chunk_ranking_output().model_dump(mode="json"),
         },
     )
 
@@ -228,7 +241,7 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
             self,
             planner_output: PlannerOutput,
             searcher_output: SearcherOutput,
-            brave_context_output: BraveContextOutput,
+            retrieved_sources_output: RetrievedSourcesOutput,
             extractor_light_output: ExtractorLightOutput,
             pass_type: AssessorPass = AssessorPass.FIRST_PASS,
             evidence_store: EvidenceStore | None = None,
@@ -236,7 +249,7 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
         ) -> AssessorOutput:
             _ = planner_output
             _ = searcher_output
-            _ = brave_context_output
+            _ = retrieved_sources_output
             _ = extractor_light_output
             _ = pass_type
             _ = evidence_store
@@ -253,7 +266,7 @@ def test_assessor_test_endpoint_returns_assessed_sources(monkeypatch) -> None:
         json={
             "planner_output": _planner_output().model_dump(mode="json"),
             "searcher_output": _searcher_output().model_dump(mode="json"),
-            "brave_context_output": _brave_context_output().model_dump(mode="json"),
+            "retrieved_sources_output": _retrieved_sources_output().model_dump(mode="json"),
             "extractor_light_output": make_extractor_light_output().model_dump(mode="json"),
             "pass_type": "first_pass",
             "evidence_store": None,
@@ -269,7 +282,7 @@ def test_evidence_store_test_endpoint_returns_entity_chunks() -> None:
     response = client.post(
         "/api/v1/evidence-store/test",
         json={
-            "brave_context_output": _brave_context_output().model_dump(mode="json"),
+            "chunk_ranking_output": _chunk_ranking_output().model_dump(mode="json"),
             "extractor_light_output": make_extractor_light_output().model_dump(mode="json"),
             "assessor_output": _assessor_output().model_dump(mode="json"),
             "evidence_store": None,
@@ -394,16 +407,16 @@ def test_jina_fetcher_test_endpoint_returns_url_sources(monkeypatch) -> None:
     class FakeEndpointJinaFetcher:
         def run(
             self,
-            assessor_output: AssessorOutput,
-            remaining_fetch_budget: int,
+            searcher_output: SearcherOutput,
+            fetch_budget: int,
             request_query: str | None = None,
             planner_output: PlannerOutput | None = None,
-        ) -> JinaFetcherOutput:
-            captured["assessor_output"] = assessor_output
-            captured["remaining_fetch_budget"] = remaining_fetch_budget
+        ) -> RetrievedSourcesOutput:
+            captured["searcher_output"] = searcher_output
+            captured["fetch_budget"] = fetch_budget
             captured["request_query"] = request_query
             captured["planner_output"] = planner_output
-            return JinaFetcherOutput(
+            return RetrievedSourcesOutput(
                 url_sources=[
                     UrlSource(
                         source_id="jina:https://acmehealth.com/about",
@@ -423,15 +436,15 @@ def test_jina_fetcher_test_endpoint_returns_url_sources(monkeypatch) -> None:
     response = client.post(
         "/api/v1/jina-fetcher/test",
         json={
-            "assessor_output": _assessor_output().model_dump(mode="json"),
-            "remaining_fetch_budget": 1,
+            "searcher_output": _searcher_output().model_dump(mode="json"),
+            "fetch_budget": 1,
             "request_query": "find healthcare AI startups",
             "planner_output": _planner_output().model_dump(mode="json"),
         },
     )
 
     assert response.status_code == 200
-    assert captured["remaining_fetch_budget"] == 1
+    assert captured["fetch_budget"] == 1
     assert captured["request_query"] == "find healthcare AI startups"
     assert captured["planner_output"] == _planner_output()
     assert response.json()["url_sources"] == [

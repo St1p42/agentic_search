@@ -7,11 +7,13 @@ from typing import Protocol
 
 import bm25s
 
+from backend.app.config import DEFAULT_CHUNK_RANKER_TOP_K
 from backend.app.contracts import (
+    ChunkScore,
     ChunkRankingOutput,
     PlannerOutput,
+    RankedChunk,
     RetrievedChunk,
-    ScoredChunk,
     UrlSource,
 )
 from backend.app.helpers.chunk_retrieval_preprocessor import (
@@ -53,8 +55,10 @@ class DefaultChunkRanker:
         self,
         *,
         preprocessor: ChunkRetrievalPreprocessor | None = None,
+        top_k: int = DEFAULT_CHUNK_RANKER_TOP_K,
     ) -> None:
         self._preprocessor = preprocessor or DefaultChunkRetrievalPreprocessor()
+        self._top_k = max(0, top_k)
 
     def run(
         self,
@@ -72,7 +76,7 @@ class DefaultChunkRanker:
             if chunk.text.strip()
         ]
         if not chunk_records:
-            return ChunkRankingOutput(scored_chunks=[])
+            return ChunkRankingOutput(url_sources=url_sources, ranked_chunks=[], selected_chunk_ids=[])
 
         corpus_tokens = [record.retrieval_tokens for record in chunk_records]
         retriever = bm25s.BM25()
@@ -86,8 +90,8 @@ class DefaultChunkRanker:
             corpus_size=len(chunk_records),
         )
 
-        scored_chunks = [
-            _scored_chunk(
+        ranked_chunks = [
+            _ranked_chunk(
                 planner_output=planner_output,
                 record=record,
                 query_bundle=queries,
@@ -96,8 +100,22 @@ class DefaultChunkRanker:
             )
             for index, record in enumerate(chunk_records)
         ]
-        scored_chunks.sort(key=lambda chunk: (-chunk.final_score, chunk.source_id, chunk.chunk_id))
-        return ChunkRankingOutput(scored_chunks=scored_chunks)
+        ranked_chunks.sort(key=lambda chunk: (-chunk.score.final_score, chunk.source_id, chunk.chunk_id))
+        ranked_chunks = [
+            RankedChunk(
+                source_id=chunk.source_id,
+                chunk_id=chunk.chunk_id,
+                rank=index + 1,
+                score=chunk.score,
+            )
+            for index, chunk in enumerate(ranked_chunks)
+        ]
+        selected_chunk_ids = [chunk.chunk_id for chunk in ranked_chunks[: self._top_k]]
+        return ChunkRankingOutput(
+            url_sources=url_sources,
+            ranked_chunks=ranked_chunks,
+            selected_chunk_ids=selected_chunk_ids,
+        )
 
 @dataclass(frozen=True)
 class _ChunkRecord:
@@ -166,14 +184,14 @@ def _dense_normalized_scores(
     return [max(0.0, score / max_score) for score in dense_scores]
 
 
-def _scored_chunk(
+def _ranked_chunk(
     *,
     planner_output: PlannerOutput,
     record: _ChunkRecord,
     query_bundle: QueryBundle,
     query_scores: dict[str, list[float]],
     chunk_index: int,
-) -> ScoredChunk:
+) -> RankedChunk:
     base_score = query_scores.get(query_bundle.base_label, [0.0])[chunk_index]
     rewrite_score_map = {
         label: query_scores[label][chunk_index]
@@ -215,26 +233,22 @@ def _scored_chunk(
         if score > 0.0
     ]
 
-    return ScoredChunk(
-        chunk_id=record.chunk.chunk_id,
+    return RankedChunk(
         source_id=record.source.source_id,
-        source_url=record.source.url,
-        source_title=record.source.title,
-        text=record.chunk.text,
-        base_score=base_score,
-        best_rewrite_score=best_rewrite_score,
-        query_variant_coverage_score=query_variant_coverage_score,
-        query_variant_coverage_count=query_variant_coverage_count,
-        query_scores=query_score_map,
-        matched_queries=matched_queries,
-        best_query=best_query,
-        max_query_span_score=max_query_span_score,
-        anchor_coverage_score=anchor_coverage_score,
-        aspect_overlap_score=0.0,
-        title_overlap_score=0.0,
-        official_domain_boost=0.0,
-        boilerplate_penalty=0.0,
-        final_score=max(0.0, final_score),
+        chunk_id=record.chunk.chunk_id,
+        rank=1,
+        score=ChunkScore(
+            final_score=max(0.0, final_score),
+            base_score=base_score,
+            best_rewrite_score=best_rewrite_score,
+            query_variant_coverage_score=query_variant_coverage_score,
+            query_variant_coverage_count=query_variant_coverage_count,
+            query_scores=query_score_map,
+            matched_queries=matched_queries,
+            best_query=best_query,
+            max_query_span_score=max_query_span_score,
+            anchor_coverage_score=anchor_coverage_score,
+        ),
     )
 
 

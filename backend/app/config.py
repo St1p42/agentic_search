@@ -34,6 +34,8 @@ DEFAULT_BRAVE_INITIAL_COUNT_BY_QUERY_COUNT = {1: 20, 2: 15, 3: 12, 4: 10}
 DEFAULT_BRAVE_RETRY_COUNT_BY_QUERY_COUNT = {1: 32, 2: 21, 3: 16, 4: 13}
 DEFAULT_SEARCHER_SHORTLIST_CAP = DEFAULT_MAX_SHORTLISTED_URLS
 DEFAULT_SEARCHER_WEAK_POOL_THRESHOLD = 8
+DEFAULT_RETRIEVAL_MODE = "jina"
+DEFAULT_CHUNK_RANKER_TOP_K = 24
 DEFAULT_JINA_FETCHER_MODE = "jina"
 DEFAULT_JINA_READER_BASE_URL = "https://r.jina.ai"
 DEFAULT_JINA_TIMEOUT_SECONDS = 30.0
@@ -53,6 +55,8 @@ ENV_JINA_FETCHER_MODE = "JINA_FETCHER_MODE"
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
 ENV_PLANNER_MODE = "PLANNER_MODE"
 ENV_PLANNER_MODEL = "PLANNER_MODEL"
+ENV_RETRIEVAL_MODE = "RETRIEVAL_MODE"
+ENV_CHUNK_RANKER_TOP_K = "CHUNK_RANKER_TOP_K"
 ENV_SEARCHER_MODE = "SEARCHER_MODE"
 
 
@@ -92,6 +96,12 @@ class SearcherRuntimeConfig:
     )
     shortlist_cap: int = DEFAULT_SEARCHER_SHORTLIST_CAP
     weak_pool_threshold: int = DEFAULT_SEARCHER_WEAK_POOL_THRESHOLD
+
+
+@dataclass(frozen=True)
+class RetrievalRuntimeConfig:
+    mode: str = DEFAULT_RETRIEVAL_MODE
+    top_k: int = DEFAULT_CHUNK_RANKER_TOP_K
 
 
 @dataclass(frozen=True)
@@ -154,6 +164,15 @@ def load_searcher_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> SearcherR
     return SearcherRuntimeConfig(
         mode=os.getenv(ENV_SEARCHER_MODE, DEFAULT_SEARCHER_MODE).strip() or DEFAULT_SEARCHER_MODE,
         brave_search_api_key=os.getenv(ENV_BRAVE_SEARCH_API_KEY),
+    )
+
+
+def load_retrieval_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> RetrievalRuntimeConfig:
+    _load_env_file(env_path)
+    top_k_raw = os.getenv(ENV_CHUNK_RANKER_TOP_K, str(DEFAULT_CHUNK_RANKER_TOP_K)).strip()
+    return RetrievalRuntimeConfig(
+        mode=os.getenv(ENV_RETRIEVAL_MODE, DEFAULT_RETRIEVAL_MODE).strip() or DEFAULT_RETRIEVAL_MODE,
+        top_k=max(0, int(top_k_raw or DEFAULT_CHUNK_RANKER_TOP_K)),
     )
 
 

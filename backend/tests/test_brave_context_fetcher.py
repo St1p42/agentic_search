@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import httpx
-from pydantic import HttpUrl
 
 from backend.app.api_clients import BraveLlmContextClient, BraveLlmContextPassage
 from backend.app.config import BraveContextRuntimeConfig
@@ -105,14 +104,10 @@ def test_default_brave_context_fetcher_returns_passages_and_falls_back_to_snippe
         )
     )
 
-    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
-        "Acme Health is a clinical AI company."
-    )
-    assert len(output.passages_by_url[HttpUrl("https://acmehealth.com/about")]) == 1
-    assert output.passages_by_url[HttpUrl("https://beta.ai")][0].passage_text == (
-        "Beta AI develops healthcare copilots"
-    )
-    assert output.passages_by_url[HttpUrl("https://beta.ai")][0].metadata["fallback"] is True
+    assert output.url_sources[0].chunks[0].text == "Acme Health is a clinical AI company."
+    assert len(output.url_sources[0].chunks) == 1
+    assert output.url_sources[1].chunks[0].text == "Beta AI develops healthcare copilots"
+    assert output.url_sources[1].metadata["fallback"] is True
     assert fake_client.calls[0] == expected_query
 
 
@@ -181,13 +176,11 @@ def test_default_brave_context_fetcher_cleans_passage_text_and_falls_back_if_onl
         )
     )
 
-    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
+    assert output.url_sources[0].chunks[0].text == (
         "Best Phone Overall\nAcme Health builds clinical AI tools."
     )
-    assert output.passages_by_url[HttpUrl("https://beta.ai")][0].passage_text == (
-        "Beta AI develops healthcare copilots"
-    )
-    assert output.passages_by_url[HttpUrl("https://beta.ai")][0].metadata["fallback"] is True
+    assert output.url_sources[1].chunks[0].text == "Beta AI develops healthcare copilots"
+    assert output.url_sources[1].metadata["fallback"] is True
 
 
 def test_default_brave_context_fetcher_truncates_passages_to_configured_char_limit() -> None:
@@ -227,7 +220,7 @@ def test_default_brave_context_fetcher_truncates_passages_to_configured_char_lim
 
     output = fetcher.run(make_searcher_output(raw_results=[result], shortlisted_results=[result]))
 
-    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
+    assert output.url_sources[0].chunks[0].text == (
         "Acme Health builds clinical AI tooling for hospital systems with decision"
     )
 
@@ -252,7 +245,7 @@ def test_default_brave_context_fetcher_falls_back_to_snippet_on_client_error() -
 
     output = fetcher.run(make_searcher_output(raw_results=[result], shortlisted_results=[result]))
 
-    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].passage_text == (
+    assert output.url_sources[0].chunks[0].text == (
         "Acme Health builds clinical AI tools"
     )
-    assert output.passages_by_url[HttpUrl("https://acmehealth.com/about")][0].metadata["fallback"] is True
+    assert output.url_sources[0].metadata["fallback"] is True

@@ -6,7 +6,6 @@ from pydantic import HttpUrl
 
 from backend.app.contracts import (
     BudgetState,
-    BraveContextPassage,
     CanonicalEntity,
     EventPayload,
     EvidenceChunk,
@@ -34,12 +33,6 @@ EXAMPLE_SEARCH_METADATA = {
     "domain": "example.com",
     "provider_metadata": {"source": "brave_web_search"},
 }
-
-EXAMPLE_BRAVE_CONTEXT_PASSAGE = BraveContextPassage(
-    source_url=EXAMPLE_ABOUT_URL,
-    passage_text="Example Health AI develops AI tooling for clinical workflows.",
-    metadata={"retrieval_source": "brave_llm_context"},
-)
 
 EXAMPLE_RETRIEVED_CHUNK = RetrievedChunk(
     chunk_id="brave_llm:https://example.com/about#0",
