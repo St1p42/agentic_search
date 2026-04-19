@@ -20,10 +20,14 @@ from backend.app.helpers.chunk_retrieval_preprocessor import (
 )
 
 
-BASE_QUERY_WEIGHT = 0.45
-BEST_REWRITE_WEIGHT = 0.45
-SUPPORT_BONUS_WEIGHT = 0.10
+BASE_QUERY_WEIGHT = 0.40
+BEST_REWRITE_WEIGHT = 0.30
+
 REWRITE_SUPPORT_RATIO = 0.80
+QUERY_VARIANT_COVERAGE_WEIGHT = 0.10
+
+MAX_QUERY_SPAN_WEIGHT = 0.10
+ANCHOR_COVERAGE_BONUS_WEIGHT = 0.10
 
 
 class ChunkRanker(Protocol):
@@ -40,6 +44,8 @@ class QueryBundle:
     base_label: str
     query_text_by_label: dict[str, str]
     rewrite_labels: list[str]
+    query_tokens_by_label: dict[str, list[str]]
+    anchor_terms: set[str]
 
 
 class DefaultChunkRanker:
@@ -59,6 +65,7 @@ class DefaultChunkRanker:
             _ChunkRecord(
                 source=source,
                 chunk=chunk,
+                retrieval_tokens=self._preprocessor.preprocess_text(chunk.text),
             )
             for source in url_sources
             for chunk in source.chunks
@@ -67,9 +74,7 @@ class DefaultChunkRanker:
         if not chunk_records:
             return ChunkRankingOutput(scored_chunks=[])
 
-        corpus_tokens = self._preprocessor.preprocess_texts(
-            [record.chunk.text for record in chunk_records]
-        )
+        corpus_tokens = [record.retrieval_tokens for record in chunk_records]
         retriever = bm25s.BM25()
         retriever.index(corpus_tokens)
 
@@ -98,9 +103,11 @@ class DefaultChunkRanker:
 class _ChunkRecord:
     source: UrlSource
     chunk: RetrievedChunk
+    retrieval_tokens: list[str]
 
 
 def _query_bundle(planner_output: PlannerOutput) -> QueryBundle:
+    preprocessor = DefaultChunkRetrievalPreprocessor()
     base_query = planner_output.normalized_query.strip() or planner_output.base_query.strip()
     query_text_by_label = {"base": base_query}
     rewrite_labels: list[str] = []
@@ -111,10 +118,16 @@ def _query_bundle(planner_output: PlannerOutput) -> QueryBundle:
         label = f"rewrite_{index}"
         query_text_by_label[label] = normalized_rewrite
         rewrite_labels.append(label)
+    query_tokens_by_label = {
+        label: preprocessor.preprocess_text(query_text)
+        for label, query_text in query_text_by_label.items()
+    }
     return QueryBundle(
         base_label="base",
         query_text_by_label=query_text_by_label,
         rewrite_labels=rewrite_labels,
+        query_tokens_by_label=query_tokens_by_label,
+        anchor_terms=_anchor_terms(query_tokens_by_label),
     )
 
 
@@ -167,19 +180,29 @@ def _scored_chunk(
         for label in query_bundle.rewrite_labels
     }
     best_query, best_rewrite_score = _best_rewrite(rewrite_score_map)
-    support_count = _support_count(
+    query_variant_coverage_count = _support_count(
         rewrite_score_map=rewrite_score_map,
         best_rewrite_score=best_rewrite_score,
     )
-    support_bonus = _support_bonus(
-        support_count=support_count,
+    query_variant_coverage_score = _support_bonus(
+        support_count=query_variant_coverage_count,
         rewrite_count=len(query_bundle.rewrite_labels),
+    )
+    max_query_span_score = _max_query_span_score(
+        query_tokens_by_label=query_bundle.query_tokens_by_label,
+        chunk_tokens=record.retrieval_tokens,
+    )
+    anchor_coverage_score = _anchor_coverage_score(
+        anchor_terms=query_bundle.anchor_terms,
+        chunk_tokens=record.retrieval_tokens,
     )
 
     final_score = (
         BASE_QUERY_WEIGHT * base_score
         + BEST_REWRITE_WEIGHT * best_rewrite_score
-        + SUPPORT_BONUS_WEIGHT * support_bonus
+        + QUERY_VARIANT_COVERAGE_WEIGHT * query_variant_coverage_score
+        + MAX_QUERY_SPAN_WEIGHT * max_query_span_score
+        + ANCHOR_COVERAGE_BONUS_WEIGHT * anchor_coverage_score
     )
 
     query_score_map = {
@@ -200,11 +223,13 @@ def _scored_chunk(
         text=record.chunk.text,
         base_score=base_score,
         best_rewrite_score=best_rewrite_score,
-        support_bonus=support_bonus,
-        support_count=support_count,
+        query_variant_coverage_score=query_variant_coverage_score,
+        query_variant_coverage_count=query_variant_coverage_count,
         query_scores=query_score_map,
         matched_queries=matched_queries,
         best_query=best_query,
+        max_query_span_score=max_query_span_score,
+        anchor_coverage_score=anchor_coverage_score,
         aspect_overlap_score=0.0,
         title_overlap_score=0.0,
         official_domain_boost=0.0,
@@ -235,3 +260,52 @@ def _support_bonus(*, support_count: int, rewrite_count: int) -> float:
     if rewrite_count <= 0:
         return 0.0
     return support_count / rewrite_count
+
+
+def _anchor_terms(query_tokens_by_label: dict[str, list[str]]) -> set[str]:
+    token_sets = [set(tokens) for tokens in query_tokens_by_label.values() if tokens]
+    if not token_sets:
+        return set()
+    anchors = set(token_sets[0])
+    for token_set in token_sets[1:]:
+        anchors &= token_set
+    return anchors
+
+
+def _max_query_span_score(
+    *,
+    query_tokens_by_label: dict[str, list[str]],
+    chunk_tokens: list[str],
+) -> float:
+    return max(
+        (
+            _ordered_query_span_score(query_tokens=query_tokens, chunk_tokens=chunk_tokens)
+            for query_tokens in query_tokens_by_label.values()
+        ),
+        default=0.0,
+    )
+
+
+def _ordered_query_span_score(*, query_tokens: list[str], chunk_tokens: list[str]) -> float:
+    if not query_tokens or not chunk_tokens:
+        return 0.0
+    longest_match = 0
+    for query_start in range(len(query_tokens)):
+        for chunk_start in range(len(chunk_tokens)):
+            match_length = 0
+            while (
+                query_start + match_length < len(query_tokens)
+                and chunk_start + match_length < len(chunk_tokens)
+                and query_tokens[query_start + match_length] == chunk_tokens[chunk_start + match_length]
+            ):
+                match_length += 1
+            if match_length > longest_match:
+                longest_match = match_length
+    return longest_match / len(query_tokens)
+
+
+def _anchor_coverage_score(*, anchor_terms: set[str], chunk_tokens: list[str]) -> float:
+    if not anchor_terms:
+        return 0.0
+    chunk_term_set = set(chunk_tokens)
+    return len(anchor_terms & chunk_term_set) / len(anchor_terms)

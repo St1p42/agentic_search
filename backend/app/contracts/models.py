@@ -242,11 +242,13 @@ class ScoredChunk(BaseModel):
     text: str
     base_score: float = 0.0
     best_rewrite_score: float = 0.0
-    support_bonus: float = 0.0
-    support_count: int = Field(default=0, ge=0)
+    query_variant_coverage_score: float = 0.0
+    query_variant_coverage_count: int = Field(default=0, ge=0)
     query_scores: dict[str, float] = Field(default_factory=dict)
     matched_queries: list[str] = Field(default_factory=list)
     best_query: str | None = None
+    max_query_span_score: float = 0.0
+    anchor_coverage_score: float = 0.0
     aspect_overlap_score: float = 0.0
     title_overlap_score: float = 0.0
     official_domain_boost: float = 0.0
