@@ -103,7 +103,7 @@ class ProcessingSourcesStageUiModel(BaseModel):
         return StageUiDetails(
             summary="Pulled relevant source details for analysis",
             metrics=[
-                StageMetric(key="sourcesProcessed", label="Sources processed", value=self.sources_processed),
+                StageMetric(key="sourcesProcessed", label="Sources deep-fetched", value=self.sources_processed),
                 StageMetric(
                     key="relevantDetailsFound",
                     label="Relevant details found",
