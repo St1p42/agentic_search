@@ -6,8 +6,12 @@ from typing import Protocol
 
 from backend.app.api_clients import HttpJinaReaderClient, JinaReaderClient
 from backend.app.config import JinaFetcherRuntimeConfig, load_jina_fetcher_runtime_config
-from backend.app.contracts import AssessorOutput, EvidenceOrigin, JinaFetcherOutput, UrlSource
+from backend.app.contracts import AssessorOutput, EvidenceOrigin, JinaFetcherOutput, PlannerOutput, UrlSource
 from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
+from backend.app.helpers.jina_eval_dataset_writer import (
+    JinaEvalDatasetWriter,
+    JsonlJinaEvalDatasetWriter,
+)
 
 
 class JinaFetcher(Protocol):
@@ -15,6 +19,8 @@ class JinaFetcher(Protocol):
         self,
         assessor_output: AssessorOutput,
         remaining_fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
     ) -> JinaFetcherOutput:
         """Fetch selected Jina pages and return source-grouped chunked text."""
 
@@ -24,9 +30,13 @@ class PlaceholderJinaFetcher:
         self,
         assessor_output: AssessorOutput,
         remaining_fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
     ) -> JinaFetcherOutput:
         _ = assessor_output
         _ = remaining_fetch_budget
+        _ = request_query
+        _ = planner_output
         return JinaFetcherOutput(url_sources=[])
 
 
@@ -35,14 +45,18 @@ class DefaultJinaFetcher:
         self,
         runtime_config: JinaFetcherRuntimeConfig | None = None,
         jina_reader_client: JinaReaderClient | None = None,
+        eval_dataset_writer: JinaEvalDatasetWriter | None = None,
     ) -> None:
         self._runtime_config = runtime_config
         self._jina_reader_client = jina_reader_client
+        self._eval_dataset_writer = eval_dataset_writer or JsonlJinaEvalDatasetWriter()
 
     def run(
         self,
         assessor_output: AssessorOutput,
         remaining_fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
     ) -> JinaFetcherOutput:
         config = self._config()
         chunker = HierarchicalTextChunker(
@@ -79,7 +93,14 @@ class DefaultJinaFetcher:
                     )
                 )
 
-        return JinaFetcherOutput(url_sources=url_sources)
+        output = JinaFetcherOutput(url_sources=url_sources)
+        if request_query and planner_output:
+            self._eval_dataset_writer.write(
+                request_query=request_query,
+                planner_output=planner_output,
+                url_sources=output.url_sources,
+            )
+        return output
 
     def _config(self) -> JinaFetcherRuntimeConfig:
         return self._runtime_config or load_jina_fetcher_runtime_config()
@@ -100,6 +121,7 @@ class DefaultJinaFetcher:
 def build_jina_fetcher(
     runtime_config: JinaFetcherRuntimeConfig | None = None,
     jina_reader_client: JinaReaderClient | None = None,
+    eval_dataset_writer: JinaEvalDatasetWriter | None = None,
 ) -> JinaFetcher:
     config = runtime_config or load_jina_fetcher_runtime_config()
     if config.mode == "placeholder":
@@ -108,6 +130,7 @@ def build_jina_fetcher(
         return DefaultJinaFetcher(
             runtime_config=config,
             jina_reader_client=jina_reader_client,
+            eval_dataset_writer=eval_dataset_writer,
         )
     raise ValueError(f"Unsupported Jina fetcher mode: {config.mode}")
 

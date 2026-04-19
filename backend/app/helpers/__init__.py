@@ -24,6 +24,10 @@ from backend.app.helpers.jina_fetcher import (
     PlaceholderJinaFetcher,
     build_jina_fetcher,
 )
+from backend.app.helpers.jina_eval_dataset_writer import (
+    JinaEvalDatasetWriter,
+    JsonlJinaEvalDatasetWriter,
+)
 from backend.app.helpers.output_merger import DefaultOutputMerger, OutputMerger
 
 __all__ = [
@@ -39,6 +43,8 @@ __all__ = [
     "HierarchicalTextChunker",
     "EvidenceStoreBuilder",
     "JinaFetcher",
+    "JinaEvalDatasetWriter",
+    "JsonlJinaEvalDatasetWriter",
     "OutputMerger",
     "PlaceholderBraveContextFetcher",
     "PlaceholderEvidenceStoreBuilder",

@@ -95,6 +95,8 @@ class JinaFetcherTestRequest(BaseModel):
 
     assessor_output: AssessorOutput
     remaining_fetch_budget: int = Field(default=0, ge=0)
+    request_query: str | None = None
+    planner_output: PlannerOutput | None = None
 
 
 class ExtractorTestRequest(BaseModel):
@@ -247,4 +249,6 @@ def run_jina_fetcher_test(request: JinaFetcherTestRequest) -> JinaFetcherOutput:
     return jina_fetcher.run(
         assessor_output=request.assessor_output,
         remaining_fetch_budget=request.remaining_fetch_budget,
+        request_query=request.request_query,
+        planner_output=request.planner_output,
     )

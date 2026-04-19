@@ -389,14 +389,20 @@ def test_finalizer_test_endpoint_prunes_name_only_rows() -> None:
 
 
 def test_jina_fetcher_test_endpoint_returns_url_sources(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
     class FakeEndpointJinaFetcher:
         def run(
             self,
             assessor_output: AssessorOutput,
             remaining_fetch_budget: int,
+            request_query: str | None = None,
+            planner_output: PlannerOutput | None = None,
         ) -> JinaFetcherOutput:
-            _ = assessor_output
-            _ = remaining_fetch_budget
+            captured["assessor_output"] = assessor_output
+            captured["remaining_fetch_budget"] = remaining_fetch_budget
+            captured["request_query"] = request_query
+            captured["planner_output"] = planner_output
             return JinaFetcherOutput(
                 url_sources=[
                     UrlSource(
@@ -419,10 +425,15 @@ def test_jina_fetcher_test_endpoint_returns_url_sources(monkeypatch) -> None:
         json={
             "assessor_output": _assessor_output().model_dump(mode="json"),
             "remaining_fetch_budget": 1,
+            "request_query": "find healthcare AI startups",
+            "planner_output": _planner_output().model_dump(mode="json"),
         },
     )
 
     assert response.status_code == 200
+    assert captured["remaining_fetch_budget"] == 1
+    assert captured["request_query"] == "find healthcare AI startups"
+    assert captured["planner_output"] == _planner_output()
     assert response.json()["url_sources"] == [
         {
             "source_id": "jina:https://acmehealth.com/about",
