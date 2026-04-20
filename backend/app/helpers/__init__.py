@@ -17,6 +17,11 @@ from backend.app.helpers.evidence_store_builder import (
     PlaceholderEvidenceStoreBuilder,
     build_evidence_store_builder,
 )
+from backend.app.helpers.final_logger import (
+    DefaultFinalLogger,
+    FinalLogger,
+    PlaceholderFinalLogger,
+)
 from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
 from backend.app.helpers.jina_fetcher import (
     DefaultJinaFetcher,
@@ -37,14 +42,17 @@ __all__ = [
     "DefaultChunkRetrievalPreprocessor",
     "DefaultChunkRanker",
     "DefaultEvidenceStoreBuilder",
+    "DefaultFinalLogger",
     "DefaultJinaFetcher",
     "HierarchicalTextChunker",
     "EvidenceStoreBuilder",
+    "FinalLogger",
     "JinaFetcher",
     "JinaEvalDatasetWriter",
     "JsonlJinaEvalDatasetWriter",
     "PlaceholderBraveContextFetcher",
     "PlaceholderEvidenceStoreBuilder",
+    "PlaceholderFinalLogger",
     "PlaceholderJinaFetcher",
     "build_brave_context_fetcher",
     "build_evidence_store_builder",

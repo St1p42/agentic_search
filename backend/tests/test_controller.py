@@ -5,7 +5,10 @@ from backend.app.contracts import (
     AssessorPass,
     BudgetState,
     ChunkRankingOutput,
+    EvidenceItem,
     EvidenceStore,
+    ExtractedEntity,
+    FieldValue,
     ExtractorLightOutput,
     ExtractorOutput,
     PipelineRequest,
@@ -14,6 +17,7 @@ from backend.app.contracts import (
     SearcherOutput,
 )
 from backend.app.helpers import (
+    FinalLogger,
     PlaceholderBraveContextFetcher,
     PlaceholderEvidenceStoreBuilder,
 )
@@ -153,6 +157,32 @@ class NoopExtractor(PlaceholderExtractorStage):
         return prior_output or ExtractorOutput(entities=[])
 
 
+class RecordingFinalLogger(FinalLogger):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def log_summary(
+        self,
+        *,
+        request_id: str,
+        planner_output: PlannerOutput,
+        chunk_ranking_output: ChunkRankingOutput | None,
+        extractor_light_output: ExtractorLightOutput | None,
+        extractor_output: ExtractorOutput | None,
+        finalizer_output,
+    ) -> None:
+        self.calls.append(
+            {
+                "request_id": request_id,
+                "normalized_query": planner_output.normalized_query,
+                "chunk_ranking_output": chunk_ranking_output,
+                "extractor_light_output": extractor_light_output,
+                "extractor_output": extractor_output,
+                "finalizer_output": finalizer_output,
+            }
+        )
+
+
 def test_controller_runs_single_retrieval_round_without_repair() -> None:
     searcher = RepairSearcher()
     orchestrator = PipelineOrchestrator(
@@ -192,3 +222,53 @@ def test_orchestrator_caps_initial_search_queries_to_remaining_budget() -> None:
 
     assert response.budget.used_search_queries == 2
     assert searcher.calls == [["open source database tools", "rewrite 1"]]
+
+
+def test_orchestrator_logs_final_summary_once() -> None:
+    final_logger = RecordingFinalLogger()
+    orchestrator = PipelineOrchestrator(
+        planner=RepairPlanner(),
+        searcher=RepairSearcher(),
+        brave_context_fetcher=NoopBraveContextFetcher(),
+        extractor_light=NoopExtractorLight(),
+        assessor=NoopAssessor(),
+        evidence_store_builder=NoopEvidenceStoreBuilder(),
+        extractor=NoopExtractor(),
+        finalizer=PlaceholderCanonicalizerVerifierEvaluatorStage(),
+        final_logger=final_logger,
+    )
+
+    response = orchestrator.run(PipelineRequest(query="open source database tools", request_id="test-3"))
+
+    assert response.request_id == "test-3"
+    assert len(final_logger.calls) == 1
+    assert final_logger.calls[0]["request_id"] == "test-3"
+    assert final_logger.calls[0]["normalized_query"] == "open source database tools"
+
+
+def test_default_final_logger_includes_initial_entity_columns() -> None:
+    from backend.app.helpers.final_logger import DefaultFinalLogger
+
+    logger = DefaultFinalLogger()
+    evidence = [
+        EvidenceItem(
+            source_url="https://example.com",
+            source_title="Example",
+            supporting_snippet="Snippet",
+        )
+    ]
+    extractor_output = ExtractorOutput(
+        entities=[
+            ExtractedEntity(
+                candidate_id="1",
+                entity_name="Acme",
+                fields={
+                    "name": FieldValue(value="Acme", confidence=1.0, evidence=evidence),
+                    "website": FieldValue(value="https://acme.example", confidence=1.0, evidence=evidence),
+                    "price_range": FieldValue(value=None, confidence=0.0, evidence=[]),
+                },
+                source_urls=[],
+            )
+        ]
+    )
+    assert logger._populated_extracted_columns(extractor_output) == ["name", "website"]

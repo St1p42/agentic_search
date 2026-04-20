@@ -54,7 +54,9 @@ from backend.app.helpers import (
     ChunkRanker,
     DefaultChunkRanker,
     DefaultEvidenceStoreBuilder,
+    DefaultFinalLogger,
     EvidenceStoreBuilder,
+    FinalLogger,
     JinaFetcher,
     PlaceholderBraveContextFetcher,
     PlaceholderJinaFetcher,
@@ -111,6 +113,7 @@ class PipelineOrchestrator:
         chunk_ranker: ChunkRanker | None = None,
         retrieval_mode: str = "jina",
         evidence_store_builder: EvidenceStoreBuilder | None = None,
+        final_logger: FinalLogger | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
     ) -> None:
@@ -125,6 +128,7 @@ class PipelineOrchestrator:
         self.chunk_ranker = chunk_ranker or DefaultChunkRanker()
         self.retrieval_mode = retrieval_mode
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
+        self.final_logger = final_logger or DefaultFinalLogger()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
 
@@ -150,6 +154,14 @@ class PipelineOrchestrator:
         )
 
         self._run_retrieval_pass(state, followup_queries=None)
+        self.final_logger.log_summary(
+            request_id=state.request_id,
+            planner_output=state.planner_output,
+            chunk_ranking_output=state.chunk_ranking_output,
+            extractor_light_output=state.extractor_light_output,
+            extractor_output=state.extractor_output,
+            finalizer_output=state.finalizer_output,
+        )
         return PipelineResponse(
             request_id=state.request_id,
             original_query=state.original_query,
@@ -190,6 +202,7 @@ class PipelineOrchestrator:
             chunk_ranker=self.chunk_ranker,
             retrieval_mode=self.retrieval_mode,
             evidence_store_builder=self.evidence_store_builder,
+            final_logger=self.final_logger,
             budget_factory=self.budget_factory,
             event_emitter=PipelineEventEmitter(event_queue.put),
         )

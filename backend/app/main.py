@@ -34,7 +34,7 @@ from backend.app.contracts import (
     SearcherOutput,
     CanonicalizerVerifierEvaluatorOutput,
 )
-from backend.app.helpers import DefaultChunkRanker, build_brave_context_fetcher, build_jina_fetcher
+from backend.app.helpers import DefaultChunkRanker, DefaultFinalLogger, build_brave_context_fetcher, build_jina_fetcher
 from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
@@ -72,6 +72,7 @@ def get_orchestrator() -> PipelineOrchestrator:
         extractor_light=build_extractor_light_stage(runtime_config=extractor_light_config),
         assessor=build_source_assessor_stage(runtime_config=assessor_config),
         evidence_store_builder=build_evidence_store_builder(),
+        final_logger=DefaultFinalLogger(),
         extractor=build_extractor_stage(runtime_config=extractor_config),
         finalizer=ThinFinalizerStage(),
     )

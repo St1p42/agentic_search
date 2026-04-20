@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Searcher stage interface plus placeholder and Brave-backed implementations."""
 
+import math
 import re
 from html import unescape
 from typing import Protocol
@@ -329,6 +330,7 @@ def _build_shortlist(
     sorted_results = _sort_merged_results(
         merged_by_url=merged_by_url,
         first_seen_by_url=first_seen_by_url,
+        total_query_count=len(_ordered_unique_queries(queries)),
     )
 
     reserved_quota_by_query = _reserved_quota_by_query(
@@ -380,16 +382,26 @@ def _sort_merged_results(
     *,
     merged_by_url: dict[str, SearchResultItem],
     first_seen_by_url: dict[str, int],
+    total_query_count: int,
 ) -> list[SearchResultItem]:
     return sorted(
         merged_by_url.values(),
         key=lambda item: (
+            -_source_shortlist_score(item=item, total_query_count=total_query_count),
             item.rank,
-            -len(item.query_sources),
             first_seen_by_url[str(item.url)],
             str(item.url),
         ),
     )
+
+
+def _source_shortlist_score(*, item: SearchResultItem, total_query_count: int) -> float:
+    rank_score = 1.0 / math.sqrt(max(1, item.rank))
+    if total_query_count <= 0:
+        source_coverage_score = 0.0
+    else:
+        source_coverage_score = len(item.query_sources) / total_query_count
+    return (0.6 * rank_score) + (0.4 * source_coverage_score)
 
 
 def _reserved_quota_by_query(

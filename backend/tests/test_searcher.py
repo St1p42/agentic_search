@@ -285,7 +285,7 @@ def test_brave_searcher_honors_max_search_queries_and_skips_retry_without_budget
     ]
 
 
-def test_brave_searcher_uses_query_source_tiebreaker_and_domain_cap() -> None:
+def test_brave_searcher_uses_weighted_source_score_and_domain_cap() -> None:
     fake_client = FakeBraveSearchClient(
         {
             "AI startups in healthcare": [
@@ -359,6 +359,65 @@ def test_brave_searcher_uses_query_source_tiebreaker_and_domain_cap() -> None:
     ]
     assert output.shortlisted_results[0].query_sources == [
         "AI startups in healthcare",
+        "medical AI startups",
+    ]
+
+
+def test_brave_searcher_weighted_source_score_can_outrank_worse_coverage() -> None:
+    fake_client = FakeBraveSearchClient(
+        {
+            "AI startups in healthcare": [
+                _brave_result(
+                    url="https://single-query.com/a",
+                    title="Single Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="single-query.com",
+                    rank=1,
+                ),
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+            "healthcare AI startups": [
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+            "medical AI startups": [
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+        }
+    )
+    searcher = BraveSearcherStage(
+        runtime_config=_searcher_config(weak_pool_threshold=0),
+        brave_client=fake_client,
+    )
+
+    output = searcher.run(
+        _planner_output(rewrites=["healthcare AI startups", "medical AI startups"])
+    )
+
+    assert [str(result.url) for result in output.shortlisted_results[:2]] == [
+        "https://multi-query.com/a",
+        "https://single-query.com/a",
+    ]
+    assert output.shortlisted_results[0].query_sources == [
+        "AI startups in healthcare",
+        "healthcare AI startups",
         "medical AI startups",
     ]
 
