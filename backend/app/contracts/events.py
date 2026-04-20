@@ -113,6 +113,24 @@ class ProcessingSourcesStageUiModel(BaseModel):
         )
 
 
+class SelectingSourcePassagesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    passages_scored: int
+    passages_selected: int
+    sources_represented: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Picked the most relevant passages from fetched sources",
+            metrics=[
+                StageMetric(key="passagesScored", label="Passages scored", value=self.passages_scored),
+                StageMetric(key="passagesSelected", label="Passages selected", value=self.passages_selected),
+                StageMetric(key="sourcesRepresented", label="Sources represented", value=self.sources_represented),
+            ],
+        )
+
+
 class IdentifyingCandidatesStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

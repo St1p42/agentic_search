@@ -38,6 +38,7 @@ from backend.app.contracts import (
     RetrievingSourcesStageUiModel,
     SchemaPreviewColumnUiModel,
     SchemaPreviewUiModel,
+    SelectingSourcePassagesStageUiModel,
     SearcherOutput,
     SseEvent,
     SseEventName,
@@ -302,10 +303,23 @@ class PipelineOrchestrator:
         state.chunk_ranking_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
-            message="Ranking evidence chunks",
+            message="Selecting source passages",
             action=lambda: self.chunk_ranker.run(
                 planner_output=state.planner_output,
                 url_sources=state.retrieved_sources_output.url_sources,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                SelectingSourcePassagesStageUiModel(
+                    passages_scored=len(result.ranked_chunks),
+                    passages_selected=len(result.selected_chunk_ids),
+                    sources_represented=len(
+                        {
+                            ranked_chunk.source_id
+                            for ranked_chunk in result.ranked_chunks
+                            if ranked_chunk.chunk_id in set(result.selected_chunk_ids)
+                        }
+                    ),
+                ).to_ui_details()
             ),
         )
         state.extractor_light_output = self._run_stage(
