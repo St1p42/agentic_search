@@ -95,6 +95,7 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
                     chunks=[fallback_chunk],
                 ),
             ],
+            ranked_chunks=[],
             selected_chunk_ids=[mapped_chunk.chunk_id, fallback_chunk.chunk_id],
         ),
         extractor_light_output=make_extractor_light_output(
@@ -115,11 +116,62 @@ def test_evidence_store_builder_attaches_url_mapped_and_fallback_chunks() -> Non
     assert {chunk.source_url for chunk in chunks} == {mapped_url, fallback_url}
     assert all(chunk.origin == EvidenceOrigin.JINA for chunk in chunks)
     assert output.entity_scores["Acme Phone"] == 2.0
+    assert all(chunk.query_sources == ["best phones 2026"] for chunk in chunks)
     assert any(chunk.text == "Acme Phone is a strong all-rounder. It has excellent battery life." for chunk in chunks)
     assert any(
         chunk.text == "Other phones exist. Acme Phone has great battery life for creators. It charges quickly."
         for chunk in chunks
     )
+
+
+def test_evidence_store_builder_attaches_selected_chunk_rank() -> None:
+    builder = DefaultEvidenceStoreBuilder()
+    source_url = HttpUrl("https://example.com/ranked")
+    result = make_search_result(
+        url=str(source_url),
+        title="Ranked Source",
+        snippet="Ranked snippet",
+        domain="example.com",
+        query_sources=["best phones 2026", "camera phones 2026"],
+    )
+    chunk = make_retrieved_chunk(
+        chunk_id="jina:https://example.com/ranked#0",
+        source_id="jina:https://example.com/ranked",
+        text="Acme Phone is a strong all-rounder for creators and photographers.",
+    )
+
+    output = builder.run(
+        chunk_ranking_output=make_chunk_ranking_output(
+            url_sources=[
+                make_url_source(
+                    source_id="jina:https://example.com/ranked",
+                    url=str(source_url),
+                    chunks=[chunk],
+                )
+            ],
+            ranked_chunks=[
+                {
+                    "source_id": "jina:https://example.com/ranked",
+                    "chunk_id": chunk.chunk_id,
+                    "rank": 3,
+                    "score": {"final_score": 0.9},
+                }
+            ],
+            selected_chunk_ids=[chunk.chunk_id],
+        ),
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Acme Phone"],
+            name_to_source_urls={"Acme Phone": [source_url]},
+            mention_counts={"Acme Phone": 2},
+        ),
+        assessor_output=make_assessor_output(
+            assessed_sources=[_assessed_source(result, chunk)],
+        ),
+    )
+
+    evidence_chunk = output.chunks_by_entity["Acme Phone"][0]
+    assert evidence_chunk.selected_chunk_rank == 3
+    assert evidence_chunk.query_sources == ["best phones 2026", "camera phones 2026"]
 
 
 def test_evidence_store_builder_keeps_ambiguous_matches_and_dedupes_existing_chunks() -> None:

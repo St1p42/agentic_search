@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from backend.app.helpers.chunk_ranker import DefaultChunkRanker
+from backend.app.helpers.chunk_ranker import (
+    ANCHOR_COVERAGE_WEIGHT,
+    BASE_QUERY_WEIGHT,
+    BEST_REWRITE_WEIGHT,
+    DefaultChunkRanker,
+    MAX_QUERY_SPAN_WEIGHT,
+    QUERY_VARIANT_COVERAGE_WEIGHT,
+)
 from backend.tests.fixtures.factories import (
     make_planner_output,
     make_retrieved_chunk,
@@ -92,3 +99,41 @@ def test_chunk_ranker_uses_core_bm25_formula_only() -> None:
     assert all(chunk.score.query_scores["base"] >= 0.0 for chunk in output.ranked_chunks)
     assert all(chunk.score.query_variant_coverage_score >= 0.0 for chunk in output.ranked_chunks)
     assert all(chunk.score.max_query_span_score >= 0.0 for chunk in output.ranked_chunks)
+
+
+def test_chunk_ranker_uses_updated_weight_balance() -> None:
+    planner_output = make_planner_output(
+        base_query="healthcare AI startups",
+        normalized_query="healthcare AI startups",
+        initial_query_rewrites=["clinical ai companies", "hospital workflow startups"],
+        core_aspects=["clinical ai"],
+    )
+    url_sources = [
+        make_url_source(
+            source_id="jina:https://acmehealth.com/about",
+            url="https://acmehealth.com/about",
+            title="Acme Health",
+            chunks=[
+                make_retrieved_chunk(
+                    chunk_id="jina:https://acmehealth.com/about#0",
+                    source_id="jina:https://acmehealth.com/about",
+                    text=(
+                        "Acme Health is a healthcare AI startup building clinical AI systems "
+                        "for hospital workflow teams."
+                    ),
+                    sequence_index=0,
+                )
+            ],
+        ),
+    ]
+
+    ranked_chunk = DefaultChunkRanker().run(planner_output, url_sources).ranked_chunks[0]
+    expected_score = (
+        BASE_QUERY_WEIGHT * ranked_chunk.score.base_score
+        + BEST_REWRITE_WEIGHT * ranked_chunk.score.best_rewrite_score
+        + QUERY_VARIANT_COVERAGE_WEIGHT * ranked_chunk.score.query_variant_coverage_score
+        + MAX_QUERY_SPAN_WEIGHT * ranked_chunk.score.max_query_span_score
+        + ANCHOR_COVERAGE_WEIGHT * ranked_chunk.score.anchor_coverage_score
+    )
+
+    assert ranked_chunk.score.final_score == expected_score

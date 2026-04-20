@@ -42,6 +42,8 @@ class BaseChunkMetadata:
     officiality: OfficialityLevel
     origin: EvidenceOrigin
     aspect_coverage: list[str]
+    query_sources: list[str]
+    selected_chunk_rank: int | None
 
 
 @dataclass(frozen=True)
@@ -215,6 +217,10 @@ def _source_records(
     selected_chunk_ids = set(chunk_ranking_output.selected_chunk_ids)
     if not selected_chunk_ids:
         return records
+    ranked_chunks_by_id = {
+        ranked_chunk.chunk_id: ranked_chunk
+        for ranked_chunk in chunk_ranking_output.ranked_chunks
+    }
     for url_source in chunk_ranking_output.url_sources:
         if url_source.metadata.get("fetch_succeeded") is False:
             continue
@@ -225,6 +231,7 @@ def _source_records(
             _source_records_for_url_source(
                 url_source=url_source,
                 selected_chunk_ids=selected_chunk_ids,
+                ranked_chunks_by_id=ranked_chunks_by_id,
                 assessed_source=assessed_source,
             )
         )
@@ -235,6 +242,7 @@ def _source_records_for_url_source(
     *,
     url_source: UrlSource,
     selected_chunk_ids: set[str],
+    ranked_chunks_by_id: dict[str, RankedChunk],
     assessed_source: AssessedSource | None,
 ) -> list[SourceRecord]:
     records: list[SourceRecord] = []
@@ -253,6 +261,9 @@ def _source_records_for_url_source(
                     source_title=url_source.title,
                     assessed_source=assessed_source,
                     origin=url_source.origin,
+                    selected_chunk_rank=ranked_chunks_by_id.get(chunk.chunk_id).rank
+                    if chunk.chunk_id in ranked_chunks_by_id
+                    else None,
                 ),
             )
         )
@@ -290,6 +301,7 @@ def _base_chunk_metadata(
     source_title: str,
     assessed_source: AssessedSource | None,
     origin: EvidenceOrigin,
+    selected_chunk_rank: int | None,
 ) -> BaseChunkMetadata:
     return BaseChunkMetadata(
         source_url=source_url,
@@ -299,6 +311,8 @@ def _base_chunk_metadata(
         officiality=_officiality(assessed_source),
         origin=origin,
         aspect_coverage=_aspect_coverage(assessed_source),
+        query_sources=_query_sources(assessed_source),
+        selected_chunk_rank=selected_chunk_rank,
     )
 
 
@@ -518,6 +532,8 @@ def _evidence_chunk(*, text: str, metadata: BaseChunkMetadata) -> EvidenceChunk:
         officiality=metadata.officiality,
         origin=metadata.origin,
         aspect_coverage=list(metadata.aspect_coverage),
+        query_sources=list(metadata.query_sources),
+        selected_chunk_rank=metadata.selected_chunk_rank,
     )
 
 
@@ -614,3 +630,9 @@ def _aspect_coverage(assessed_source: AssessedSource | None) -> list[str]:
     if assessed_source is None:
         return []
     return list(assessed_source.estimated_aspect_coverage)
+
+
+def _query_sources(assessed_source: AssessedSource | None) -> list[str]:
+    if assessed_source is None:
+        return []
+    return list(assessed_source.result.query_sources)

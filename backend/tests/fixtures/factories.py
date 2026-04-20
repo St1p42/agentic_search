@@ -295,6 +295,8 @@ def make_evidence_chunk(
     officiality: OfficialityLevel = OfficialityLevel.OFFICIAL,
     origin: EvidenceOrigin = EvidenceOrigin.BRAVE_LLM,
     aspect_coverage: list[str] | None = None,
+    query_sources: list[str] | None = None,
+    selected_chunk_rank: int | None = None,
 ) -> EvidenceChunk:
     return EvidenceChunk(
         text=text,
@@ -305,6 +307,8 @@ def make_evidence_chunk(
         officiality=officiality,
         origin=origin,
         aspect_coverage=aspect_coverage or ["focus_area"],
+        query_sources=query_sources or [],
+        selected_chunk_rank=selected_chunk_rank,
     )
 
 

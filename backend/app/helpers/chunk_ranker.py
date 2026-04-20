@@ -22,14 +22,14 @@ from backend.app.helpers.chunk_retrieval_preprocessor import (
 )
 
 
-BASE_QUERY_WEIGHT = 0.40
-BEST_REWRITE_WEIGHT = 0.30
+BASE_QUERY_WEIGHT = 0.45
+BEST_REWRITE_WEIGHT = 0.25
 
 REWRITE_SUPPORT_RATIO = 0.80
 QUERY_VARIANT_COVERAGE_WEIGHT = 0.10
 
 MAX_QUERY_SPAN_WEIGHT = 0.10
-ANCHOR_COVERAGE_BONUS_WEIGHT = 0.10
+ANCHOR_COVERAGE_WEIGHT = 0.10
 
 
 class ChunkRanker(Protocol):
@@ -220,7 +220,7 @@ def _ranked_chunk(
         + BEST_REWRITE_WEIGHT * best_rewrite_score
         + QUERY_VARIANT_COVERAGE_WEIGHT * query_variant_coverage_score
         + MAX_QUERY_SPAN_WEIGHT * max_query_span_score
-        + ANCHOR_COVERAGE_BONUS_WEIGHT * anchor_coverage_score
+        + ANCHOR_COVERAGE_WEIGHT * anchor_coverage_score
     )
 
     query_score_map = {

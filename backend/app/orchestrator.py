@@ -33,6 +33,7 @@ from backend.app.contracts import (
     PlanningStageUiModel,
     PlannerOutput,
     ProcessingSourcesStageUiModel,
+    RankingCandidatesStageUiModel,
     RetrievedSourcesOutput,
     RetrievingEvidenceStageUiModel,
     RetrievingSourcesStageUiModel,
@@ -54,8 +55,10 @@ from backend.app.helpers import (
     ChunkRanker,
     DefaultChunkRanker,
     DefaultEvidenceStoreBuilder,
+    DefaultEntityReranker,
     DefaultFinalLogger,
     EvidenceStoreBuilder,
+    EntityReranker,
     FinalLogger,
     JinaFetcher,
     PlaceholderBraveContextFetcher,
@@ -94,6 +97,7 @@ class PipelineState:
     extractor_light_output: ExtractorLightOutput | None = None
     assessor_output: AssessorOutput | None = None
     evidence_store: EvidenceStore = field(default_factory=EvidenceStore)
+    entity_ranking_result: object | None = None
     extractor_output: ExtractorOutput | None = None
     finalizer_output: CanonicalizerVerifierEvaluatorOutput | None = None
     repair_used: bool = False
@@ -113,6 +117,7 @@ class PipelineOrchestrator:
         chunk_ranker: ChunkRanker | None = None,
         retrieval_mode: str = "jina",
         evidence_store_builder: EvidenceStoreBuilder | None = None,
+        entity_reranker: EntityReranker | None = None,
         final_logger: FinalLogger | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
@@ -128,6 +133,7 @@ class PipelineOrchestrator:
         self.chunk_ranker = chunk_ranker or DefaultChunkRanker()
         self.retrieval_mode = retrieval_mode
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
+        self.entity_reranker = entity_reranker or DefaultEntityReranker()
         self.final_logger = final_logger or DefaultFinalLogger()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
@@ -202,6 +208,7 @@ class PipelineOrchestrator:
             chunk_ranker=self.chunk_ranker,
             retrieval_mode=self.retrieval_mode,
             evidence_store_builder=self.evidence_store_builder,
+            entity_reranker=self.entity_reranker,
             final_logger=self.final_logger,
             budget_factory=self.budget_factory,
             event_emitter=PipelineEventEmitter(event_queue.put),
@@ -379,6 +386,30 @@ class PipelineOrchestrator:
                 ).to_ui_details()
             ),
         )
+        state.entity_ranking_result = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Ranking candidates",
+            action=lambda: self.entity_reranker.run(
+                planner_output=state.planner_output,
+                extractor_light_output=state.extractor_light_output,
+                evidence_store=state.evidence_store,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                RankingCandidatesStageUiModel(
+                    core_candidates_kept=sum(1 for entity in result.kept_entities if entity.candidate_type == "core"),
+                    discovery_candidates_kept=sum(
+                        1 for entity in result.kept_entities if entity.candidate_type == "discovery"
+                    ),
+                    core_candidates_filtered=sum(
+                        1 for entity in result.filtered_entities if entity.candidate_type == "core"
+                    ),
+                    discovery_candidates_filtered=sum(
+                        1 for entity in result.filtered_entities if entity.candidate_type == "discovery"
+                    ),
+                ).to_ui_details()
+            ),
+        )
 
         state.extractor_output = self._run_stage(
             request_id=state.request_id,
@@ -389,6 +420,7 @@ class PipelineOrchestrator:
                 extractor_light_output=state.extractor_light_output,
                 evidence_store=state.evidence_store,
                 prior_output=state.extractor_output,
+                entity_ranking_result=state.entity_ranking_result,
             ),
             completed_data_factory=lambda result: _ui_event_data(
                 BuildingEntitiesStageUiModel(

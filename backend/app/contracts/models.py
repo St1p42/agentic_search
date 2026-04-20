@@ -201,6 +201,8 @@ class EvidenceChunk(BaseModel):
     officiality: OfficialityLevel
     origin: EvidenceOrigin
     aspect_coverage: list[str] = Field(default_factory=list)
+    query_sources: list[str] = Field(default_factory=list)
+    selected_chunk_rank: int | None = Field(default=None, ge=1)
 
 
 class EvidenceStore(BaseModel):

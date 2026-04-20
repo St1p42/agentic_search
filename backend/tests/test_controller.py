@@ -150,10 +150,12 @@ class NoopExtractor(PlaceholderExtractorStage):
         extractor_light_output: ExtractorLightOutput,
         evidence_store: EvidenceStore,
         prior_output: ExtractorOutput | None = None,
+        entity_ranking_result=None,
     ) -> ExtractorOutput:
         _ = planner_output
         _ = extractor_light_output
         _ = evidence_store
+        _ = entity_ranking_result
         return prior_output or ExtractorOutput(entities=[])
 
 

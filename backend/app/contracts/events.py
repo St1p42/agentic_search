@@ -225,6 +225,38 @@ class RetrievingEvidenceStageUiModel(BaseModel):
         )
 
 
+class RankingCandidatesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    core_candidates_kept: int
+    discovery_candidates_kept: int
+    core_candidates_filtered: int
+    discovery_candidates_filtered: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Filtered and ranked candidates before profile building",
+            metrics=[
+                StageMetric(key="coreCandidatesKept", label="Core candidates kept", value=self.core_candidates_kept),
+                StageMetric(
+                    key="discoveryCandidatesKept",
+                    label="Discovery candidates kept",
+                    value=self.discovery_candidates_kept,
+                ),
+                StageMetric(
+                    key="coreCandidatesFiltered",
+                    label="Core candidates filtered",
+                    value=self.core_candidates_filtered,
+                ),
+                StageMetric(
+                    key="discoveryCandidatesFiltered",
+                    label="Discovery candidates filtered",
+                    value=self.discovery_candidates_filtered,
+                ),
+            ],
+        )
+
+
 class BuildingEntitiesStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
