@@ -8,7 +8,9 @@ from backend.app.contracts import (
     AssessorOutput,
     BraveContextOutput,
     BraveContextPassage,
+    RetrievedChunk,
     SearcherOutput,
+    UrlSource,
 )
 
 
@@ -64,7 +66,21 @@ class DefaultOutputMerger:
             if url_key not in passages_by_url:
                 passages_by_url[url_key] = []
             passages_by_url[url_key].extend(passages)
-        return BraveContextOutput(passages_by_url=passages_by_url)
+        retrieved_chunks_by_url: dict[str, list[RetrievedChunk]] = {
+            str(url): [*chunks]
+            for url, chunks in primary_output.retrieved_chunks_by_url.items()
+        }
+        for url, chunks in extra_output.retrieved_chunks_by_url.items():
+            url_key = str(url)
+            if url_key not in retrieved_chunks_by_url:
+                retrieved_chunks_by_url[url_key] = []
+            retrieved_chunks_by_url[url_key].extend(chunks)
+        url_sources: list[UrlSource] = [*primary_output.url_sources, *extra_output.url_sources]
+        return BraveContextOutput(
+            passages_by_url=passages_by_url,
+            retrieved_chunks_by_url=retrieved_chunks_by_url,
+            url_sources=url_sources,
+        )
 
     def merge_assessor_outputs(
         self,

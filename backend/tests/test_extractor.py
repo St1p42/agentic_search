@@ -7,6 +7,7 @@ import time
 from pydantic import HttpUrl
 
 from backend.app.api_clients import StructuredLlmClient
+from backend.app.helpers.entity_reranker import EntityRankingResult, EntityReranker, RankedEntity, EntityRankingFeatures
 from backend.app.stages.extractor import (
     ExtractorColumnDecision,
     ExtractorEntityModelOutput,
@@ -103,6 +104,39 @@ class ConcurrentFakeStructuredLlmClient(StructuredLlmClient):
                 self._in_flight -= 1
 
 
+class StubEntityReranker(EntityReranker):
+    def __init__(self, ranked_entity_names: list[str]) -> None:
+        self._ranked_entity_names = ranked_entity_names
+
+    def run(self, *, planner_output, extractor_light_output, evidence_store) -> EntityRankingResult:
+        _ = planner_output
+        _ = extractor_light_output
+        _ = evidence_store
+        return EntityRankingResult(
+            kept_entities=[
+                RankedEntity(
+                    entity_name=entity_name,
+                    candidate_type="core",
+                    supporting_query_variants=["AI startups in healthcare"],
+                    dominant_query_variant="AI startups in healthcare",
+                    support_score=1.0,
+                    query_alignment_score=1.0,
+                    final_score=1.0,
+                    features=EntityRankingFeatures(
+                        unique_source_count=1,
+                        deduped_unique_chunk_count=1,
+                        query_variant_coverage_count=1,
+                        best_source_quality_score=1.0,
+                        avg_selected_chunk_rank_score=1.0,
+                        source_concentration_ratio=1.0,
+                    ),
+                )
+                for entity_name in self._ranked_entity_names
+            ],
+            filtered_entities=[],
+        )
+
+
 def test_llm_extractor_stage_anchors_entity_and_maps_chunk_evidence() -> None:
     llm_client = FakeStructuredLlmClient()
     stage = LlmExtractorStage(model="gpt-5-mini", llm_client=llm_client)
@@ -133,9 +167,13 @@ def test_llm_extractor_stage_anchors_entity_and_maps_chunk_evidence() -> None:
 
 def test_llm_extractor_stage_keeps_only_top_ranked_ten_entities() -> None:
     llm_client = FakeStructuredLlmClient()
-    stage = LlmExtractorStage(model="gpt-5-mini", llm_client=llm_client)
-
     candidate_names = [f"Entity {index:02d}" for index in range(1, 18)]
+    stage = LlmExtractorStage(
+        model="gpt-5-mini",
+        llm_client=llm_client,
+        entity_reranker=StubEntityReranker(candidate_names),
+    )
+
     chunks_by_entity = {
         entity_name: [
             {
@@ -179,9 +217,12 @@ def test_llm_extractor_stage_keeps_only_top_ranked_ten_entities() -> None:
 
 def test_llm_extractor_stage_runs_multiple_entity_requests_concurrently_and_preserves_order() -> None:
     llm_client = ConcurrentFakeStructuredLlmClient()
-    stage = LlmExtractorStage(model="gpt-5-mini", llm_client=llm_client)
-
     candidate_names = [f"Entity {index:02d}" for index in range(1, 6)]
+    stage = LlmExtractorStage(
+        model="gpt-5-mini",
+        llm_client=llm_client,
+        entity_reranker=StubEntityReranker(candidate_names),
+    )
     chunks_by_entity = {
         entity_name: [
             {

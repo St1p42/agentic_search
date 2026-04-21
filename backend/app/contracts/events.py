@@ -103,12 +103,94 @@ class ProcessingSourcesStageUiModel(BaseModel):
         return StageUiDetails(
             summary="Pulled relevant source details for analysis",
             metrics=[
-                StageMetric(key="sourcesProcessed", label="Sources processed", value=self.sources_processed),
+                StageMetric(key="sourcesProcessed", label="Sources deep-fetched", value=self.sources_processed),
                 StageMetric(
                     key="relevantDetailsFound",
                     label="Relevant details found",
                     value=self.relevant_details_found,
                 ),
+            ],
+        )
+
+
+class SelectingSourcePassagesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    passages_scored: int
+    passages_selected: int
+    sources_represented: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Picked the most relevant passages from fetched sources",
+            metrics=[
+                StageMetric(key="passagesScored", label="Passages scored", value=self.passages_scored),
+                StageMetric(key="passagesSelected", label="Passages selected", value=self.passages_selected),
+                StageMetric(key="sourcesRepresented", label="Sources represented", value=self.sources_represented),
+            ],
+        )
+
+
+class ClassifyingSourcesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    official_sources: int
+    profile_sources: int
+    roundup_sources: int
+    editorial_reference_sources: int
+    transactional_sources: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Grouped shortlisted sources by source type",
+            metrics=[
+                StageMetric(key="officialSources", label="Official sources", value=self.official_sources),
+                StageMetric(key="profileSources", label="Profile sources", value=self.profile_sources),
+                StageMetric(key="roundupSources", label="Roundup sources", value=self.roundup_sources),
+                StageMetric(
+                    key="editorialReferenceSources",
+                    label="Editorial/reference sources",
+                    value=self.editorial_reference_sources,
+                ),
+                StageMetric(key="transactionalSources", label="Transactional sources", value=self.transactional_sources),
+            ],
+        )
+
+
+class EnrichingExtractedEntitiesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sparse_columns_targeted: int
+    enrichment_queries_run: int
+    extra_sources_fetched: int
+    passages_shortlisted: int
+    fields_filled: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Searched for stronger evidence to fill missing fields",
+            metrics=[
+                StageMetric(
+                    key="sparseColumnsTargeted",
+                    label="Sparse columns targeted",
+                    value=self.sparse_columns_targeted,
+                ),
+                StageMetric(
+                    key="enrichmentQueriesRun",
+                    label="Enrichment queries run",
+                    value=self.enrichment_queries_run,
+                ),
+                StageMetric(
+                    key="extraSourcesFetched",
+                    label="Extra sources fetched",
+                    value=self.extra_sources_fetched,
+                ),
+                StageMetric(
+                    key="passagesShortlisted",
+                    label="Passages shortlisted",
+                    value=self.passages_shortlisted,
+                ),
+                StageMetric(key="fieldsFilled", label="Fields filled", value=self.fields_filled),
             ],
         )
 
@@ -202,6 +284,38 @@ class RetrievingEvidenceStageUiModel(BaseModel):
                     key="supportingSourcesLinked",
                     label="Supporting sources linked",
                     value=self.supporting_sources_linked,
+                ),
+            ],
+        )
+
+
+class RankingCandidatesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    core_candidates_kept: int
+    discovery_candidates_kept: int
+    core_candidates_filtered: int
+    discovery_candidates_filtered: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Filtered and ranked candidates before profile building",
+            metrics=[
+                StageMetric(key="coreCandidatesKept", label="Core candidates kept", value=self.core_candidates_kept),
+                StageMetric(
+                    key="discoveryCandidatesKept",
+                    label="Discovery candidates kept",
+                    value=self.discovery_candidates_kept,
+                ),
+                StageMetric(
+                    key="coreCandidatesFiltered",
+                    label="Core candidates filtered",
+                    value=self.core_candidates_filtered,
+                ),
+                StageMetric(
+                    key="discoveryCandidatesFiltered",
+                    label="Discovery candidates filtered",
+                    value=self.discovery_candidates_filtered,
                 ),
             ],
         )

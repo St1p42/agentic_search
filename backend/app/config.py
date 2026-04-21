@@ -34,14 +34,26 @@ DEFAULT_BRAVE_INITIAL_COUNT_BY_QUERY_COUNT = {1: 20, 2: 15, 3: 12, 4: 10}
 DEFAULT_BRAVE_RETRY_COUNT_BY_QUERY_COUNT = {1: 32, 2: 21, 3: 16, 4: 13}
 DEFAULT_SEARCHER_SHORTLIST_CAP = DEFAULT_MAX_SHORTLISTED_URLS
 DEFAULT_SEARCHER_WEAK_POOL_THRESHOLD = 8
+DEFAULT_RETRIEVAL_MODE = "jina"
+DEFAULT_CHUNK_RANKER_TOP_K = 24
 DEFAULT_JINA_FETCHER_MODE = "jina"
 DEFAULT_JINA_READER_BASE_URL = "https://r.jina.ai"
 DEFAULT_JINA_TIMEOUT_SECONDS = 30.0
-DEFAULT_JINA_MAX_CHUNKS_PER_DOC = 6
-DEFAULT_JINA_MAX_CHARS_PER_CHUNK = 2500
+DEFAULT_JINA_MAX_CHUNKS_PER_DOC = 12
+DEFAULT_JINA_MAX_CHARS_PER_CHUNK = 1200
+DEFAULT_JINA_MIN_CHARS_PER_CHUNK = 400
+DEFAULT_JINA_MAX_CONCURRENCY = 5
+DEFAULT_BREADTH_V2_ENABLED = True
+DEFAULT_BREADTH_V2_MAX_COLUMN_QUERIES = 3
+DEFAULT_BREADTH_V2_SOURCES_PER_QUERY = 5
+DEFAULT_BREADTH_V2_SHORTLIST_CAP = 15
 ENV_BRAVE_SEARCH_API_KEY = "BRAVE_SEARCH_API_KEY"
 ENV_ASSESSOR_MODE = "ASSESSOR_MODE"
 ENV_ASSESSOR_MODEL = "ASSESSOR_MODEL"
+ENV_BREADTH_V2_ENABLED = "BREADTH_V2_ENABLED"
+ENV_BREADTH_V2_MAX_COLUMN_QUERIES = "BREADTH_V2_MAX_COLUMN_QUERIES"
+ENV_BREADTH_V2_SOURCES_PER_QUERY = "BREADTH_V2_SOURCES_PER_QUERY"
+ENV_BREADTH_V2_SHORTLIST_CAP = "BREADTH_V2_SHORTLIST_CAP"
 ENV_BRAVE_CONTEXT_MODE = "BRAVE_CONTEXT_MODE"
 ENV_EXTRACTOR_LIGHT_MODE = "EXTRACTOR_LIGHT_MODE"
 ENV_EXTRACTOR_LIGHT_MODEL = "EXTRACTOR_LIGHT_MODEL"
@@ -52,6 +64,8 @@ ENV_JINA_FETCHER_MODE = "JINA_FETCHER_MODE"
 ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
 ENV_PLANNER_MODE = "PLANNER_MODE"
 ENV_PLANNER_MODEL = "PLANNER_MODEL"
+ENV_RETRIEVAL_MODE = "RETRIEVAL_MODE"
+ENV_CHUNK_RANKER_TOP_K = "CHUNK_RANKER_TOP_K"
 ENV_SEARCHER_MODE = "SEARCHER_MODE"
 
 
@@ -80,6 +94,7 @@ class ExtractorRuntimeConfig:
 class SearcherRuntimeConfig:
     mode: str = DEFAULT_SEARCHER_MODE
     brave_search_api_key: str | None = None
+    openai_api_key: str | None = None
     brave_search_endpoint: str = DEFAULT_BRAVE_SEARCH_ENDPOINT
     brave_country: str = DEFAULT_BRAVE_SEARCH_COUNTRY
     brave_search_lang: str = DEFAULT_BRAVE_SEARCH_LANG
@@ -91,6 +106,12 @@ class SearcherRuntimeConfig:
     )
     shortlist_cap: int = DEFAULT_SEARCHER_SHORTLIST_CAP
     weak_pool_threshold: int = DEFAULT_SEARCHER_WEAK_POOL_THRESHOLD
+
+
+@dataclass(frozen=True)
+class RetrievalRuntimeConfig:
+    mode: str = DEFAULT_RETRIEVAL_MODE
+    top_k: int = DEFAULT_CHUNK_RANKER_TOP_K
 
 
 @dataclass(frozen=True)
@@ -121,6 +142,16 @@ class JinaFetcherRuntimeConfig:
     timeout_seconds: float = DEFAULT_JINA_TIMEOUT_SECONDS
     max_chunks_per_doc: int = DEFAULT_JINA_MAX_CHUNKS_PER_DOC
     max_chars_per_chunk: int = DEFAULT_JINA_MAX_CHARS_PER_CHUNK
+    min_chars_per_chunk: int = DEFAULT_JINA_MIN_CHARS_PER_CHUNK
+    max_concurrency: int = DEFAULT_JINA_MAX_CONCURRENCY
+
+
+@dataclass(frozen=True)
+class BreadthV2RuntimeConfig:
+    enabled: bool = DEFAULT_BREADTH_V2_ENABLED
+    max_column_queries: int = DEFAULT_BREADTH_V2_MAX_COLUMN_QUERIES
+    sources_per_query: int = DEFAULT_BREADTH_V2_SOURCES_PER_QUERY
+    shortlist_cap: int = DEFAULT_BREADTH_V2_SHORTLIST_CAP
 
 
 def _load_env_file(env_path: Path = DEFAULT_ENV_PATH) -> None:
@@ -152,6 +183,16 @@ def load_searcher_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> SearcherR
     return SearcherRuntimeConfig(
         mode=os.getenv(ENV_SEARCHER_MODE, DEFAULT_SEARCHER_MODE).strip() or DEFAULT_SEARCHER_MODE,
         brave_search_api_key=os.getenv(ENV_BRAVE_SEARCH_API_KEY),
+        openai_api_key=os.getenv(ENV_OPENAI_API_KEY),
+    )
+
+
+def load_retrieval_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> RetrievalRuntimeConfig:
+    _load_env_file(env_path)
+    top_k_raw = os.getenv(ENV_CHUNK_RANKER_TOP_K, str(DEFAULT_CHUNK_RANKER_TOP_K)).strip()
+    return RetrievalRuntimeConfig(
+        mode=os.getenv(ENV_RETRIEVAL_MODE, DEFAULT_RETRIEVAL_MODE).strip() or DEFAULT_RETRIEVAL_MODE,
+        top_k=max(0, int(top_k_raw or DEFAULT_CHUNK_RANKER_TOP_K)),
     )
 
 
@@ -211,4 +252,29 @@ def load_jina_fetcher_runtime_config(
         mode=os.getenv(ENV_JINA_FETCHER_MODE, DEFAULT_JINA_FETCHER_MODE).strip()
         or DEFAULT_JINA_FETCHER_MODE,
         jina_api_key=os.getenv(ENV_JINA_API_KEY),
+    )
+
+
+def load_breadth_v2_runtime_config(
+    env_path: Path = DEFAULT_ENV_PATH,
+) -> BreadthV2RuntimeConfig:
+    _load_env_file(env_path)
+    enabled_raw = os.getenv(ENV_BREADTH_V2_ENABLED, str(DEFAULT_BREADTH_V2_ENABLED)).strip().lower()
+    max_column_queries_raw = os.getenv(
+        ENV_BREADTH_V2_MAX_COLUMN_QUERIES,
+        str(DEFAULT_BREADTH_V2_MAX_COLUMN_QUERIES),
+    ).strip()
+    sources_per_query_raw = os.getenv(
+        ENV_BREADTH_V2_SOURCES_PER_QUERY,
+        str(DEFAULT_BREADTH_V2_SOURCES_PER_QUERY),
+    ).strip()
+    shortlist_cap_raw = os.getenv(
+        ENV_BREADTH_V2_SHORTLIST_CAP,
+        str(DEFAULT_BREADTH_V2_SHORTLIST_CAP),
+    ).strip()
+    return BreadthV2RuntimeConfig(
+        enabled=enabled_raw not in {"0", "false", "no", "off"},
+        max_column_queries=max(0, int(max_column_queries_raw or DEFAULT_BREADTH_V2_MAX_COLUMN_QUERIES)),
+        sources_per_query=max(1, int(sources_per_query_raw or DEFAULT_BREADTH_V2_SOURCES_PER_QUERY)),
+        shortlist_cap=max(1, int(shortlist_cap_raw or DEFAULT_BREADTH_V2_SHORTLIST_CAP)),
     )

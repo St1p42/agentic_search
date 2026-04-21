@@ -5,11 +5,11 @@ from pydantic import HttpUrl
 from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
     EvidenceStore,
     ExtractorLightOutput,
     HeuristicSourceSignals,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearchResultItem,
     SearcherOutput,
 )
@@ -34,7 +34,7 @@ class SourceAssessmentPipeline:
         *,
         planner_output: PlannerOutput,
         searcher_output: SearcherOutput,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         extractor_light_output: ExtractorLightOutput,
         pass_type: AssessorPass = AssessorPass.FIRST_PASS,
         evidence_store: EvidenceStore | None = None,
@@ -55,14 +55,14 @@ class SourceAssessmentPipeline:
             shortlisted_results=shortlisted_results,
         )
         heuristic_assessments_by_url = self._heuristic_assessments_by_url(
-            brave_context_output=brave_context_output,
+            retrieved_sources_output=retrieved_sources_output,
             extractor_light_output=extractor_light_output,
             heuristic_signals_by_url=heuristic_signals_by_url,
             shortlisted_results=shortlisted_results,
         )
         decisions_by_url = self._decision_policy.decide(
             planner_output=planner_output,
-            brave_context_output=brave_context_output,
+            retrieved_sources_output=retrieved_sources_output,
             heuristic_signals_by_url=heuristic_signals_by_url,
             heuristic_assessments_by_url=heuristic_assessments_by_url,
             pass_type=pass_type,
@@ -76,7 +76,7 @@ class SourceAssessmentPipeline:
             assessed_sources=[
                 build_assessed_source(
                     result=result,
-                    brave_context_output=brave_context_output,
+                    retrieved_sources_output=retrieved_sources_output,
                     heuristic_signals=heuristic_signals_by_url[result.url],
                     heuristic_assessment=heuristic_assessments_by_url[result.url],
                     decision=decisions_by_url.get(str(result.url)),
@@ -108,7 +108,7 @@ class SourceAssessmentPipeline:
     def _heuristic_assessments_by_url(
         self,
         *,
-        brave_context_output: BraveContextOutput,
+        retrieved_sources_output: RetrievedSourcesOutput,
         extractor_light_output: ExtractorLightOutput,
         heuristic_signals_by_url: dict[HttpUrl, HeuristicSourceSignals],
         shortlisted_results: list[SearchResultItem],
@@ -116,7 +116,7 @@ class SourceAssessmentPipeline:
         return {
             result.url: self._heuristic_assessor.assess(
                 result=result,
-                brave_context_output=brave_context_output,
+                retrieved_sources_output=retrieved_sources_output,
                 heuristic_signals=heuristic_signals_by_url[result.url],
                 candidate_names=extractor_light_output.candidate_names,
             )

@@ -9,14 +9,17 @@ from threading import Thread
 from typing import Callable, TypeVar
 from uuid import uuid4
 
+from backend.app.config import BreadthV2RuntimeConfig
 from backend.app.contracts import (
     AssessingSourceQualityStageUiModel,
     AssessorPass,
     AssessorOutput,
     BuildingEntitiesStageUiModel,
-    BraveContextOutput,
     BudgetState,
     CanonicalizerVerifierEvaluatorOutput,
+    ClassifyingSourcesStageUiModel,
+    ChunkRankingOutput,
+    EnrichingExtractedEntitiesStageUiModel,
     ErrorCode,
     EventPayload,
     EvidenceStore,
@@ -26,7 +29,6 @@ from backend.app.contracts import (
     FinalizingTableStageUiModel,
     HeuristicAssessingSourceQualityStageUiModel,
     IdentifyingCandidatesStageUiModel,
-    JinaFetcherOutput,
     OfficialityLevel,
     PipelineError,
     PipelineRequest,
@@ -34,10 +36,13 @@ from backend.app.contracts import (
     PlanningStageUiModel,
     PlannerOutput,
     ProcessingSourcesStageUiModel,
+    RankingCandidatesStageUiModel,
+    RetrievedSourcesOutput,
     RetrievingEvidenceStageUiModel,
     RetrievingSourcesStageUiModel,
     SchemaPreviewColumnUiModel,
     SchemaPreviewUiModel,
+    SelectingSourcePassagesStageUiModel,
     SearcherOutput,
     SseEvent,
     SseEventName,
@@ -50,9 +55,29 @@ from backend.app.stages.assessor import LlmSourceAssessorStage
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
+    BreadthV2QueryBuilder,
+    BreadthV2Searcher,
+    ChunkRanker,
+    ColumnAwareChunkRankingOutput,
+    ColumnFacetGenerator,
+    DefaultChunkRanker,
+    DefaultColumnAwareChunkRanker,
+    DefaultColumnFacetGenerator,
+    DefaultBreadthV2QueryBuilder,
+    DefaultEntityGapFiller,
     DefaultEvidenceStoreBuilder,
+    DefaultEntityReranker,
+    DefaultFinalLogger,
+    DefaultSparseColumnDetector,
     EvidenceStoreBuilder,
+    EntityGapFiller,
+    EntityReranker,
+    FinalLogger,
+    GapFillMerger,
+    JinaFetcher,
     PlaceholderBraveContextFetcher,
+    PlaceholderJinaFetcher,
+    SparseColumnDetector,
 )
 from backend.app.stages import (
     CanonicalizerVerifierEvaluatorStage,
@@ -82,12 +107,15 @@ class PipelineState:
     planner_output: PlannerOutput
     budget: BudgetState
     searcher_output: SearcherOutput | None = None
-    brave_context_output: BraveContextOutput | None = None
+    retrieved_sources_output: RetrievedSourcesOutput | None = None
+    chunk_ranking_output: ChunkRankingOutput | None = None
     extractor_light_output: ExtractorLightOutput | None = None
     assessor_output: AssessorOutput | None = None
     evidence_store: EvidenceStore = field(default_factory=EvidenceStore)
+    entity_ranking_result: object | None = None
     extractor_output: ExtractorOutput | None = None
     finalizer_output: CanonicalizerVerifierEvaluatorOutput | None = None
+    breadth_v2_debug: dict[str, object] | None = None
     repair_used: bool = False
 
 
@@ -101,9 +129,22 @@ class PipelineOrchestrator:
         extractor: ExtractorStage | None = None,
         finalizer: CanonicalizerVerifierEvaluatorStage | None = None,
         brave_context_fetcher: BraveContextFetcher | None = None,
+        jina_fetcher: JinaFetcher | None = None,
+        chunk_ranker: ChunkRanker | None = None,
+        retrieval_mode: str = "jina",
         evidence_store_builder: EvidenceStoreBuilder | None = None,
+        entity_reranker: EntityReranker | None = None,
+        final_logger: FinalLogger | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
+        breadth_v2_config: BreadthV2RuntimeConfig | None = None,
+        sparse_column_detector: SparseColumnDetector | None = None,
+        column_facet_generator: ColumnFacetGenerator | None = None,
+        breadth_v2_query_builder: BreadthV2QueryBuilder | None = None,
+        breadth_v2_searcher: BreadthV2Searcher | None = None,
+        column_aware_chunk_ranker: DefaultColumnAwareChunkRanker | None = None,
+        entity_gap_filler: EntityGapFiller | None = None,
+        gap_fill_merger: GapFillMerger | None = None,
     ) -> None:
         self.planner = planner or PlaceholderPlannerStage()
         self.searcher = searcher or PlaceholderSearcherStage()
@@ -112,9 +153,22 @@ class PipelineOrchestrator:
         self.extractor = extractor or PlaceholderExtractorStage()
         self.finalizer = finalizer or ThinFinalizerStage()
         self.brave_context_fetcher = brave_context_fetcher or PlaceholderBraveContextFetcher()
+        self.jina_fetcher = jina_fetcher or PlaceholderJinaFetcher()
+        self.chunk_ranker = chunk_ranker or DefaultChunkRanker()
+        self.retrieval_mode = retrieval_mode
         self.evidence_store_builder = evidence_store_builder or DefaultEvidenceStoreBuilder()
+        self.entity_reranker = entity_reranker or DefaultEntityReranker()
+        self.final_logger = final_logger or DefaultFinalLogger()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
+        self.breadth_v2_config = breadth_v2_config or BreadthV2RuntimeConfig()
+        self.sparse_column_detector = sparse_column_detector or DefaultSparseColumnDetector()
+        self.column_facet_generator = column_facet_generator or DefaultColumnFacetGenerator()
+        self.breadth_v2_query_builder = breadth_v2_query_builder or DefaultBreadthV2QueryBuilder()
+        self.breadth_v2_searcher = breadth_v2_searcher or BreadthV2Searcher()
+        self.column_aware_chunk_ranker = column_aware_chunk_ranker or DefaultColumnAwareChunkRanker()
+        self.entity_gap_filler = entity_gap_filler or DefaultEntityGapFiller()
+        self.gap_fill_merger = gap_fill_merger or GapFillMerger()
 
     def run(self, request: PipelineRequest) -> PipelineResponse:
         request_id = request.request_id or str(uuid4())
@@ -138,6 +192,18 @@ class PipelineOrchestrator:
         )
 
         self._run_retrieval_pass(state, followup_queries=None)
+        self._run_breadth_v2_enrichment(state)
+        self._run_finalizer(state)
+        self.final_logger.log_summary(
+            request_id=state.request_id,
+            planner_output=state.planner_output,
+            chunk_ranking_output=state.chunk_ranking_output,
+            extractor_light_output=state.extractor_light_output,
+            entity_ranking_result=state.entity_ranking_result,
+            extractor_output=state.extractor_output,
+            finalizer_output=state.finalizer_output,
+            breadth_v2_debug=state.breadth_v2_debug,
+        )
         return PipelineResponse(
             request_id=state.request_id,
             original_query=state.original_query,
@@ -174,7 +240,12 @@ class PipelineOrchestrator:
             extractor=self.extractor,
             finalizer=self.finalizer,
             brave_context_fetcher=self.brave_context_fetcher,
+            jina_fetcher=self.jina_fetcher,
+            chunk_ranker=self.chunk_ranker,
+            retrieval_mode=self.retrieval_mode,
             evidence_store_builder=self.evidence_store_builder,
+            entity_reranker=self.entity_reranker,
+            final_logger=self.final_logger,
             budget_factory=self.budget_factory,
             event_emitter=PipelineEventEmitter(event_queue.put),
         )
@@ -269,17 +340,63 @@ class PipelineOrchestrator:
         state.budget.used_search_rounds += 1
         state.budget.used_search_queries += len(state.searcher_output.executed_queries)
 
-        state.brave_context_output = self._run_stage(
+        self.event_emitter.stage_started(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Classifying sources",
+        )
+        self.event_emitter.stage_completed(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Classifying sources completed",
+            data=_ui_event_data(
+                ClassifyingSourcesStageUiModel(
+                    official_sources=_source_bucket_count(state.searcher_output, "official_entity"),
+                    profile_sources=_source_bucket_count(state.searcher_output, "profile_directory"),
+                    roundup_sources=_source_bucket_count(state.searcher_output, "roundup_list"),
+                    editorial_reference_sources=_source_bucket_count(
+                        state.searcher_output,
+                        "editorial_reference",
+                    ),
+                    transactional_sources=_source_bucket_count(state.searcher_output, "transactional_listing"),
+                ).to_ui_details()
+            ),
+        )
+
+        state.retrieved_sources_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
             message="Processing sources",
-            action=lambda: self.brave_context_fetcher.run(state.searcher_output),
+            action=lambda: self._fetch_retrieved_sources(state),
             completed_data_factory=lambda result: _ui_event_data(
                 ProcessingSourcesStageUiModel(
-                    sources_processed=len(result.passages_by_url),
+                    sources_processed=len(result.url_sources),
                     relevant_details_found=sum(
-                        len([passage for passage in passages if passage.passage_text.strip()])
-                        for passages in result.passages_by_url.values()
+                        len([chunk for chunk in source.chunks if chunk.text.strip()])
+                        for source in result.url_sources
+                    ),
+                ).to_ui_details()
+            ),
+        )
+        state.budget.used_deep_fetches += len(state.retrieved_sources_output.url_sources)
+        state.chunk_ranking_output = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Selecting source passages",
+            action=lambda: self.chunk_ranker.run(
+                planner_output=state.planner_output,
+                url_sources=state.retrieved_sources_output.url_sources,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                SelectingSourcePassagesStageUiModel(
+                    passages_scored=len(result.ranked_chunks),
+                    passages_selected=len(result.selected_chunk_ids),
+                    sources_represented=len(
+                        {
+                            ranked_chunk.source_id
+                            for ranked_chunk in result.ranked_chunks
+                            if ranked_chunk.chunk_id in set(result.selected_chunk_ids)
+                        }
                     ),
                 ).to_ui_details()
             ),
@@ -290,7 +407,7 @@ class PipelineOrchestrator:
             message="Identifying candidates",
             action=lambda: self.extractor_light.run(
                 planner_output=state.planner_output,
-                brave_context_output=state.brave_context_output,
+                chunk_ranking_output=state.chunk_ranking_output,
             ),
             completed_data_factory=lambda result: _ui_event_data(
                 IdentifyingCandidatesStageUiModel(
@@ -307,7 +424,7 @@ class PipelineOrchestrator:
             action=lambda: self.assessor.run(
                 planner_output=state.planner_output,
                 searcher_output=state.searcher_output,
-                brave_context_output=state.brave_context_output,
+                retrieved_sources_output=state.retrieved_sources_output,
                 extractor_light_output=state.extractor_light_output,
                 pass_type=AssessorPass.FIRST_PASS,
                 evidence_store=state.evidence_store,
@@ -319,12 +436,35 @@ class PipelineOrchestrator:
         )
         self._build_and_merge_evidence_store(
             state=state,
-            jina_fetcher_output=None,
             completed_data_factory=lambda result: _ui_event_data(
                 RetrievingEvidenceStageUiModel(
                     candidates_with_evidence=sum(1 for chunks in result.chunks_by_entity.values() if chunks),
                     supporting_sources_linked=len(
                         {str(chunk.source_url) for chunks in result.chunks_by_entity.values() for chunk in chunks}
+                    ),
+                ).to_ui_details()
+            ),
+        )
+        state.entity_ranking_result = self._run_stage(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Ranking candidates",
+            action=lambda: self.entity_reranker.run(
+                planner_output=state.planner_output,
+                extractor_light_output=state.extractor_light_output,
+                evidence_store=state.evidence_store,
+            ),
+            completed_data_factory=lambda result: _ui_event_data(
+                RankingCandidatesStageUiModel(
+                    core_candidates_kept=sum(1 for entity in result.kept_entities if entity.candidate_type == "core"),
+                    discovery_candidates_kept=sum(
+                        1 for entity in result.kept_entities if entity.candidate_type == "discovery"
+                    ),
+                    core_candidates_filtered=sum(
+                        1 for entity in result.filtered_entities if entity.candidate_type == "core"
+                    ),
+                    discovery_candidates_filtered=sum(
+                        1 for entity in result.filtered_entities if entity.candidate_type == "discovery"
                     ),
                 ).to_ui_details()
             ),
@@ -339,6 +479,7 @@ class PipelineOrchestrator:
                 extractor_light_output=state.extractor_light_output,
                 evidence_store=state.evidence_store,
                 prior_output=state.extractor_output,
+                entity_ranking_result=state.entity_ranking_result,
             ),
             completed_data_factory=lambda result: _ui_event_data(
                 BuildingEntitiesStageUiModel(
@@ -347,6 +488,126 @@ class PipelineOrchestrator:
                 ).to_ui_details()
             ),
         )
+    def _run_breadth_v2_enrichment(self, state: PipelineState) -> None:
+        if not self.breadth_v2_config.enabled or state.extractor_output is None:
+            return
+        if not state.extractor_output.entities:
+            return
+
+        sparse_column_summary = self.sparse_column_detector.detect(
+            schema_columns=state.planner_output.schema_columns,
+            extractor_output=state.extractor_output,
+        )
+        sparse_columns = sparse_column_summary.sparse_columns[: self.breadth_v2_config.max_column_queries]
+        if not sparse_columns:
+            return
+
+        self.event_emitter.stage_started(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Enriching extracted entities",
+        )
+
+        facet_output = self.column_facet_generator.generate(
+            normalized_query=state.planner_output.normalized_query,
+            base_query=state.planner_output.base_query,
+            sparse_columns=sparse_columns,
+        )
+        query_bundle = self.breadth_v2_query_builder.build(
+            normalized_query=state.planner_output.normalized_query,
+            facet_output=facet_output,
+            max_queries=self.breadth_v2_config.max_column_queries,
+        )
+        if not query_bundle.column_queries:
+            self.event_emitter.stage_completed(
+                request_id=state.request_id,
+                stage_name=StageName.EXTRACTOR,
+                message="Enriching extracted entities completed",
+                data=_ui_event_data(
+                    EnrichingExtractedEntitiesStageUiModel(
+                        sparse_columns_targeted=len(sparse_columns),
+                        enrichment_queries_run=0,
+                        extra_sources_fetched=0,
+                        passages_shortlisted=0,
+                        fields_filled=0,
+                    ).to_ui_details()
+                ),
+            )
+            return
+
+        breadth_v2_searcher_output = self.breadth_v2_searcher.run(
+            planner_output=state.planner_output,
+            queries=[column_query.query for column_query in query_bundle.column_queries],
+        )
+        if not breadth_v2_searcher_output.shortlisted_results:
+            self.event_emitter.stage_completed(
+                request_id=state.request_id,
+                stage_name=StageName.EXTRACTOR,
+                message="Enriching extracted entities completed",
+                data=_ui_event_data(
+                    EnrichingExtractedEntitiesStageUiModel(
+                        sparse_columns_targeted=len(sparse_columns),
+                        enrichment_queries_run=len(query_bundle.column_queries),
+                        extra_sources_fetched=0,
+                        passages_shortlisted=0,
+                        fields_filled=0,
+                    ).to_ui_details()
+                ),
+            )
+            return
+
+        breadth_v2_sources_output = self.jina_fetcher.run(
+            searcher_output=breadth_v2_searcher_output,
+            fetch_budget=self.breadth_v2_config.shortlist_cap,
+            request_query=state.original_query,
+            planner_output=state.planner_output,
+        )
+        breadth_v2_chunk_ranking_output = self.column_aware_chunk_ranker.run(
+            normalized_query=state.planner_output.normalized_query,
+            extracted_entities=state.extractor_output.entities,
+            sparse_columns=sparse_columns,
+            facet_output=facet_output,
+            url_sources=breadth_v2_sources_output.url_sources,
+        )
+        gap_fill_result = self.entity_gap_filler.run(
+            planner_output=state.planner_output,
+            extractor_output=state.extractor_output,
+            ranking_output=breadth_v2_chunk_ranking_output,
+        )
+        state.extractor_output = self.gap_fill_merger.merge(
+            extractor_output=state.extractor_output,
+            gap_fill_result=gap_fill_result,
+        )
+        state.breadth_v2_debug = {
+            "sparse_columns": sparse_columns,
+            "facet_terms_by_column": {
+                facet.column: facet.facet_terms
+                for facet in facet_output.facets
+            },
+            "queries": [
+                {"column": column_query.column, "query": column_query.query}
+                for column_query in query_bundle.column_queries
+            ],
+            "top_shortlisted_chunks": _breadth_v2_shortlisted_chunks_payload(
+                breadth_v2_chunk_ranking_output
+            ),
+        }
+        self.event_emitter.stage_completed(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Enriching extracted entities completed",
+            data=_ui_event_data(
+                EnrichingExtractedEntitiesStageUiModel(
+                    sparse_columns_targeted=len(sparse_columns),
+                    enrichment_queries_run=len(query_bundle.column_queries),
+                    extra_sources_fetched=len(breadth_v2_sources_output.url_sources),
+                    passages_shortlisted=len(breadth_v2_chunk_ranking_output.ranked_chunks),
+                    fields_filled=gap_fill_result.fields_filled,
+                ).to_ui_details()
+            ),
+        )
+
+    def _run_finalizer(self, state: PipelineState) -> None:
         state.finalizer_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.FINALIZER,
@@ -363,7 +624,6 @@ class PipelineOrchestrator:
     def _build_and_merge_evidence_store(
         self,
         state: PipelineState,
-        jina_fetcher_output: JinaFetcherOutput | None,
         message: str = "Retrieving evidence",
         completed_data_factory: Callable[[EvidenceStore], dict[str, object]] | None = None,
     ) -> None:
@@ -372,14 +632,31 @@ class PipelineOrchestrator:
             stage_name=StageName.ASSESSOR,
             message=message,
             action=lambda: self.evidence_store_builder.run(
-                brave_context_output=state.brave_context_output,
+                chunk_ranking_output=state.chunk_ranking_output or ChunkRankingOutput(),
                 extractor_light_output=state.extractor_light_output,
                 assessor_output=state.assessor_output,
-                jina_fetcher_output=jina_fetcher_output,
                 existing_store=state.evidence_store,
             ),
             completed_data_factory=completed_data_factory,
         )
+
+    def _fetch_retrieved_sources(self, state: PipelineState) -> RetrievedSourcesOutput:
+        searcher_output = state.searcher_output or SearcherOutput(
+            executed_queries=[],
+            raw_results=[],
+            shortlisted_results=[],
+        )
+        fetch_budget = max(0, state.budget.max_deep_fetches - state.budget.used_deep_fetches)
+        if self.retrieval_mode == "jina":
+            return self.jina_fetcher.run(
+                searcher_output=searcher_output,
+                fetch_budget=fetch_budget,
+                request_query=state.original_query,
+                planner_output=state.planner_output,
+            )
+        if self.retrieval_mode == "brave_context":
+            return self.brave_context_fetcher.run(searcher_output)
+        raise ValueError(f"Unsupported retrieval mode: {self.retrieval_mode}")
 
     def _run_stage(
         self,
@@ -444,6 +721,14 @@ def _sources_sent_to_llm_count(assessor_output: AssessorOutput) -> int:
     )
 
 
+def _source_bucket_count(searcher_output: SearcherOutput, bucket: str) -> int:
+    return sum(
+        1
+        for result in searcher_output.shortlisted_results
+        if result.provider_metadata.get("source_bucket") == bucket
+    )
+
+
 def _assessor_stage_ui_details(
     *,
     assessor: object,
@@ -485,3 +770,23 @@ def _schema_preview_from_planner_output(planner_output: PlannerOutput) -> Schema
             for column in planner_output.schema_columns
         ],
     )
+
+
+def _breadth_v2_shortlisted_chunks_payload(
+    ranking_output: ColumnAwareChunkRankingOutput,
+) -> list[dict[str, object]]:
+    source_by_id = {
+        source.source_id: source
+        for source in ranking_output.url_sources
+    }
+    return [
+        {
+            "entity_name": ranked_chunk.entity_name,
+            "column": ranked_chunk.column,
+            "rank": ranked_chunk.rank,
+            "score": round(ranked_chunk.score, 4),
+            "source_url": str(source_by_id[ranked_chunk.source_id].url) if ranked_chunk.source_id in source_by_id else "",
+            "source_title": source_by_id[ranked_chunk.source_id].title if ranked_chunk.source_id in source_by_id else "",
+        }
+        for ranked_chunk in ranking_output.ranked_chunks
+    ]

@@ -12,28 +12,43 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.app.config import (
     load_assessor_runtime_config,
+    load_breadth_v2_runtime_config,
     load_brave_context_runtime_config,
     load_extractor_runtime_config,
     load_extractor_light_runtime_config,
     load_jina_fetcher_runtime_config,
     load_planner_runtime_config,
+    load_retrieval_runtime_config,
     load_searcher_runtime_config,
 )
 from backend.app.contracts import (
     AssessorOutput,
     AssessorPass,
-    BraveContextOutput,
+    ChunkRankingOutput,
     EvidenceStore,
     ExtractorLightOutput,
     ExtractorOutput,
-    JinaFetcherOutput,
     PipelineRequest,
     PipelineResponse,
     PlannerOutput,
+    RetrievedSourcesOutput,
     SearcherOutput,
     CanonicalizerVerifierEvaluatorOutput,
 )
-from backend.app.helpers import build_brave_context_fetcher, build_jina_fetcher
+from backend.app.helpers import (
+    BreadthV2SearchConfig,
+    BreadthV2Searcher,
+    DefaultBreadthV2QueryBuilder,
+    DefaultChunkRanker,
+    DefaultColumnAwareChunkRanker,
+    DefaultColumnFacetGenerator,
+    DefaultEntityGapFiller,
+    DefaultFinalLogger,
+    DefaultSparseColumnDetector,
+    GapFillMerger,
+    build_brave_context_fetcher,
+    build_jina_fetcher,
+)
 from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
@@ -54,20 +69,41 @@ DEMO_HTML_PATH = Path(__file__).with_name("templates") / "demo.html"
 def get_orchestrator() -> PipelineOrchestrator:
     planner_config = load_planner_runtime_config()
     searcher_config = load_searcher_runtime_config()
+    retrieval_config = load_retrieval_runtime_config()
     brave_context_config = load_brave_context_runtime_config()
     extractor_light_config = load_extractor_light_runtime_config()
     assessor_config = load_assessor_runtime_config()
     extractor_config = load_extractor_runtime_config()
+    jina_fetcher_config = load_jina_fetcher_runtime_config()
+    breadth_v2_config = load_breadth_v2_runtime_config()
 
     return PipelineOrchestrator(
         planner=build_planner_stage(runtime_config=planner_config),
         searcher=build_searcher_stage(runtime_config=searcher_config),
         brave_context_fetcher=build_brave_context_fetcher(runtime_config=brave_context_config),
+        jina_fetcher=build_jina_fetcher(runtime_config=jina_fetcher_config),
+        chunk_ranker=DefaultChunkRanker(top_k=retrieval_config.top_k),
+        retrieval_mode=retrieval_config.mode,
         extractor_light=build_extractor_light_stage(runtime_config=extractor_light_config),
         assessor=build_source_assessor_stage(runtime_config=assessor_config),
         evidence_store_builder=build_evidence_store_builder(),
+        final_logger=DefaultFinalLogger(),
         extractor=build_extractor_stage(runtime_config=extractor_config),
         finalizer=ThinFinalizerStage(),
+        breadth_v2_config=breadth_v2_config,
+        sparse_column_detector=DefaultSparseColumnDetector(),
+        column_facet_generator=DefaultColumnFacetGenerator(openai_api_key=planner_config.openai_api_key),
+        breadth_v2_query_builder=DefaultBreadthV2QueryBuilder(),
+        breadth_v2_searcher=BreadthV2Searcher(
+            runtime_config=searcher_config,
+            search_config=BreadthV2SearchConfig(
+                sources_per_query=breadth_v2_config.sources_per_query,
+                shortlist_cap=breadth_v2_config.shortlist_cap,
+            ),
+        ),
+        column_aware_chunk_ranker=DefaultColumnAwareChunkRanker(),
+        entity_gap_filler=DefaultEntityGapFiller(openai_api_key=extractor_config.openai_api_key),
+        gap_fill_merger=GapFillMerger(),
     )
 
 
@@ -76,7 +112,7 @@ class AssessorTestRequest(BaseModel):
 
     planner_output: PlannerOutput
     searcher_output: SearcherOutput
-    brave_context_output: BraveContextOutput
+    retrieved_sources_output: RetrievedSourcesOutput
     extractor_light_output: ExtractorLightOutput
     pass_type: AssessorPass = AssessorPass.FIRST_PASS
     evidence_store: EvidenceStore | None = None
@@ -87,14 +123,16 @@ class ExtractorLightTestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     planner_output: PlannerOutput
-    brave_context_output: BraveContextOutput
+    chunk_ranking_output: ChunkRankingOutput
 
 
 class JinaFetcherTestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    assessor_output: AssessorOutput
-    remaining_fetch_budget: int = Field(default=0, ge=0)
+    searcher_output: SearcherOutput
+    fetch_budget: int = Field(default=0, ge=0)
+    request_query: str | None = None
+    planner_output: PlannerOutput | None = None
 
 
 class ExtractorTestRequest(BaseModel):
@@ -108,7 +146,7 @@ class ExtractorTestRequest(BaseModel):
 class EvidenceStoreTestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    brave_context_output: BraveContextOutput
+    chunk_ranking_output: ChunkRankingOutput
     extractor_light_output: ExtractorLightOutput
     assessor_output: AssessorOutput
     evidence_store: EvidenceStore | None = None
@@ -175,8 +213,8 @@ def run_searcher_test(planner_output: PlannerOutput) -> SearcherOutput:
     searcher = build_searcher_stage(runtime_config=searcher_config)
     return searcher.run(planner_output=planner_output)
 
-@app.post("/api/v1/brave-context/test", response_model=BraveContextOutput)
-def run_brave_context_test(searcher_output: SearcherOutput) -> BraveContextOutput:
+@app.post("/api/v1/brave-context/test", response_model=RetrievedSourcesOutput)
+def run_brave_context_test(searcher_output: SearcherOutput) -> RetrievedSourcesOutput:
     brave_context_config = load_brave_context_runtime_config()
     brave_context_fetcher = build_brave_context_fetcher(
         runtime_config=brave_context_config,
@@ -190,7 +228,7 @@ def run_extractor_light_test(request: ExtractorLightTestRequest) -> ExtractorLig
     extractor_light = build_extractor_light_stage(runtime_config=extractor_light_config)
     return extractor_light.run(
         planner_output=request.planner_output,
-        brave_context_output=request.brave_context_output,
+        chunk_ranking_output=request.chunk_ranking_output,
     )
 
 
@@ -201,7 +239,7 @@ def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:
     return assessor.run(
         planner_output=request.planner_output,
         searcher_output=request.searcher_output,
-        brave_context_output=request.brave_context_output,
+        retrieved_sources_output=request.retrieved_sources_output,
         extractor_light_output=request.extractor_light_output,
         pass_type=request.pass_type,
         evidence_store=request.evidence_store,
@@ -213,7 +251,7 @@ def run_assessor_test(request: AssessorTestRequest) -> AssessorOutput:
 def run_evidence_store_test(request: EvidenceStoreTestRequest) -> EvidenceStore:
     evidence_store_builder = build_evidence_store_builder()
     return evidence_store_builder.run(
-        brave_context_output=request.brave_context_output,
+        chunk_ranking_output=request.chunk_ranking_output,
         extractor_light_output=request.extractor_light_output,
         assessor_output=request.assessor_output,
         existing_store=request.evidence_store,
@@ -240,11 +278,13 @@ def run_finalizer_test(request: FinalizerTestRequest) -> CanonicalizerVerifierEv
     )
 
 
-@app.post("/api/v1/jina-fetcher/test", response_model=JinaFetcherOutput)
-def run_jina_fetcher_test(request: JinaFetcherTestRequest) -> JinaFetcherOutput:
+@app.post("/api/v1/jina-fetcher/test", response_model=RetrievedSourcesOutput)
+def run_jina_fetcher_test(request: JinaFetcherTestRequest) -> RetrievedSourcesOutput:
     jina_fetcher_config = load_jina_fetcher_runtime_config()
     jina_fetcher = build_jina_fetcher(runtime_config=jina_fetcher_config)
     return jina_fetcher.run(
-        assessor_output=request.assessor_output,
-        remaining_fetch_budget=request.remaining_fetch_budget,
+        searcher_output=request.searcher_output,
+        fetch_budget=request.fetch_budget,
+        request_query=request.request_query,
+        planner_output=request.planner_output,
     )

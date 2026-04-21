@@ -6,7 +6,6 @@ from pydantic import HttpUrl
 
 from backend.app.contracts import (
     BudgetState,
-    BraveContextPassage,
     CanonicalEntity,
     EventPayload,
     EvidenceChunk,
@@ -19,6 +18,7 @@ from backend.app.contracts import (
     PipelineRequest,
     PipelineResponse,
     PlannerOutput,
+    RetrievedChunk,
     SourceQuality,
     SourceRole,
     SseEvent,
@@ -34,10 +34,11 @@ EXAMPLE_SEARCH_METADATA = {
     "provider_metadata": {"source": "brave_web_search"},
 }
 
-EXAMPLE_BRAVE_CONTEXT_PASSAGE = BraveContextPassage(
-    source_url=EXAMPLE_ABOUT_URL,
-    passage_text="Example Health AI develops AI tooling for clinical workflows.",
-    metadata={"retrieval_source": "brave_llm_context"},
+EXAMPLE_RETRIEVED_CHUNK = RetrievedChunk(
+    chunk_id="brave_llm:https://example.com/about#0",
+    source_id="brave_llm:https://example.com/about",
+    text="Example Health AI develops AI tooling for clinical workflows.",
+    sequence_index=0,
 )
 
 EXAMPLE_HEURISTIC_SIGNALS = HeuristicSourceSignals(

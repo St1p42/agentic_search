@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from pydantic import HttpUrl
+
 from backend.app.contracts import (
     AssessedSource,
     AssessorPass,
-    BraveContextPassage,
-    BraveContextOutput,
     ExtractorLightOutput,
     HeuristicSourceSignals,
     OfficialityLevel,
     PlannerOutput,
+    RetrievedChunk,
+    RetrievedSourcesOutput,
     SearchResultItem,
     SourceQuality,
     SourceRole,
@@ -71,21 +73,21 @@ def build_heuristic_signals(
 def build_assessed_source(
     *,
     result: SearchResultItem,
-    brave_context_output: BraveContextOutput,
+    retrieved_sources_output: RetrievedSourcesOutput,
     heuristic_signals: HeuristicSourceSignals,
     heuristic_assessment: HeuristicSourceAssessment,
     decision: AssessorSourceDecision | None,
     planner_output: PlannerOutput,
     pass_type: AssessorPass,
 ) -> AssessedSource:
-    brave_context_passages = brave_context_output.passages_by_url.get(result.url, [])
+    retrieved_chunks = _retrieved_chunks_for_result(retrieved_sources_output, result.url)
     if heuristic_assessment.filtered_out:
         filtered_officiality = heuristic_assessment.officiality.officiality
         if filtered_officiality is None:
             filtered_officiality = OfficialityLevel.THIRD_PARTY
         return AssessedSource(
             result=result,
-            brave_context_passages=brave_context_passages,
+            retrieved_chunks=retrieved_chunks,
             heuristic_signals=heuristic_signals,
             source_role=SourceRole.DISCOVERY,
             source_quality=heuristic_assessment.quality.quality,
@@ -115,13 +117,14 @@ def build_assessed_source(
     )
     evidence_sufficiency = apply_evidence_sufficiency_caps(
         evidence_sufficiency,
-        brave_context_passages=brave_context_passages,
+        retrieved_chunks=retrieved_chunks,
+        fallback_only=_fallback_only_for_result(retrieved_sources_output, result.url),
     )
     _ = pass_type
 
     return AssessedSource(
         result=result,
-        brave_context_passages=brave_context_passages,
+        retrieved_chunks=retrieved_chunks,
         heuristic_signals=heuristic_signals,
         source_role=source_role,
         source_quality=source_quality,
@@ -170,15 +173,36 @@ def normalize_aspect_coverage(
 def apply_evidence_sufficiency_caps(
     evidence_sufficiency: float,
     *,
-    brave_context_passages: list[BraveContextPassage],
+    retrieved_chunks: list[RetrievedChunk],
+    fallback_only: bool,
 ) -> float:
-    if not brave_context_passages:
+    if not retrieved_chunks:
         return min(evidence_sufficiency, 0.5)
 
-    if all(bool(passage.metadata.get("fallback")) for passage in brave_context_passages):
+    if fallback_only:
         return min(evidence_sufficiency, 0.55)
 
     return evidence_sufficiency
+
+
+def _retrieved_chunks_for_result(
+    retrieved_sources_output: RetrievedSourcesOutput,
+    source_url: HttpUrl,
+) -> list[RetrievedChunk]:
+    for url_source in retrieved_sources_output.url_sources:
+        if url_source.url == source_url:
+            return url_source.chunks
+    return []
+
+
+def _fallback_only_for_result(
+    retrieved_sources_output: RetrievedSourcesOutput,
+    source_url: HttpUrl,
+) -> bool:
+    for url_source in retrieved_sources_output.url_sources:
+        if url_source.url == source_url:
+            return bool(url_source.metadata.get("fallback"))
+    return False
 
 
 def safe_ratio(numerator: int, denominator: int) -> float:

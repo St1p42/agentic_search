@@ -14,7 +14,7 @@ from backend.app.config import (
     ExtractorLightRuntimeConfig,
     load_extractor_light_runtime_config,
 )
-from backend.app.contracts import BraveContextOutput, ExtractorLightOutput, PlannerOutput
+from backend.app.contracts import ChunkRankingOutput, ExtractorLightOutput, PlannerOutput
 from backend.app.prompts import EXTRACTOR_LIGHT_SYSTEM_PROMPT
 from backend.app.stages.entity_name_filter import EntityNameFilter
 
@@ -27,7 +27,7 @@ class ExtractorLightStage(Protocol):
     def run(
         self,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        chunk_ranking_output: ChunkRankingOutput,
     ) -> ExtractorLightOutput:
         """Extract candidate names only and map those names to mentioning URLs."""
 
@@ -36,10 +36,10 @@ class PlaceholderExtractorLightStage:
     def run(
         self,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        chunk_ranking_output: ChunkRankingOutput,
     ) -> ExtractorLightOutput:
         _ = planner_output
-        _ = brave_context_output
+        _ = chunk_ranking_output
         return ExtractorLightOutput(
             candidate_names=[],
             name_to_source_urls={},
@@ -51,6 +51,13 @@ class ExtractorLightModelOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     candidate_names: list[str] = Field(default_factory=list)
+
+
+class _SelectedChunkRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: HttpUrl
+    text: str
 
 
 class LlmExtractorLightStage:
@@ -70,9 +77,10 @@ class LlmExtractorLightStage:
     def run(
         self,
         planner_output: PlannerOutput,
-        brave_context_output: BraveContextOutput,
+        chunk_ranking_output: ChunkRankingOutput,
     ) -> ExtractorLightOutput:
-        if not brave_context_output.passages_by_url:
+        selected_chunk_records = _selected_chunk_records(chunk_ranking_output)
+        if not selected_chunk_records:
             return ExtractorLightOutput(
                 candidate_names=[],
                 name_to_source_urls={},
@@ -84,7 +92,7 @@ class LlmExtractorLightStage:
             system_prompt=EXTRACTOR_LIGHT_SYSTEM_PROMPT,
             user_content=_build_extractor_light_payload(
                 planner_output=planner_output,
-                brave_context_output=brave_context_output,
+                selected_chunk_records=selected_chunk_records,
             ),
             response_model=ExtractorLightModelOutput,
             reasoning_effort=self.reasoning_effort,
@@ -92,7 +100,7 @@ class LlmExtractorLightStage:
         return _to_extractor_light_output(
             planner_output=planner_output,
             model_output=model_output,
-            brave_context_output=brave_context_output,
+            selected_chunk_records=selected_chunk_records,
             entity_name_filter=self._entity_name_filter,
         )
 
@@ -128,18 +136,17 @@ def build_extractor_light_stage(
 def _build_extractor_light_payload(
     *,
     planner_output: PlannerOutput,
-    brave_context_output: BraveContextOutput,
+    selected_chunk_records: list[_SelectedChunkRecord],
 ) -> str:
-    payload_lines = [f"entity_type: {planner_output.entity_type}", "passages:"]
+    payload_lines = [f"entity_type: {planner_output.entity_type}", "chunks:"]
     passage_index = 1
 
-    for passages in brave_context_output.passages_by_url.values():
-        for passage in passages:
-            passage_text = " ".join(passage.passage_text.split()).strip()
-            if not passage_text:
-                continue
-            payload_lines.append(f"[p{passage_index}] {passage_text}")
-            passage_index += 1
+    for record in selected_chunk_records:
+        chunk_text = " ".join(record.text.split()).strip()
+        if not chunk_text:
+            continue
+        payload_lines.append(f"[c{passage_index}] {chunk_text}")
+        passage_index += 1
 
     return "\n".join(payload_lines)
 
@@ -148,27 +155,22 @@ def _to_extractor_light_output(
     *,
     planner_output: PlannerOutput,
     model_output: ExtractorLightModelOutput,
-    brave_context_output: BraveContextOutput,
+    selected_chunk_records: list[_SelectedChunkRecord],
     entity_name_filter: EntityNameFilter,
 ) -> ExtractorLightOutput:
     candidate_names = _normalize_candidate_names(model_output.candidate_names)
     name_to_source_urls: dict[str, list[HttpUrl]] = {}
     mention_counts: dict[str, int] = {}
-    passage_texts_by_url = {
-        source_url: "\n".join(
-            passage.passage_text for passage in passages if passage.passage_text.strip()
-        )
-        for source_url, passages in brave_context_output.passages_by_url.items()
-    }
+    chunk_texts_by_url = _chunk_texts_by_url(selected_chunk_records)
 
     for candidate_name in candidate_names:
         source_urls = _find_source_urls_for_name(
             candidate_name=candidate_name,
-            passage_texts_by_url=passage_texts_by_url,
+            chunk_texts_by_url=chunk_texts_by_url,
         )
         mention_count = _count_name_mentions(
             candidate_name=candidate_name,
-            passage_texts_by_url=passage_texts_by_url,
+            chunk_texts_by_url=chunk_texts_by_url,
         )
         if not _should_keep_candidate_name(candidate_name=candidate_name):
             continue
@@ -213,29 +215,29 @@ def _normalize_name(name: str) -> str:
 def _find_source_urls_for_name(
     *,
     candidate_name: str,
-    passage_texts_by_url: dict[HttpUrl, str],
+    chunk_texts_by_url: dict[HttpUrl, str],
 ) -> list[HttpUrl]:
     name_pattern = _candidate_name_pattern(candidate_name)
     if name_pattern is None:
         return []
     return [
         source_url
-        for source_url, passage_text in passage_texts_by_url.items()
-        if name_pattern.search(_normalize_match_text(passage_text))
+        for source_url, chunk_text in chunk_texts_by_url.items()
+        if name_pattern.search(_normalize_match_text(chunk_text))
     ]
 
 
 def _count_name_mentions(
     *,
     candidate_name: str,
-    passage_texts_by_url: dict[HttpUrl, str],
+    chunk_texts_by_url: dict[HttpUrl, str],
 ) -> int:
     name_pattern = _candidate_name_pattern(candidate_name)
     if name_pattern is None:
         return 0
     mention_count = sum(
-        len(name_pattern.findall(_normalize_match_text(passage_text)))
-        for passage_text in passage_texts_by_url.values()
+        len(name_pattern.findall(_normalize_match_text(chunk_text)))
+        for chunk_text in chunk_texts_by_url.values()
     )
     return mention_count
 
@@ -265,6 +267,33 @@ def _normalize_match_text(text: str) -> str:
     normalized = normalized.replace("’", "'").replace("‘", "'").replace("`", "'")
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
+
+
+def _selected_chunk_records(chunk_ranking_output: ChunkRankingOutput) -> list[_SelectedChunkRecord]:
+    selected_chunk_ids = set(chunk_ranking_output.selected_chunk_ids)
+    if not selected_chunk_ids:
+        return []
+
+    records: list[_SelectedChunkRecord] = []
+    for url_source in chunk_ranking_output.url_sources:
+        for chunk in url_source.chunks:
+            if chunk.chunk_id not in selected_chunk_ids:
+                continue
+            text = chunk.text.strip()
+            if not text:
+                continue
+            records.append(_SelectedChunkRecord(source_url=url_source.url, text=text))
+    return records
+
+
+def _chunk_texts_by_url(selected_chunk_records: list[_SelectedChunkRecord]) -> dict[HttpUrl, str]:
+    chunk_text_lists_by_url: dict[HttpUrl, list[str]] = {}
+    for record in selected_chunk_records:
+        chunk_text_lists_by_url.setdefault(record.source_url, []).append(record.text)
+    return {
+        source_url: "\n".join(text for text in chunk_texts if text.strip())
+        for source_url, chunk_texts in chunk_text_lists_by_url.items()
+    }
 
 
 def _should_keep_candidate_name(

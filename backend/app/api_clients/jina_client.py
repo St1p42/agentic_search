@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from urllib.parse import urljoin
 
 import httpx
 
@@ -40,7 +39,7 @@ class HttpJinaReaderClient(JinaReaderClient):
             headers["Authorization"] = f"Bearer {self._api_key}"
 
         response = httpx.get(
-            urljoin(self._base_url, url),
+            f"{self._base_url}{url}",
             headers=headers,
             timeout=self._timeout_seconds,
             follow_redirects=True,

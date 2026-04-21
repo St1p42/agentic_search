@@ -1,6 +1,6 @@
 # Agent Context
 
-This is the active implementation context for the current downscoped pipeline.
+This is the active implementation context for the current chunk-first pipeline.
 
 The north-star design remains broader future reference. It is useful for direction, but it is not the source of truth for current behavior.
 
@@ -19,11 +19,19 @@ You are implementing part of a bounded deterministic multi-stage system. Follow 
 - Provenance is part of the field model, not optional metadata.
 - Planner owns semantic query generation, including bounded rewrites.
 - Searcher executes queries and builds result pools; it does not invent semantic rewrites.
-- Brave LLM Context runs only on a bounded shortlist.
+- Searcher now also owns source-bucket classification over Brave metadata and diversified shortlist selection.
+- Jina-backed retrieved sources are the default deep-retrieval path.
+- Downstream retrieval contracts are provider-neutral:
+  - `UrlSource`
+  - `RetrievedChunk`
+  - `RetrievedSourcesOutput`
+- Chunk ranking is a first-class stage before `ExtractorLight`.
 - ExtractorLight exists to establish candidate entities before full extraction.
 - Assessor owns source-level semantic triage.
-- Evidence Store Builder owns entity-centric evidence construction and per-entity evidence scoring.
-- Extractor consumes the evidence store and owns structured field extraction.
+- Evidence Store Builder owns entity-centric evidence construction from ranked selected chunks.
+- Entity reranking happens before extractor construction.
+- Extractor consumes evidence-backed candidates and owns structured field extraction.
+- Breadth-v2 sparse-field enrichment runs after first-pass extraction when sparse columns remain.
 - Finalizer is a thin response shaper in the active flow.
 - Prefer null over unsupported values.
 - Keep all stage I/O typed and explicit.
@@ -34,12 +42,16 @@ You are implementing part of a bounded deterministic multi-stage system. Follow 
 
 1. Planner
 2. Searcher
-3. Brave LLM Context Helper
-4. ExtractorLight
-5. Assessor
-6. Evidence Store Builder
-7. Extractor
-8. Finalizer
+3. Source classification / diversified shortlist
+4. Retrieved source processing
+5. Chunk ranking
+6. ExtractorLight
+7. Assessor
+8. Evidence Store Builder
+9. Entity reranker
+10. Extractor
+11. Optional breadth-v2 sparse-field enrichment
+12. Finalizer
 
 ---
 
@@ -50,11 +62,11 @@ The current implementation is intentionally narrower than the north-star design.
 Out of scope in active behavior:
 
 - verification-query sub-pass
-- Jina selection/fetch orchestration
 - repair diagnostics
 - repair round execution
-- MMR/diversity final selection
-- evaluator-style final ranking
+- open-ended retrieval expansion loops
+- evaluator-style final ranking in the user response
+- production-scale retrieval scheduling
 
 If you touch active code, do not partially reintroduce these features by accident.
 
@@ -122,34 +134,65 @@ Owns:
 - mechanical URL pruning
 - exact URL deduplication
 - multi-query merge
-- shortlist construction
+- weighted source scoring
+- source-bucket classification over Brave metadata
+- diversified shortlist construction
 
 Important implementation stance:
 
-- use soft rewrite-slot reservation so rewrites contribute
-- use a small per-domain cap
-- keep merge/tie-break logic deterministic
+- the active source score combines:
+  - Brave rank
+  - query-source coverage
+- shortlist selection is deterministic
+- shortlist diversity is now enforced partly through source buckets, not only domains and query coverage
+- the searcher should still be bounded and cheap relative to downstream stages
 
 Does not own:
 
 - semantic rewrite generation
-- source semantics
+- deep fetch
+- chunk ranking
 - extraction
 
-### Brave LLM Context Helper
+### Retrieved Source Processing
 
 Owns:
 
-- shortlist-only Brave context calls
-- exact-URL-only passage attachment
-- snippet fallback when exact-URL context is missing
-- deterministic passage cleanup
+- deep fetch of shortlisted URLs through the active retrieval provider
+- conversion into provider-neutral `UrlSource` objects
+- chunking into `RetrievedChunk`
+
+Important implementation stance:
+
+- Jina is the default runtime mode
+- deep fetch is only for shortlisted results
+- downstream stages should not depend on provider-specific passage artifacts
 
 Does not own:
 
-- deep fetch
-- entity extraction
+- candidate extraction
 - source assessment
+- field extraction
+
+### Chunk Ranker
+
+Owns:
+
+- request-local chunk scoring
+- ranking of fetched source passages
+- selection of top-k chunk ids for downstream stages
+
+Important implementation stance:
+
+- BM25 is the main relevance engine
+- lexical bonuses are allowed where they are transparent and request-local
+- chunk ranking is the main bridge between fetched page text and candidate extraction
+
+Does not own:
+
+- candidate naming
+- source semantics
+- field extraction
 
 ### ExtractorLight
 
@@ -162,12 +205,12 @@ Owns:
 Why it matters:
 
 - it creates the candidate entity prior for the rest of the pipeline
-- it prevents direct uncontrolled field extraction from raw URL text
+- it prevents direct uncontrolled field extraction from raw retrieved text
 
 Does not own:
 
 - field extraction
-- ranking
+- final ranking
 - final row decisions
 
 ### Assessor
@@ -175,18 +218,23 @@ Does not own:
 Owns:
 
 - heuristic source signals
-- batched source assessment
-- `source_role`
-- `source_quality`
-- `officiality`
+- source role
+- source quality
+- officiality
 - rough aspect coverage
 - evidence sufficiency
 
-Does not own in active flow:
+Important implementation stance:
 
-- verification-gap generation
-- verification queries
-- Jina selection
+- this is still source triage only
+- it operates over retrieved sources rather than Brave-context passages
+- it is no longer the primary retrieval gate
+
+Does not own:
+
+- semantic query generation
+- chunk ranking
+- candidate extraction
 - repair decisions
 
 ### Evidence Store Builder
@@ -197,19 +245,37 @@ Owns:
 - evidence attribution using `name_to_source_urls` first
 - conservative string-match fallback
 - chunk provenance carry-through
-- per-entity evidence score computation
+- attachment of:
+  - `query_sources`
+  - `selected_chunk_rank`
 
 Important attribution policy:
 
 - do not drop ambiguous chunks too early
-- use distinct source URLs for score calculation
 - do not confuse chunk count with source breadth
+- the selected chunk set is the primary evidence source
 
-Current score policy:
+### Entity Reranker
 
-- high-quality source URL => `+1.0`
-- medium-quality source URL => `+0.5`
-- low-quality source URL => `+0.0`
+Owns:
+
+- candidate reranking before extractor construction
+- low-score filtering
+- support-score computation
+- query-alignment computation
+- rewrite-diversity-aware final candidate ordering
+
+Important implementation stance:
+
+- entity reranking is now the main pre-extraction gating layer
+- entities carry query-provenance information from evidence chunks
+- MMR-style rewrite diversification is allowed here because this is the first point where provenance-aware entity selection is well-defined
+
+Does not own:
+
+- candidate extraction
+- structured field extraction
+- final row shaping
 
 ### Extractor
 
@@ -219,25 +285,50 @@ Owns:
 - planner-schema field filling
 - field-level evidence
 - conservative null-default behavior
-- pre-extraction top-10 gating
-
-Active ranking before extraction:
-
-1. higher entity score
-2. more distinct supporting source URLs
-3. more total supporting chunk text length
-4. alphabetical entity name
+- top-10 extraction over reranked candidates
 
 Why this is important:
 
 - extractor cost is dominated by per-entity LLM calls
-- top-10 filtering is a latency and quality control mechanism
+- pre-extraction reranking is the main latency and quality control mechanism
 
 Does not own:
 
 - retrieval
 - source triage
 - evidence-store construction
+
+### Breadth-V2 Sparse-Field Enrichment
+
+Owns:
+
+- sparse-column follow-up retrieval after first-pass extraction
+- one batched facet-generation call for sparse columns
+- bounded second-pass query construction
+- entity-aware and column-aware breadth-v2 chunk ranking
+- gap filling for missing fields only
+
+Important implementation stance:
+
+- this step is enrichment only, not new entity discovery
+- it operates on already extracted entities
+- it uses only new breadth-v2 chunks for gap filling
+- it logs separate backend debug summaries for:
+  - sparse columns
+  - generated facet terms
+  - built follow-up queries
+  - shortlisted enrichment chunk metadata
+
+Current practical limitation:
+
+- breadth-v2 source quality is still too dependent on generic roundup pages
+- hard-column quality is improving, but not yet strong enough for confident broad deployment
+
+Does not own:
+
+- global candidate discovery
+- full extractor reruns
+- final row shaping
 
 ### Finalizer
 
@@ -249,8 +340,8 @@ Current behavior:
 
 - returns only `final_rows`
 - each row has `name`, `fields`, and `source_urls`
-- no diagnostics
-- no extra ranking logic
+- no user-facing diagnostics
+- no heavy ranking logic
 
 Does not own:
 
@@ -261,21 +352,23 @@ Does not own:
 
 ---
 
-## Practical Implementation Priorities
+## Current Observability Context
 
-1. keep contracts stable
-2. keep provenance traceable
-3. keep stage ownership strict
-4. keep deterministic policies explicit
-5. use LLMs only where they provide real semantic value
+Agents should assume the active runtime already exposes SSE visibility for:
 
----
+- source retrieval
+- source classification
+- source processing
+- selected passage scoring
+- candidate identification
+- source assessment
+- evidence retrieval
+- candidate reranking
+- entity building
+- finalization
 
-## Anti-Goals
+There is also backend-only passive logging for:
 
-- no hidden coupling between stages
-- no private payload shapes
-- no speculative field extraction without evidence
-- no uncontrolled query expansion
-- no accidental reintroduction of verification/repair logic
-- no user-facing leakage of internal pipeline diagnostics
+- Jina chunk eval accumulation
+- source-bucket training data accumulation
+- final per-request debug summaries including ranked entity diagnostics

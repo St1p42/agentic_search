@@ -24,6 +24,8 @@ from backend.app.contracts import (
     FieldValue,
     PlannerOutput,
 )
+from backend.app.helpers import DefaultEntityReranker, EntityReranker
+from backend.app.helpers.entity_reranker import EntityRankingResult
 from backend.app.prompts import EXTRACTOR_SYSTEM_PROMPT
 
 
@@ -39,6 +41,7 @@ class ExtractorStage(Protocol):
         extractor_light_output: ExtractorLightOutput,
         evidence_store: EvidenceStore,
         prior_output: ExtractorOutput | None = None,
+        entity_ranking_result: EntityRankingResult | None = None,
     ) -> ExtractorOutput:
         """Extract structured candidate entities from entity-centric evidence chunks."""
 
@@ -50,6 +53,7 @@ class PlaceholderExtractorStage:
         extractor_light_output: ExtractorLightOutput,
         evidence_store: EvidenceStore,
         prior_output: ExtractorOutput | None = None,
+        entity_ranking_result: EntityRankingResult | None = None,
     ) -> ExtractorOutput:
         _ = planner_output
         _ = extractor_light_output
@@ -88,11 +92,13 @@ class LlmExtractorStage:
         model: str = DEFAULT_EXTRACTOR_MODEL,
         llm_client: StructuredLlmClient | None = None,
         runtime_config: ExtractorRuntimeConfig | None = None,
+        entity_reranker: EntityReranker | None = None,
     ) -> None:
         self.model = model
         self.reasoning_effort = "minimal"
         self._llm_client = llm_client
         self._runtime_config = runtime_config
+        self._entity_reranker = entity_reranker or DefaultEntityReranker()
 
     def run(
         self,
@@ -100,15 +106,18 @@ class LlmExtractorStage:
         extractor_light_output: ExtractorLightOutput,
         evidence_store: EvidenceStore,
         prior_output: ExtractorOutput | None = None,
+        entity_ranking_result: EntityRankingResult | None = None,
     ) -> ExtractorOutput:
         prior_by_name = {
             entity.entity_name: entity
             for entity in (prior_output.entities if prior_output else [])
         }
-        ranked_entity_names = _ranked_entity_names(
-            candidate_names=extractor_light_output.candidate_names,
+        ranking_result = entity_ranking_result or self._entity_reranker.run(
+            planner_output=planner_output,
+            extractor_light_output=extractor_light_output,
             evidence_store=evidence_store,
         )
+        ranked_entity_names = ranking_result.ranked_entity_names[:MAX_EXTRACTOR_ENTITIES]
         entities_by_name: dict[str, ExtractedEntity] = {}
         pending_names: list[str] = []
 
@@ -185,6 +194,7 @@ class LlmExtractorStage:
 def build_extractor_stage(
     runtime_config: ExtractorRuntimeConfig | None = None,
     llm_client: StructuredLlmClient | None = None,
+    entity_reranker: EntityReranker | None = None,
 ) -> ExtractorStage:
     config = runtime_config or load_extractor_runtime_config()
     if config.mode == "placeholder":
@@ -194,6 +204,7 @@ def build_extractor_stage(
             model=config.model,
             llm_client=llm_client,
             runtime_config=config,
+            entity_reranker=entity_reranker,
         )
     raise ValueError(f"Unsupported extractor mode: {config.mode}")
 
@@ -340,27 +351,3 @@ def _empty_extracted_entity(
         source_urls=[],
         provisional=True,
     )
-
-
-def _ranked_entity_names(
-    *,
-    candidate_names: list[str],
-    evidence_store: EvidenceStore,
-) -> list[str]:
-    return sorted(
-        candidate_names,
-        key=lambda entity_name: (
-            -evidence_store.entity_scores.get(entity_name, 0.0),
-            -_distinct_source_count(evidence_store.chunks_by_entity.get(entity_name, [])),
-            -_total_chunk_text_length(evidence_store.chunks_by_entity.get(entity_name, [])),
-            entity_name.casefold(),
-        ),
-    )[:MAX_EXTRACTOR_ENTITIES]
-
-
-def _distinct_source_count(chunks: list[EvidenceChunk]) -> int:
-    return len({str(chunk.source_url) for chunk in chunks})
-
-
-def _total_chunk_text_length(chunks: list[EvidenceChunk]) -> int:
-    return sum(len(chunk.text) for chunk in chunks)

@@ -212,7 +212,7 @@ export function mapPipelineResponse(response: BackendPipelineResponse): Frontend
     rows,
     sources: Array.from(sourcesByUrl.values()),
     sourcesCount: sourcesByUrl.size,
-    freshness: `Request ${response.request_id}`,
+    freshness: 'Updated just now',
     overallConfidence:
       confidenceValues.length > 0
         ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length

@@ -2,38 +2,43 @@ from __future__ import annotations
 
 """Jina fetch helper owned by the orchestrator."""
 
-import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 
 from backend.app.api_clients import HttpJinaReaderClient, JinaReaderClient
 from backend.app.config import JinaFetcherRuntimeConfig, load_jina_fetcher_runtime_config
-from backend.app.contracts import AssessorOutput, DeepFetchedDocument, JinaFetcherOutput
+from backend.app.contracts import EvidenceOrigin, PlannerOutput, RetrievedSourcesOutput, SearchResultItem, SearcherOutput, UrlSource
+from backend.app.helpers.hierarchical_text_chunker import HierarchicalTextChunker
+from backend.app.helpers.jina_eval_dataset_writer import (
+    JinaEvalDatasetWriter,
+    JsonlJinaEvalDatasetWriter,
+)
 
-
-SECTION_SPLIT_PATTERN = re.compile(r"\n{2,}|(?=\n#{1,4}\s+)")
-SENTENCE_BOUNDARY_PATTERN = re.compile(r"[.!?](?:\s+|$)")
-CLAUSE_BOUNDARY_PATTERN = re.compile(r"[;,](?:\s+|$)")
-MIN_TAIL_CHARS_FRACTION = 0.2
-TAIL_SPLIT_SEARCH_MARGIN_CHARS = 100
 
 class JinaFetcher(Protocol):
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
-    ) -> JinaFetcherOutput:
-        """Fetch selected Jina pages and return page text/chunks/failure markers."""
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
+    ) -> RetrievedSourcesOutput:
+        """Fetch selected Jina pages and return source-grouped chunked text."""
 
 
 class PlaceholderJinaFetcher:
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
-    ) -> JinaFetcherOutput:
-        _ = assessor_output
-        _ = remaining_fetch_budget
-        return JinaFetcherOutput(fetched_documents=[])
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
+    ) -> RetrievedSourcesOutput:
+        _ = searcher_output
+        _ = fetch_budget
+        _ = request_query
+        _ = planner_output
+        return RetrievedSourcesOutput(url_sources=[])
 
 
 class DefaultJinaFetcher:
@@ -41,49 +46,50 @@ class DefaultJinaFetcher:
         self,
         runtime_config: JinaFetcherRuntimeConfig | None = None,
         jina_reader_client: JinaReaderClient | None = None,
+        eval_dataset_writer: JinaEvalDatasetWriter | None = None,
     ) -> None:
         self._runtime_config = runtime_config
         self._jina_reader_client = jina_reader_client
+        self._eval_dataset_writer = eval_dataset_writer or JsonlJinaEvalDatasetWriter()
 
     def run(
         self,
-        assessor_output: AssessorOutput,
-        remaining_fetch_budget: int,
-    ) -> JinaFetcherOutput:
+        searcher_output: SearcherOutput,
+        fetch_budget: int,
+        request_query: str | None = None,
+        planner_output: PlannerOutput | None = None,
+    ) -> RetrievedSourcesOutput:
         config = self._config()
-        selected_urls = assessor_output.selected_jina_urls[: max(0, remaining_fetch_budget)]
-        fetched_documents: list[DeepFetchedDocument] = []
-
-        for selected_url in selected_urls:
-            try:
-                document = self._client().fetch_url(url=str(selected_url))
-                fetched_documents.append(
-                    DeepFetchedDocument(
-                        url=selected_url,
-                        title=document.title,
-                        text=document.text,
-                        chunks=chunk_document_text(
-                            document.text,
-                            max_chunks=config.max_chunks_per_doc,
-                            max_chars_per_chunk=config.max_chars_per_chunk,
-                        ),
-                        fetch_succeeded=True,
-                        error_message=None,
-                    )
+        selected_results = _selected_results(searcher_output, fetch_budget)
+        if not selected_results:
+            output = RetrievedSourcesOutput(url_sources=[])
+            if request_query and planner_output:
+                self._eval_dataset_writer.write(
+                    request_query=request_query,
+                    planner_output=planner_output,
+                    url_sources=output.url_sources,
                 )
-            except Exception as exc:
-                fetched_documents.append(
-                    DeepFetchedDocument(
-                        url=selected_url,
-                        title=str(selected_url),
-                        text=None,
-                        chunks=[],
-                        fetch_succeeded=False,
-                        error_message=str(exc),
-                    )
-                )
+            return output
 
-        return JinaFetcherOutput(fetched_documents=fetched_documents)
+        max_workers = max(1, min(config.max_concurrency, len(selected_results)))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(self._process_result, index=index, result=result, config=config)
+                for index, result in enumerate(selected_results)
+            ]
+            indexed_url_sources = [future.result() for future in futures]
+
+        indexed_url_sources.sort(key=lambda item: item[0])
+        url_sources = [url_source for _, url_source in indexed_url_sources]
+
+        output = RetrievedSourcesOutput(url_sources=url_sources)
+        if request_query and planner_output:
+            self._eval_dataset_writer.write(
+                request_query=request_query,
+                planner_output=planner_output,
+                url_sources=output.url_sources,
+            )
+        return output
 
     def _config(self) -> JinaFetcherRuntimeConfig:
         return self._runtime_config or load_jina_fetcher_runtime_config()
@@ -100,10 +106,50 @@ class DefaultJinaFetcher:
         )
         return self._jina_reader_client
 
+    def _process_result(
+        self,
+        *,
+        index: int,
+        result: SearchResultItem,
+        config: JinaFetcherRuntimeConfig,
+    ) -> tuple[int, UrlSource]:
+        source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(result.url))
+        chunker = HierarchicalTextChunker(
+            target_chunk_chars=config.max_chars_per_chunk,
+            min_chunk_chars=config.min_chars_per_chunk,
+            max_chunks=config.max_chunks_per_doc,
+        )
+        try:
+            document = self._client().fetch_url(url=str(result.url))
+            chunks = chunker.chunk(text=document.text, source_id=source_id)
+            return (
+                index,
+                UrlSource(
+                    source_id=source_id,
+                    url=result.url,
+                    title=document.title,
+                    origin=EvidenceOrigin.JINA,
+                    chunks=chunks,
+                ),
+            )
+        except Exception as exc:
+            return (
+                index,
+                UrlSource(
+                    source_id=source_id,
+                    url=result.url,
+                    title=result.title,
+                    origin=EvidenceOrigin.JINA,
+                    metadata={"fetch_succeeded": False, "error_message": str(exc)},
+                    chunks=[],
+                ),
+            )
+
 
 def build_jina_fetcher(
     runtime_config: JinaFetcherRuntimeConfig | None = None,
     jina_reader_client: JinaReaderClient | None = None,
+    eval_dataset_writer: JinaEvalDatasetWriter | None = None,
 ) -> JinaFetcher:
     config = runtime_config or load_jina_fetcher_runtime_config()
     if config.mode == "placeholder":
@@ -112,120 +158,14 @@ def build_jina_fetcher(
         return DefaultJinaFetcher(
             runtime_config=config,
             jina_reader_client=jina_reader_client,
+            eval_dataset_writer=eval_dataset_writer,
         )
     raise ValueError(f"Unsupported Jina fetcher mode: {config.mode}")
 
 
-def chunk_document_text(
-    text: str,
-    *,
-    max_chunks: int,
-    max_chars_per_chunk: int,
-) -> list[str]:
-    normalized_text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
-    if not normalized_text:
-        return []
-
-    # Split on paragraph breaks (`\n\n+`) or before markdown headings (`\n# ...`)
-    # so each chunk tends to preserve coherent section boundaries.
-    sections = [
-        section.strip()
-        for section in SECTION_SPLIT_PATTERN.split(normalized_text)
-        if section.strip()
-    ]
-    chunks: list[str] = []
-    current_chunk = ""
-
-    for section in sections:
-        for section_part in _split_oversized_section(
-            section,
-            max_chars_per_chunk=max_chars_per_chunk,
-        ):
-            if not current_chunk:
-                current_chunk = section_part
-                continue
-            if len(current_chunk) + len(section_part) + 2 <= max_chars_per_chunk:
-                current_chunk = f"{current_chunk}\n\n{section_part}"
-                continue
-            chunks.append(current_chunk.strip())
-            if len(chunks) >= max_chunks:
-                return chunks
-            current_chunk = section_part
-
-    if current_chunk and len(chunks) < max_chunks:
-        chunks.append(current_chunk.strip())
-
-    return chunks[:max_chunks]
+def _source_id(*, origin: EvidenceOrigin, source_url: str) -> str:
+    return f"{origin.value}:{source_url}"
 
 
-def _split_oversized_section(section: str, *, max_chars_per_chunk: int) -> list[str]:
-    section = section.strip()
-    if len(section) <= max_chars_per_chunk:
-        return [section]
-
-    parts: list[str] = []
-    remaining_text = section
-    min_tail_chars = max(1, int(max_chars_per_chunk * MIN_TAIL_CHARS_FRACTION))
-
-    while len(remaining_text) > max_chars_per_chunk:
-        split_at = _best_split_index(
-            remaining_text,
-            max_chars_per_chunk=max_chars_per_chunk,
-            min_tail_chars=min_tail_chars,
-        )
-        parts.append(remaining_text[:split_at].strip())
-        remaining_text = remaining_text[split_at:].strip()
-
-    if remaining_text:
-        parts.append(remaining_text)
-
-    return parts
-
-
-def _best_split_index(
-    text: str,
-    *,
-    max_chars_per_chunk: int,
-    min_tail_chars: int,
-) -> int:
-    split_upper_bound = min(
-        max_chars_per_chunk,
-        max(1, len(text) - min_tail_chars),
-    )
-    split_lower_bound = max(1, split_upper_bound - TAIL_SPLIT_SEARCH_MARGIN_CHARS)
-    window = text[: split_upper_bound + 1]
-
-    sentence_match_end = _last_pattern_match_end(
-        pattern=SENTENCE_BOUNDARY_PATTERN,
-        text=window,
-        lower_bound=split_lower_bound,
-    )
-    if sentence_match_end is not None:
-        return sentence_match_end
-
-    clause_match_end = _last_pattern_match_end(
-        pattern=CLAUSE_BOUNDARY_PATTERN,
-        text=window,
-        lower_bound=split_lower_bound,
-    )
-    if clause_match_end is not None:
-        return clause_match_end
-
-    whitespace_index = window.rfind(" ", split_lower_bound)
-    if whitespace_index >= split_lower_bound:
-        return whitespace_index + 1
-
-    return split_upper_bound
-
-
-def _last_pattern_match_end(
-    *,
-    pattern: re.Pattern[str],
-    text: str,
-    lower_bound: int,
-) -> int | None:
-    match_end: int | None = None
-    for match in pattern.finditer(text):
-        if match.end() >= lower_bound:
-            match_end = match.end()
-    return match_end
+def _selected_results(searcher_output: SearcherOutput, fetch_budget: int) -> list[SearchResultItem]:
+    return searcher_output.shortlisted_results[: max(0, fetch_budget)]

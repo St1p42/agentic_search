@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 
 from backend.app.api_clients import BraveSearchClient, BraveWebResult
 from backend.app.config import SearcherRuntimeConfig
+from backend.app.helpers import SourceBucketClassifier, SourceBucketDatasetWriter
+from backend.app.helpers.source_bucket_classifier import SourceBucketDecision
 from backend.app.contracts import PlannerOutput, SearcherOutput
 from backend.app.main import app
 from backend.app.stages import PlaceholderSearcherStage
@@ -19,6 +21,26 @@ class FakeBraveSearchClient(BraveSearchClient):
     def search_web(self, *, query: str, count: int) -> list[BraveWebResult]:
         self.calls.append((query, count))
         return list(self._results_by_query.get(query, []))[:count]
+
+
+class FakeSourceBucketClassifier(SourceBucketClassifier):
+    def __init__(self, buckets_by_url: dict[str, str]) -> None:
+        self._buckets_by_url = buckets_by_url
+
+    def classify(self, *, planner_output: PlannerOutput, search_results):
+        _ = planner_output
+        return {
+            url: SourceBucketDecision(url=url, bucket=bucket, confidence=0.9, reason="test")
+            for url, bucket in self._buckets_by_url.items()
+            if any(str(result.url) == url for result in search_results)
+        }
+
+
+class NoopSourceBucketDatasetWriter(SourceBucketDatasetWriter):
+    def write(self, *, planner_output: PlannerOutput, search_results, decisions_by_url) -> None:
+        _ = planner_output
+        _ = search_results
+        _ = decisions_by_url
 
 
 def _planner_output(
@@ -285,7 +307,7 @@ def test_brave_searcher_honors_max_search_queries_and_skips_retry_without_budget
     ]
 
 
-def test_brave_searcher_uses_query_source_tiebreaker_and_domain_cap() -> None:
+def test_brave_searcher_uses_weighted_source_score_and_domain_cap() -> None:
     fake_client = FakeBraveSearchClient(
         {
             "AI startups in healthcare": [
@@ -360,6 +382,207 @@ def test_brave_searcher_uses_query_source_tiebreaker_and_domain_cap() -> None:
     assert output.shortlisted_results[0].query_sources == [
         "AI startups in healthcare",
         "medical AI startups",
+    ]
+
+
+def test_brave_searcher_weighted_source_score_can_outrank_worse_coverage() -> None:
+    fake_client = FakeBraveSearchClient(
+        {
+            "AI startups in healthcare": [
+                _brave_result(
+                    url="https://single-query.com/a",
+                    title="Single Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="single-query.com",
+                    rank=1,
+                ),
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+            "healthcare AI startups": [
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+            "medical AI startups": [
+                _brave_result(
+                    url="https://multi-query.com/a",
+                    title="Multi Query Result",
+                    snippet="Healthcare AI clinical application",
+                    domain="multi-query.com",
+                    rank=2,
+                ),
+            ],
+        }
+    )
+    searcher = BraveSearcherStage(
+        runtime_config=_searcher_config(weak_pool_threshold=0),
+        brave_client=fake_client,
+    )
+
+    output = searcher.run(
+        _planner_output(rewrites=["healthcare AI startups", "medical AI startups"])
+    )
+
+    assert [str(result.url) for result in output.shortlisted_results[:2]] == [
+        "https://multi-query.com/a",
+        "https://single-query.com/a",
+    ]
+    assert output.shortlisted_results[0].query_sources == [
+        "AI startups in healthcare",
+        "healthcare AI startups",
+        "medical AI startups",
+    ]
+
+
+def test_brave_searcher_bucketed_selection_diversifies_source_types() -> None:
+    fake_client = FakeBraveSearchClient(
+        {
+            "best entertainment places and things to do in Bucharest": [
+                _brave_result(
+                    url="https://official.com/a",
+                    title="Official Venue A",
+                    snippet="Official venue page in Bucharest.",
+                    domain="official.com",
+                    rank=1,
+                ),
+                _brave_result(
+                    url="https://directory.com/a",
+                    title="Venue A profile",
+                    snippet="Profile page for one Bucharest venue.",
+                    domain="directory.com",
+                    rank=2,
+                ),
+                _brave_result(
+                    url="https://roundup.com/a",
+                    title="Best things to do in Bucharest",
+                    snippet="A list of attractions and entertainment options.",
+                    domain="roundup.com",
+                    rank=1,
+                ),
+                _brave_result(
+                    url="https://editorial.com/a",
+                    title="Bucharest nightlife guide",
+                    snippet="A guide to nightlife and cultural activities in Bucharest.",
+                    domain="editorial.com",
+                    rank=2,
+                ),
+                _brave_result(
+                    url="https://transactional.com/a",
+                    title="Bucharest activities and tickets",
+                    snippet="Book tours and attraction tickets in Bucharest.",
+                    domain="transactional.com",
+                    rank=2,
+                ),
+            ]
+        }
+    )
+    classifier = FakeSourceBucketClassifier(
+        {
+            "https://official.com/a": "official_entity",
+            "https://directory.com/a": "profile_directory",
+            "https://roundup.com/a": "roundup_list",
+            "https://editorial.com/a": "editorial_reference",
+            "https://transactional.com/a": "transactional_listing",
+        }
+    )
+    searcher = BraveSearcherStage(
+        runtime_config=SearcherRuntimeConfig(
+            mode="brave",
+            brave_search_api_key="fake-key",
+            shortlist_cap=5,
+            weak_pool_threshold=0,
+        ),
+        brave_client=fake_client,
+        source_bucket_classifier=classifier,
+        source_bucket_dataset_writer=NoopSourceBucketDatasetWriter(),
+    )
+
+    output = searcher.run(
+        _planner_output(base_query="best entertainment places and things to do in Bucharest")
+    )
+
+    assert [result.provider_metadata["source_bucket"] for result in output.shortlisted_results] == [
+        "official_entity",
+        "profile_directory",
+        "editorial_reference",
+        "roundup_list",
+        "transactional_listing",
+    ]
+
+
+def test_brave_searcher_bucketed_selection_backfills_after_caps_and_floors() -> None:
+    fake_client = FakeBraveSearchClient(
+        {
+            "AI startups in healthcare": [
+                _brave_result(
+                    url="https://official.com/a",
+                    title="Official A",
+                    snippet="Healthcare AI company official page",
+                    domain="official.com",
+                    rank=1,
+                ),
+                _brave_result(
+                    url="https://official.com/b",
+                    title="Official B",
+                    snippet="Healthcare AI company official page",
+                    domain="official.com",
+                    rank=2,
+                ),
+                _brave_result(
+                    url="https://profile.com/a",
+                    title="Profile A",
+                    snippet="Healthcare AI company profile page",
+                    domain="profile.com",
+                    rank=2,
+                ),
+                _brave_result(
+                    url="https://editorial.com/a",
+                    title="Healthcare AI guide",
+                    snippet="An editorial guide to healthcare AI companies",
+                    domain="editorial.com",
+                    rank=3,
+                ),
+            ]
+        }
+    )
+    classifier = FakeSourceBucketClassifier(
+        {
+            "https://official.com/a": "official_entity",
+            "https://official.com/b": "official_entity",
+            "https://profile.com/a": "profile_directory",
+            "https://editorial.com/a": "editorial_reference",
+        }
+    )
+    searcher = BraveSearcherStage(
+        runtime_config=SearcherRuntimeConfig(
+            mode="brave",
+            brave_search_api_key="fake-key",
+            shortlist_cap=4,
+            weak_pool_threshold=0,
+        ),
+        brave_client=fake_client,
+        source_bucket_classifier=classifier,
+        source_bucket_dataset_writer=NoopSourceBucketDatasetWriter(),
+    )
+
+    output = searcher.run(_planner_output())
+
+    assert len(output.shortlisted_results) == 4
+    assert [str(result.url) for result in output.shortlisted_results] == [
+        "https://official.com/a",
+        "https://profile.com/a",
+        "https://editorial.com/a",
+        "https://official.com/b",
     ]
 
 

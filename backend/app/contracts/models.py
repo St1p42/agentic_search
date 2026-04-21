@@ -12,7 +12,7 @@ DEFAULT_MAX_TOTAL_SEARCH_ROUNDS = 2
 DEFAULT_MAX_SEARCH_QUERIES = 4
 DEFAULT_MAX_VERIFICATION_QUERIES = 7
 DEFAULT_MAX_SHORTLISTED_URLS = 15
-DEFAULT_MAX_DEEP_FETCHES = 7
+DEFAULT_MAX_DEEP_FETCHES = 15
 DEFAULT_MAX_REPAIR_ROUNDS = 1
 DEFAULT_MAX_FINAL_ROWS = 10
 
@@ -118,29 +118,24 @@ class SearcherOutput(BaseModel):
     shortlisted_results: list[SearchResultItem]
 
 
-class DeepFetchedDocument(BaseModel):
+class RetrievedChunk(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    chunk_id: str
+    source_id: str
+    text: str
+    sequence_index: int = Field(ge=0)
+
+
+class UrlSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
     url: HttpUrl
     title: str
-    text: str | None = None
-    chunks: list[str] = Field(default_factory=list)
-    fetch_succeeded: bool = True
-    error_message: str | None = None
-
-
-class BraveContextPassage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    source_url: HttpUrl
-    passage_text: str
+    origin: EvidenceOrigin
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
-
-
-class BraveContextOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    passages_by_url: dict[HttpUrl, list[BraveContextPassage]] = Field(default_factory=dict)
+    chunks: list[RetrievedChunk] = Field(default_factory=list)
 
 
 class HeuristicSourceSignals(BaseModel):
@@ -158,7 +153,7 @@ class AssessedSource(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     result: SearchResultItem
-    brave_context_passages: list[BraveContextPassage] = Field(default_factory=list)
+    retrieved_chunks: list[RetrievedChunk] = Field(default_factory=list)
     heuristic_signals: HeuristicSourceSignals
     source_role: SourceRole = SourceRole.DISCOVERY
     source_quality: SourceQuality = SourceQuality.MEDIUM
@@ -206,6 +201,8 @@ class EvidenceChunk(BaseModel):
     officiality: OfficialityLevel
     origin: EvidenceOrigin
     aspect_coverage: list[str] = Field(default_factory=list)
+    query_sources: list[str] = Field(default_factory=list)
+    selected_chunk_rank: int | None = Field(default=None, ge=1)
 
 
 class EvidenceStore(BaseModel):
@@ -215,10 +212,48 @@ class EvidenceStore(BaseModel):
     entity_scores: dict[str, float] = Field(default_factory=dict)
 
 
-class JinaFetcherOutput(BaseModel):
+class RetrievedSourcesOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    fetched_documents: list[DeepFetchedDocument]
+    url_sources: list[UrlSource] = Field(default_factory=list)
+
+
+class ChunkScore(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    final_score: float = 0.0
+    base_score: float = 0.0
+    best_rewrite_score: float = 0.0
+    query_variant_coverage_score: float = 0.0
+    query_variant_coverage_count: int = Field(default=0, ge=0)
+    query_scores: dict[str, float] = Field(default_factory=dict)
+    matched_queries: list[str] = Field(default_factory=list)
+    best_query: str | None = None
+    max_query_span_score: float = 0.0
+    anchor_coverage_score: float = 0.0
+
+
+class RankedChunk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    chunk_id: str
+    rank: int = Field(ge=1)
+    score: ChunkScore
+
+
+class ChunkRankingOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url_sources: list[UrlSource] = Field(default_factory=list)
+    ranked_chunks: list[RankedChunk] = Field(default_factory=list)
+    selected_chunk_ids: list[str] = Field(default_factory=list)
+
+
+BraveContextOutput = RetrievedSourcesOutput
+JinaFetcherOutput = RetrievedSourcesOutput
+BraveContextPassage = RetrievedChunk
+ScoredChunk = RankedChunk
 
 
 class ExtractedEntity(BaseModel):
