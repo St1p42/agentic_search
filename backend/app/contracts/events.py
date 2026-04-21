@@ -131,6 +131,32 @@ class SelectingSourcePassagesStageUiModel(BaseModel):
         )
 
 
+class ClassifyingSourcesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    official_sources: int
+    profile_sources: int
+    roundup_sources: int
+    editorial_reference_sources: int
+    transactional_sources: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Grouped shortlisted sources by source type",
+            metrics=[
+                StageMetric(key="officialSources", label="Official sources", value=self.official_sources),
+                StageMetric(key="profileSources", label="Profile sources", value=self.profile_sources),
+                StageMetric(key="roundupSources", label="Roundup sources", value=self.roundup_sources),
+                StageMetric(
+                    key="editorialReferenceSources",
+                    label="Editorial/reference sources",
+                    value=self.editorial_reference_sources,
+                ),
+                StageMetric(key="transactionalSources", label="Transactional sources", value=self.transactional_sources),
+            ],
+        )
+
+
 class IdentifyingCandidatesStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

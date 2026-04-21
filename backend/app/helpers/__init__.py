@@ -37,6 +37,16 @@ from backend.app.helpers.jina_eval_dataset_writer import (
     JinaEvalDatasetWriter,
     JsonlJinaEvalDatasetWriter,
 )
+from backend.app.helpers.source_bucket_classifier import (
+    DefaultSourceBucketClassifier,
+    PlaceholderSourceBucketClassifier,
+    SourceBucketClassifier,
+    SourceBucketDecision,
+)
+from backend.app.helpers.source_bucket_dataset_writer import (
+    JsonlSourceBucketDatasetWriter,
+    SourceBucketDatasetWriter,
+)
 
 __all__ = [
     "BraveContextFetcher",
@@ -49,6 +59,7 @@ __all__ = [
     "DefaultEntityReranker",
     "DefaultFinalLogger",
     "DefaultJinaFetcher",
+    "DefaultSourceBucketClassifier",
     "HierarchicalTextChunker",
     "EvidenceStoreBuilder",
     "EntityReranker",
@@ -56,11 +67,16 @@ __all__ = [
     "JinaFetcher",
     "JinaEvalDatasetWriter",
     "JsonlJinaEvalDatasetWriter",
+    "JsonlSourceBucketDatasetWriter",
     "PlaceholderBraveContextFetcher",
     "PlaceholderEvidenceStoreBuilder",
     "PlaceholderFinalLogger",
     "PlaceholderJinaFetcher",
+    "PlaceholderSourceBucketClassifier",
     "build_brave_context_fetcher",
     "build_evidence_store_builder",
     "build_jina_fetcher",
+    "SourceBucketClassifier",
+    "SourceBucketDatasetWriter",
+    "SourceBucketDecision",
 ]

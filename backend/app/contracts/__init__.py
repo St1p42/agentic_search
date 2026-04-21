@@ -4,6 +4,7 @@ from backend.app.contracts.errors import ErrorCode, PipelineError
 from backend.app.contracts.events import (
     AssessingSourceQualityStageUiModel,
     BuildingEntitiesStageUiModel,
+    ClassifyingSourcesStageUiModel,
     EventPayload,
     FinalizingTableStageUiModel,
     HeuristicAssessingSourceQualityStageUiModel,
@@ -80,6 +81,7 @@ __all__ = [
     "AssessorOutput",
     "BudgetState",
     "BuildingEntitiesStageUiModel",
+    "ClassifyingSourcesStageUiModel",
     "BraveContextPassage",
     "BraveContextOutput",
     "CanonicalEntity",

@@ -16,6 +16,7 @@ from backend.app.contracts import (
     BuildingEntitiesStageUiModel,
     BudgetState,
     CanonicalizerVerifierEvaluatorOutput,
+    ClassifyingSourcesStageUiModel,
     ChunkRankingOutput,
     ErrorCode,
     EventPayload,
@@ -304,6 +305,29 @@ class PipelineOrchestrator:
         state.budget.used_search_rounds += 1
         state.budget.used_search_queries += len(state.searcher_output.executed_queries)
 
+        self.event_emitter.stage_started(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Classifying sources",
+        )
+        self.event_emitter.stage_completed(
+            request_id=state.request_id,
+            stage_name=StageName.SEARCHER,
+            message="Classifying sources completed",
+            data=_ui_event_data(
+                ClassifyingSourcesStageUiModel(
+                    official_sources=_source_bucket_count(state.searcher_output, "official_entity"),
+                    profile_sources=_source_bucket_count(state.searcher_output, "profile_directory"),
+                    roundup_sources=_source_bucket_count(state.searcher_output, "roundup_list"),
+                    editorial_reference_sources=_source_bucket_count(
+                        state.searcher_output,
+                        "editorial_reference",
+                    ),
+                    transactional_sources=_source_bucket_count(state.searcher_output, "transactional_listing"),
+                ).to_ui_details()
+            ),
+        )
+
         state.retrieved_sources_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.SEARCHER,
@@ -539,6 +563,14 @@ def _sources_sent_to_llm_count(assessor_output: AssessorOutput) -> int:
         1
         for source in assessor_output.assessed_sources
         if not source.filtered_out
+    )
+
+
+def _source_bucket_count(searcher_output: SearcherOutput, bucket: str) -> int:
+    return sum(
+        1
+        for result in searcher_output.shortlisted_results
+        if result.provider_metadata.get("source_bucket") == bucket
     )
 
 

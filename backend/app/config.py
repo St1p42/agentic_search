@@ -85,6 +85,7 @@ class ExtractorRuntimeConfig:
 class SearcherRuntimeConfig:
     mode: str = DEFAULT_SEARCHER_MODE
     brave_search_api_key: str | None = None
+    openai_api_key: str | None = None
     brave_search_endpoint: str = DEFAULT_BRAVE_SEARCH_ENDPOINT
     brave_country: str = DEFAULT_BRAVE_SEARCH_COUNTRY
     brave_search_lang: str = DEFAULT_BRAVE_SEARCH_LANG
@@ -164,6 +165,7 @@ def load_searcher_runtime_config(env_path: Path = DEFAULT_ENV_PATH) -> SearcherR
     return SearcherRuntimeConfig(
         mode=os.getenv(ENV_SEARCHER_MODE, DEFAULT_SEARCHER_MODE).strip() or DEFAULT_SEARCHER_MODE,
         brave_search_api_key=os.getenv(ENV_BRAVE_SEARCH_API_KEY),
+        openai_api_key=os.getenv(ENV_OPENAI_API_KEY),
     )
 
 
