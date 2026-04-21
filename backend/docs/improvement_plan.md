@@ -9,8 +9,8 @@ Most of the earlier roadmap is now outdated because the retrieval stack, chunk r
 At this point, the main remaining work is:
 
 1. reduce `Processing sources` latency
-2. improve weak entity generation / source quality
-3. evaluate schema-specific queries for sparse outputs
+2. improve breadth-v2 source quality and weak entity quality
+3. evaluate whether breadth-v2 is enough for sparse outputs or needs further refinement
 4. reduce planner latency if possible
 
 ---
@@ -41,44 +41,44 @@ Reduce wall-clock time for source processing without changing output quality.
 
 ---
 
-## 2. Weak Entities / Weak Sources
+## 2. Breadth-V2 Source Quality / Weak Entities
 
 ### Current Diagnosis
 
-The current main quality issue is not primarily reranking.
+The current main quality issue is now split across two layers:
 
-The more important issue is weak candidate quality caused by weak source quality and weak corroboration.
+- first-pass entity quality is still imperfect
+- breadth-v2 enrichment still relies too heavily on generic roundup/listicle sources
 
 Revised diagnosis:
 
-1. primary issue: not enough good sources/candidates
-2. secondary issue: some bad candidates should still be filtered
+1. primary issue: breadth-v2 still retrieves too many generic roundup pages
+2. secondary issue: some wrong-type entities still survive into enrichment
 3. reranking is not the main bottleneck right now
 
 Recent logs suggest:
 
-- too many entities are supported by only one source
-- too many entities come from only one rewrite
-- too many selected sources are still generic listicles / roundup-style pages
-- the reranker is often being asked to choose among mediocre single-source candidates
+- breadth-v2 queries are now better formed, but the second-pass source pool is still weak
+- hard columns such as `notable_portfolio_companies` still often miss obvious values
+- breadth-v2 shortlisted chunks are still dominated by generic editorial/listicle pages rather than official or profile-style sources
+- wrong entity types can still enter enrichment if they survive first-pass extraction/reranking
 
 ### What To Do Next
 
-- get more representative sources, not just more sources
-- specifically more:
-  - `official_entity`
-  - `profile_directory`
-  - stronger local/editorial sources
-- and fewer generic listicles dominating the selected pool
+Prioritize better breadth-v2 source quality, not broader expansion.
 
 Concretely, the next useful step is probably:
 
-- strengthen source selection so `roundup_list` does not dominate as much
-- maybe increase preference/caps for:
+- add a light source preference in breadth v2 toward:
   - `official_entity`
   - `profile_directory`
-  - `editorial_reference`
-- and/or do a second lightweight expansion pass from top candidates to fetch official/profile pages
+  - stronger single-entity/profile pages
+- downweight generic roundup/listicle pages during breadth-v2 retrieval/selection
+- strengthen entity-type plausibility before breadth-v2 enrichment runs so obvious wrong-type entities do not get enriched
+- keep the current breadth-v2 debug logging and use it to inspect:
+  - generated facet terms
+  - built follow-up queries
+  - shortlisted enrichment sources/chunks
 
 ### Secondary Cleanup
 
@@ -86,22 +86,36 @@ Even though reranking is not the main bottleneck, some bad candidates should sti
 
 Examples:
 
-- agencies
-- districts / neighborhoods when the query asks for venues or concrete places
-- other obvious wrong-type entities
+- non-target entity types that survive first pass
+- obvious companies/products showing up in firm/investor queries
+- other clear wrong-type entities
 
 But this is secondary to improving the source pool itself.
 
 ### Success Criteria
 
-- more candidates have support from multiple sources
-- more candidates have support from multiple query variants
-- final outputs rely less on generic roundup pages
-- obviously wrong entities become rarer without relying on heavy cleanup
+- breadth-v2 sources rely less on generic roundup pages
+- hard columns fill more reliably on representative queries
+- obviously wrong entities are enriched less often
+- internal quality looks stable enough for broader testing
+
+### Current Release Stance
+
+Current status:
+
+- good internal milestone
+- acceptable for internal testing / limited beta
+- not yet strong enough for confident broad deployment
+
+Reason:
+
+- the system is clearly improving
+- but hard-column quality is still too dependent on weak second-pass sources
+- current behavior is still query-dependent in a brittle way
 
 ---
 
-## 3. Schema-Specific Queries
+## 3. Schema-Specific Queries / Breadth-V2 Follow-Up
 
 ### Problem
 
@@ -110,7 +124,13 @@ Some outputs are still sparse:
 - not enough entities for the requested query
 - too many missing columns
 
-This is a different problem from weak entities.
+The active breadth-v2 sparse-field enrichment pass now exists, so the question is no longer whether schema-specific follow-up retrieval is useful in principle.
+
+The current question is whether breadth-v2 needs further refinement, especially:
+
+- better source quality
+- better entity-type gating
+- possible column-specific handling for especially hard fields
 
 ### Goal
 
@@ -118,18 +138,12 @@ Improve coverage for sparse outputs without overcomplicating the default retriev
 
 ### Recommended Direction
 
-Investigate schema-specific or column-specific follow-up queries only as a targeted enrichment mechanism.
+Keep breadth-v2 as the active targeted enrichment mechanism and refine it rather than replacing it immediately.
 
 This should be treated as:
 
 - a solution for sparse entities / sparse columns
 - not the main solution for weak entity quality
-
-### Open Question
-
-This may or may not be the best next move after source-quality improvements.
-
-It should be evaluated against simpler alternatives first.
 
 ### Success Criteria
 
@@ -167,11 +181,11 @@ Reduce planner latency if possible without making rewrites and schema inference 
 Recommended near-term order:
 
 1. `Processing sources` latency
-2. weak entities / weak sources
+2. breadth-v2 source quality / weak entities
 3. planner latency
-4. schema-specific queries
+4. breadth-v2 refinement for sparse outputs
 
 Reasoning:
 
-- source latency and source quality are the main bottlenecks right now
-- schema-specific queries are useful, but they are more relevant to sparsity than to weak entities
+- source latency and second-pass source quality are the main bottlenecks right now
+- breadth-v2 exists and is promising, but still needs refinement before broader deployment

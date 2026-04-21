@@ -31,6 +31,7 @@ You are implementing part of a bounded deterministic multi-stage system. Follow 
 - Evidence Store Builder owns entity-centric evidence construction from ranked selected chunks.
 - Entity reranking happens before extractor construction.
 - Extractor consumes evidence-backed candidates and owns structured field extraction.
+- Breadth-v2 sparse-field enrichment runs after first-pass extraction when sparse columns remain.
 - Finalizer is a thin response shaper in the active flow.
 - Prefer null over unsupported values.
 - Keep all stage I/O typed and explicit.
@@ -49,7 +50,8 @@ You are implementing part of a bounded deterministic multi-stage system. Follow 
 8. Evidence Store Builder
 9. Entity reranker
 10. Extractor
-11. Finalizer
+11. Optional breadth-v2 sparse-field enrichment
+12. Finalizer
 
 ---
 
@@ -295,6 +297,38 @@ Does not own:
 - retrieval
 - source triage
 - evidence-store construction
+
+### Breadth-V2 Sparse-Field Enrichment
+
+Owns:
+
+- sparse-column follow-up retrieval after first-pass extraction
+- one batched facet-generation call for sparse columns
+- bounded second-pass query construction
+- entity-aware and column-aware breadth-v2 chunk ranking
+- gap filling for missing fields only
+
+Important implementation stance:
+
+- this step is enrichment only, not new entity discovery
+- it operates on already extracted entities
+- it uses only new breadth-v2 chunks for gap filling
+- it logs separate backend debug summaries for:
+  - sparse columns
+  - generated facet terms
+  - built follow-up queries
+  - shortlisted enrichment chunk metadata
+
+Current practical limitation:
+
+- breadth-v2 source quality is still too dependent on generic roundup pages
+- hard-column quality is improving, but not yet strong enough for confident broad deployment
+
+Does not own:
+
+- global candidate discovery
+- full extractor reruns
+- final row shaping
 
 ### Finalizer
 

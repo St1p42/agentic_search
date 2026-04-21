@@ -47,6 +47,7 @@ Implemented in the active flow:
 - source-bucket classification before deep fetch
 - chunk ranking over fetched page text
 - entity reranking before extractor construction
+- bounded breadth-v2 sparse-field enrichment after first-pass extraction
 - passive eval-data collection for Jina chunks
 
 ---
@@ -75,9 +76,16 @@ Owns:
 8. Evidence Store Builder
 9. Entity reranking
 10. Extractor
-11. Finalizer
+11. Optional breadth-v2 sparse-field enrichment
+12. Finalizer
 
 This order is sequential and fixed.
+
+The breadth-v2 step is conditional:
+
+- it runs only if sparse columns remain after first-pass extraction
+- it does not discover new entities
+- it only enriches missing fields on already extracted entities
 
 ---
 
@@ -98,6 +106,7 @@ The active budgets are conservative and bounded. The important practical caps ar
 - a bounded shortlist of Brave search results
 - a bounded deep-fetch set for Jina
 - a bounded selected chunk set for extraction
+- a bounded second-pass breadth-v2 query set for sparse columns
 - top 10 final entities returned
 
 ---
@@ -491,7 +500,54 @@ This matters because extractor latency is driven by per-entity LLM calls, so pre
 
 ---
 
-## 12. Finalizer
+## 12. Breadth-V2 Sparse-Field Enrichment
+
+**Purpose:** fill remaining sparse fields using a second bounded retrieval pass without rerunning global discovery.
+
+### Trigger
+
+This step runs only if sparse columns remain after first-pass extraction.
+
+### Inputs
+
+- `PlannerOutput`
+- first-pass `ExtractorOutput`
+- sparse-column summary
+
+### Active behavior
+
+1. detect sparse columns from first-pass extracted entities
+2. generate one batched set of column facet terms with `gpt-5-mini`
+3. build one follow-up query per sparse column
+4. run a bounded second search pass without source-bucket classification
+5. Jina-fetch and chunk the shortlisted breadth-v2 sources
+6. rank breadth-v2 chunks for `(entity, column)` relevance
+7. run a dedicated gap filler over:
+   - existing extracted entities
+   - missing fields only
+   - new breadth-v2 chunks only
+8. merge partial field updates back into the existing entities
+
+### Important active behavior
+
+- this step does not introduce new entities
+- this step does not rerun the full extractor from scratch
+- chunk ranking is entity-aware and column-aware
+- breadth-v2 emits separate backend debug logging:
+  - sparse columns
+  - generated facet terms
+  - built follow-up queries
+  - shortlisted enrichment chunk metadata
+
+### Current practical limitation
+
+- breadth-v2 source quality is still weaker than desired
+- hard columns can still over-rely on generic roundup pages
+- wrong entity types can still enter enrichment if they survive first-pass filtering
+
+---
+
+## 13. Finalizer
 
 **Purpose:** produce the final user-facing result rows.
 
