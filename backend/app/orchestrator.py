@@ -166,6 +166,7 @@ class PipelineOrchestrator:
             planner_output=state.planner_output,
             chunk_ranking_output=state.chunk_ranking_output,
             extractor_light_output=state.extractor_light_output,
+            entity_ranking_result=state.entity_ranking_result,
             extractor_output=state.extractor_output,
             finalizer_output=state.finalizer_output,
         )

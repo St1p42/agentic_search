@@ -20,6 +20,7 @@ from backend.app.helpers.evidence_store_builder import (
 from backend.app.helpers.entity_reranker import (
     DefaultEntityReranker,
     EntityReranker,
+    EntityRankingResult,
 )
 from backend.app.helpers.final_logger import (
     DefaultFinalLogger,
@@ -63,6 +64,7 @@ __all__ = [
     "HierarchicalTextChunker",
     "EvidenceStoreBuilder",
     "EntityReranker",
+    "EntityRankingResult",
     "FinalLogger",
     "JinaFetcher",
     "JinaEvalDatasetWriter",

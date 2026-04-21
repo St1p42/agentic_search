@@ -17,6 +17,7 @@ from backend.app.contracts import (
     SearcherOutput,
 )
 from backend.app.helpers import (
+    EntityRankingResult,
     FinalLogger,
     PlaceholderBraveContextFetcher,
     PlaceholderEvidenceStoreBuilder,
@@ -170,6 +171,7 @@ class RecordingFinalLogger(FinalLogger):
         planner_output: PlannerOutput,
         chunk_ranking_output: ChunkRankingOutput | None,
         extractor_light_output: ExtractorLightOutput | None,
+        entity_ranking_result: EntityRankingResult | None,
         extractor_output: ExtractorOutput | None,
         finalizer_output,
     ) -> None:
@@ -179,6 +181,7 @@ class RecordingFinalLogger(FinalLogger):
                 "normalized_query": planner_output.normalized_query,
                 "chunk_ranking_output": chunk_ranking_output,
                 "extractor_light_output": extractor_light_output,
+                "entity_ranking_result": entity_ranking_result,
                 "extractor_output": extractor_output,
                 "finalizer_output": finalizer_output,
             }
@@ -246,6 +249,7 @@ def test_orchestrator_logs_final_summary_once() -> None:
     assert len(final_logger.calls) == 1
     assert final_logger.calls[0]["request_id"] == "test-3"
     assert final_logger.calls[0]["normalized_query"] == "open source database tools"
+    assert isinstance(final_logger.calls[0]["entity_ranking_result"], EntityRankingResult)
 
 
 def test_default_final_logger_includes_initial_entity_columns() -> None:
