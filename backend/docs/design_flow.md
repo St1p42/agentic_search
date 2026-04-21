@@ -29,16 +29,25 @@ Build a system that takes a topic query such as "AI startups in healthcare", "to
 - The active pipeline is fixed and bounded.
 - Provenance is part of the core data model, not optional metadata.
 - LLMs are used only where semantic judgment materially helps.
-- The active implementation is intentionally downscoped from the north-star design.
-- The north-star design remains future reference, but it is not the source of truth for current behavior.
+- The active implementation is intentionally narrower than the north-star design.
+- The active source of truth is the chunk-first Jina pipeline, not the older Brave-context flow.
 
 Downscoped out of the active flow:
 
 - no verification-query sub-pass
-- no Jina fetch decision pass in the active orchestrated flow
 - no repair round
-- no MMR/diversity final selector
+- no open-ended retrieval expansion loop
 - no evaluator-style diagnostics in the final user response
+- no production-scale retrieval scheduler
+
+Implemented in the active flow:
+
+- Jina-first retrieval by default
+- provider-neutral `UrlSource` / chunk contracts
+- source-bucket classification before deep fetch
+- chunk ranking over fetched page text
+- entity reranking before extractor construction
+- passive eval-data collection for Jina chunks
 
 ---
 
@@ -58,12 +67,15 @@ Owns:
 
 1. Planner
 2. Searcher
-3. Brave LLM Context helper
-4. ExtractorLight
-5. Assessor
-6. Evidence Store Builder
-7. Extractor
-8. Finalizer
+3. Source classification / diversified shortlist
+4. Retrieved source processing via Jina
+5. Chunk ranking
+6. ExtractorLight
+7. Assessor
+8. Evidence Store Builder
+9. Entity reranking
+10. Extractor
+11. Finalizer
 
 This order is sequential and fixed.
 
@@ -83,7 +95,9 @@ At the start of a request, the orchestrator initializes:
 The active budgets are conservative and bounded. The important practical caps are:
 
 - up to 4 initial search queries
-- a bounded shortlist for Brave LLM Context
+- a bounded shortlist of Brave search results
+- a bounded deep-fetch set for Jina
+- a bounded selected chunk set for extraction
 - top 10 final entities returned
 
 ---
@@ -128,19 +142,12 @@ The active budgets are conservative and bounded. The important practical caps ar
 
 The first semantic decision in the system is not retrieval. It is query framing.
 
-The Planner infers the likely aspects behind the request and uses them in two ways:
+The Planner infers likely intent slices and uses them in two ways:
 
 - to define `core_aspects` for downstream extraction context
 - to generate a small number of query rewrites that cover likely user intent slices
 
-Example intent slices:
-
-- quality or “best overall”
-- price sensitivity
-- camera or photography emphasis
-- portability, foldable form factor, or premium flagship focus
-
-These rewrites are not searcher-generated. They are planner-owned because they are semantic, not mechanical.
+These rewrites are planner-owned because they are semantic, not mechanical.
 
 ### Constraints
 
@@ -167,20 +174,29 @@ These rewrites are not searcher-generated. They are planner-owned because they a
 - collecting ranked results, titles, snippets, domains, and metadata
 - mechanical pruning
 - exact-URL deduplication
-- bounded shortlist construction
+- weighted merge and shortlist scoring
+- source-bucket classification over Brave metadata
+- diversified shortlist construction
 
 ### Important design choices
 
-The Searcher is deliberately not semantic. It does not invent new queries. It only executes the Planner’s base query plus rewrites.
+The Searcher is deliberately not semantic in the sense of inventing new queries. It only executes the Planner’s base query plus rewrites.
 
-To avoid over-bias toward the base query, the Searcher uses a bounded merge strategy:
+The active shortlist path is:
 
-- exact duplicate URLs are removed
-- multi-query results are merged deterministically
-- the best rank wins first
-- multi-query support helps as a tie-break
-- soft reserved slots let rewrite results contribute to the shortlist
-- a small per-domain cap prevents shortlist collapse into one site
+1. run base query plus rewrites
+2. prune weak results mechanically
+3. merge duplicate URLs across queries
+4. compute a weighted source score using:
+   - Brave rank
+   - query-coverage across executed queries
+5. classify merged results into coarse source buckets
+6. select a diversified shortlist using:
+   - bucket-local sorting
+   - bucket quality floors
+   - per-bucket caps
+   - round-robin bucket selection
+   - global backfill if needed
 
 ### Mechanical pruning
 
@@ -193,47 +209,116 @@ Before any LLM call, the Searcher removes obviously weak or irrelevant URLs, inc
 - clearly navigational/boilerplate results
 - results with no lexical overlap with either the query or planner aspects
 
-This keeps the expensive semantic stages working over a better pool.
+### Source-bucket classification
+
+The current active buckets are:
+
+- `official_entity`
+- `profile_directory`
+- `roundup_list`
+- `editorial_reference`
+- `transactional_listing`
+
+The classifier uses:
+
+- URL
+- title
+- snippet
+- query provenance
+- rank
+
+It runs before deep fetch so Jina is used only on the diversified shortlist, not the full raw result pool.
 
 ---
 
-## 5. Brave LLM Context Helper
+## 5. Retrieved Source Processing
 
-**Purpose:** enrich shortlisted URLs with shallow URL-linked text before extraction.
+**Purpose:** fetch page text for shortlisted URLs and convert it into provider-neutral retrieved sources.
 
 ### Inputs
 
 - `SearcherOutput.shortlisted_results`
+- request-scoped retrieval mode
 
-### What it owns
+### Active behavior
 
-- running Brave LLM Context only on the bounded shortlist
-- keeping only passages that match the exact shortlisted URL
-- falling back to the original Brave search snippet when no exact-URL passage survives
-- light cleanup of returned passage text
+The default runtime mode is Jina.
+
+Jina fetches the shortlisted URLs, converts them into `UrlSource` objects, and chunks them with the hierarchical chunker.
+
+The retrieval layer is now provider-neutral:
+
+- `UrlSource`
+- `RetrievedChunk`
+- `RetrievedSourcesOutput`
+
+This means downstream stages no longer depend on Brave-specific passage structures.
 
 ### Why this stage exists
 
-Brave search snippets are often too thin, but full-page retrieval is too expensive for the active downscoped pipeline.
+This stage is the transition from:
 
-This helper gives the system a middle layer:
+- search-result metadata
 
-- richer than raw snippets
-- cheaper than deep fetch
-- still URL-linked for provenance
+to:
 
-This is shallow evidence, not full-page retrieval.
+- source-linked chunked page text with provenance
+
+It is the first stage that works over real retrieved page content rather than snippets.
 
 ---
 
-## 6. ExtractorLight
+## 6. Chunk Ranking
+
+**Purpose:** select the most relevant passages from fetched sources before candidate discovery.
+
+### Inputs
+
+- `PlannerOutput`
+- `RetrievedSourcesOutput`
+
+### Outputs
+
+- `ChunkRankingOutput`
+
+### Active ranking signals
+
+The active chunk ranker uses BM25 plus bounded lexical bonuses:
+
+- base query score
+- best rewrite score
+- query-variant coverage
+- max query span score
+- anchor coverage score
+
+Current weight split:
+
+- base query: `0.45`
+- best rewrite: `0.25`
+- query-variant coverage: `0.10`
+- max query span: `0.10`
+- anchor coverage: `0.10`
+
+### Why this stage exists
+
+Full fetched pages are too broad to feed directly into `ExtractorLight`.
+
+This stage narrows the evidence pool to the most relevant source passages while preserving:
+
+- source provenance
+- chunk identity
+- request-local ranking diagnostics
+
+---
+
+## 7. ExtractorLight
 
 **Purpose:** get candidate entity names before doing any full field extraction.
 
 ### Inputs
 
 - `PlannerOutput`
-- `BraveContextOutput`
+- `ChunkRankingOutput`
 
 ### Outputs
 
@@ -245,7 +330,7 @@ This is shallow evidence, not full-page retrieval.
 
 This stage is the entity-anchor for the rest of the pipeline.
 
-It is needed because the system should not jump directly from URL passages to fully structured rows. The intermediate name-extraction step gives:
+It is needed because the system should not jump directly from ranked chunks to fully structured rows. The intermediate name-extraction step gives:
 
 - a bounded candidate list
 - name-to-URL mention mapping
@@ -255,100 +340,54 @@ It is needed because the system should not jump directly from URL passages to fu
 ### What it does not do
 
 - no field extraction
-- no ranking
-- no alias resolution beyond pragmatic name extraction
+- no final row shaping
 - no final eligibility decisions
-
-### Active implementation notes
-
-The active ExtractorLight still uses one bounded LLM call over the aggregated Brave-context passages, but it now has a small deterministic cleanup layer after model output.
-
-That cleanup is intentionally narrow. It removes only obvious non-entity strings such as:
-
-- generic topic/category phrases
-- boilerplate page labels
-- malformed combined comparison strings
-- weak generic single-token nouns
-
-The goal is not to deterministically prove that every candidate is valid. The goal is to catch the clearest misses before they create downstream extractor waste.
 
 ---
 
-## 7. Assessor
+## 8. Assessor
 
-**Purpose:** classify shortlisted sources before they become evidence.
+**Purpose:** attach source-level quality and role signals before evidence assembly.
 
 ### Inputs
 
 - `PlannerOutput`
 - `SearcherOutput`
-- `BraveContextOutput`
 - `ExtractorLightOutput`
+- `RetrievedSourcesOutput`
+- optional `EvidenceStore`
 
 ### Outputs
 
-- per-URL assessed source records
+- `AssessorOutput`
 
 ### What it owns
 
-- heuristic pre-signals in code
-- immediate filtering of obviously weak sources
-- classification of:
-  - `source_role`
-  - `source_quality`
-  - `officiality`
-  - `estimated_aspect_coverage`
-  - `evidence_sufficiency`
+- heuristic source signals
+- source role
+- source quality
+- officiality
+- rough aspect coverage
+- evidence sufficiency
 
-### Why it exists
+### Active stance
 
-Not all URLs should contribute equally to extraction. The Assessor provides the source-level semantics the deterministic pipeline needs later:
+This is still a source-triage stage, but it now operates over the retrieved-source path instead of Brave-context passages.
 
-- official vs third-party vs low-quality
-- high vs medium vs low source quality
-- whether a URL is discovery-like, verification-like, or corroborative
+It is no longer the main retrieval decision-maker. It enriches the source evidence that was already selected by:
 
-This stage is where source semantics enter the pipeline.
-
-### Active implementation notes
-
-The current active Assessor is heuristic-only by default.
-
-There is still an optional LLM-backed assessor mode in code for comparison or fallback use, but it is not the active default path.
-
-The active heuristic layer evaluates:
-
-- obvious low-quality/junk-source patterns
-- weak snippet/context signals
-- officiality hints from domain/name/path overlap
-- broad third-party/editorial patterns
-- fallback-only or very thin evidence
-
-The active heuristic layer also applies a small number of deterministic drop rules, including:
-
-- confident low-quality sources
-- medium-quality third-party sources with sufficiently strong weak-source signals
-- weak third-party or ambiguous sources with fallback-only and thin evidence patterns
-
-Sources can be marked `filtered_out` by the heuristic layer. Those sources remain in the assessed-source output for transparency, but they are not supposed to contribute evidence downstream.
-
-For non-filtered sources, the stage still assigns deterministic source semantics used downstream:
-
-- `source_role`
-- `source_quality`
-- `officiality`
-- `estimated_aspect_coverage`
-- `evidence_sufficiency`
+- searcher shortlist logic
+- chunk ranking
 
 ---
 
-## 8. Evidence Store Builder
+## 9. Evidence Store Builder
 
-**Purpose:** build an entity-centric evidence store from shallow evidence plus source assessments.
+**Purpose:** construct an entity-centric evidence store from assessed sources and ranked selected chunks.
 
 ### Inputs
 
-- `BraveContextOutput`
+- `ChunkRankingOutput`
 - `ExtractorLightOutput`
 - `AssessorOutput`
 - optional existing `EvidenceStore`
@@ -357,52 +396,28 @@ For non-filtered sources, the stage still assigns deterministic source semantics
 
 - `EvidenceStore`
 
-### Evidence attachment policy
+### What it owns
 
-Evidence is attached to entities using:
+- entity-centric evidence-store construction
+- evidence merging
+- source/provenance carry-through on chunks
+- attachment of:
+  - `query_sources`
+  - `selected_chunk_rank`
+- coarse per-entity evidence summary signals
 
-1. ExtractorLight name-to-URL mapping first
-2. conservative fallback string matching second
+### Important active behavior
 
-The builder is intentionally conservative:
-
-- ambiguous evidence can remain attached to more than one entity
-- unsupported evidence is not converted into structured fields here
-- provenance is preserved on every chunk
-- sources marked `filtered_out` by the Assessor are excluded from evidence attachment
-
-### Interesting design decisions
-
-The builder does more than just store text. It also computes per-entity evidence strength signals used for extraction-time filtering.
-
-Per entity, it stores a deterministic `entity_score`:
-
-- each distinct high-quality source URL contributes `+1.0`
-- each distinct medium-quality source URL contributes `+0.5`
-- low-quality sources contribute `+0.0`
-
-Important detail:
-
-- scoring is by distinct source URL, not chunk count
-
-This avoids over-rewarding one source that happens to produce many chunks.
-
-### Chunk construction
-
-The builder uses anchored sentence-window extraction around entity mentions:
-
-- it expands from an anchor sentence
-- respects paragraph boundaries
-- stops at configured length bounds
-- avoids over-expanding into other-entity material
-
-This gives cleaner entity-specific evidence slices than whole-passage attachment.
+- primary attribution uses `name_to_source_urls`
+- conservative string matching is fallback only
+- ambiguous chunks may stay attached to multiple entities
+- the selected chunk set is now the primary evidence input
 
 ---
 
-## 9. Extractor
+## 10. Entity Reranking
 
-**Purpose:** convert entity-centric evidence into structured rows with field-level provenance.
+**Purpose:** rerank and filter evidence-backed candidates before paying extraction cost.
 
 ### Inputs
 
@@ -412,57 +427,73 @@ This gives cleaner entity-specific evidence slices than whole-passage attachment
 
 ### Outputs
 
+- `EntityRankingResult`
+
+### Active scoring
+
+The active reranker computes:
+
+1. support score from:
+   - unique source count
+   - deduped unique chunk count
+   - query-variant coverage count
+   - best source quality score
+   - average selected chunk rank score
+   - anti-concentration score
+2. query alignment score from:
+   - normalized-query BM25
+   - max query span
+   - anchor coverage
+3. final entity score as a blend of support and query alignment
+
+### Active selection
+
+After scoring, the reranker applies an MMR-style diversity-aware ordering based on query-rewrite provenance:
+
+- each entity carries:
+  - `supporting_query_variants`
+  - `dominant_query_variant`
+- entities that come from the same dominant rewrite are penalized during final selection
+
+This is intended to reduce cases where one rewrite dominates the final candidate set.
+
+---
+
+## 11. Extractor
+
+**Purpose:** build structured entities from reranked evidence-backed candidates.
+
+### Inputs
+
+- `PlannerOutput`
+- `ExtractorLightOutput`
+- `EvidenceStore`
+- optional precomputed `EntityRankingResult`
+
+### Outputs
+
 - `ExtractorOutput`
 
 ### What it owns
 
-- field extraction for planner-defined schema columns
-- conservative null-default behavior
-- field-level evidence carry-through
-- per-entity structured output
+- planner-schema field extraction
+- field-level provenance
+- conservative contradiction handling
+- null-default behavior for unsupported values
 
-### Important active design decisions
+### Active behavior
 
-The Extractor is intentionally anchored and bounded.
+- extraction is anchored to reranked candidate entities
+- only the top 10 surviving candidates are extracted
+- extractor no longer owns the main entity ranking logic
 
-It does not extract over every candidate entity blindly. Before any LLM calls, it ranks entities and keeps only the top 10.
-
-Entity ordering is deterministic:
-
-1. higher `entity_score`
-2. more distinct supporting source URLs
-3. more total supporting chunk text length
-4. alphabetical entity name
-
-This is one of the main latency-control choices in the active system.
-
-### Why top-10 happens here
-
-The expensive part is per-entity extraction. Filtering before extraction saves cost and latency more than filtering after extraction.
-
-### Extraction behavior
-
-For each retained entity:
-
-- consume its evidence-store slice
-- extract planner-schema fields only
-- prefer null to unsupported values
-- attach evidence to every non-null field
-
-The active Extractor is one LLM call per retained entity and uses minimal reasoning effort because this task is bounded extraction, not open-ended reasoning.
-
-### What is intentionally not in the active Extractor
-
-- no new-entity discovery beyond the ExtractorLight candidate set
-- no repair-time enrichment
-- no global reranking logic
-- no MMR/diversity pass
+This matters because extractor latency is driven by per-entity LLM calls, so pre-extraction reranking is now the main practical latency lever.
 
 ---
 
-## 10. Finalizer
+## 12. Finalizer
 
-**Purpose:** shape the extracted rows into the final user-facing response.
+**Purpose:** produce the final user-facing result rows.
 
 ### Inputs
 
@@ -471,86 +502,85 @@ The active Extractor is one LLM call per retained entity and uses minimal reason
 
 ### Outputs
 
+- `CanonicalizerVerifierEvaluatorOutput`
+
+### Active output shape
+
 - `final_rows`
 
-### Active behavior
+### What it owns
 
-The Finalizer is intentionally thin in the current implementation, but it is no longer a pure pass-through.
+- final user-facing row shaping
+- mapping extracted entities into:
+  - `name`
+  - `fields`
+  - `source_urls`
 
-It does not do evaluator-style ranking or diagnostics anymore. It simply converts extracted entities into the user-facing row shape:
+### Important active behavior
 
-- `name`
-- `fields`
-- `source_urls`
-
-Before returning rows, it applies a deterministic final-row pruning pass to remove obvious failures.
-
-The active pruning rules remove rows that:
-
-- have no grounded `name`
-- are fully empty
-- have no grounded non-name field
-
-In practice this means the Finalizer drops total failures and name-only rows, while preserving sparse but still grounded rows.
-
-This is a deliberate downscope. The real value now is already in the Extractor output; the Finalizer is a response shaper, not an evaluation engine.
-
-### Why this downscope was chosen
-
-- the product only needs top 10 rows
-- extractor already performs the meaningful gating
-- evaluator-style diagnostics were not user-facing
-- repair logic and richer final ranking were not justified for the current scope
+- the finalizer is still intentionally thin
+- heavy ranking logic should not migrate into the finalizer
+- it is not the place to solve retrieval or candidate-quality problems
 
 ---
 
-## 11. Final Response Shape
+## 13. SSE Observability
 
-The active user-facing response is intentionally simple:
+The frontend receives stage-oriented SSE updates for the active runtime path.
 
-- one row per final entity
-- planner-driven fields
-- field-level evidence
-- row-level `source_urls`
+Recent user-visible steps now include:
 
-Internal scoring and diagnostics are not returned.
+- `Started search`
+- `Planning`
+- `Retrieving sources`
+- `Classifying sources`
+- `Processing sources`
+- `Selecting source passages`
+- `Identifying candidates`
+- `Assessing source quality`
+- `Retrieving evidence`
+- `Ranking candidates`
+- `Building entities`
+- `Finalizing table`
 
----
+Important newer metrics include:
 
-## 12. What Was Left Out
-
-The active implementation is intentionally smaller than the north-star system.
-
-Not implemented in the active flow:
-
-- verification-query generation and a verification sub-pass
-- Jina deep-fetch selection over the evidence store
-- second evidence merge from deep fetches
-- evaluator-style final ranking with evidence-strength scoring
-- MMR/diversification in final selection
-- repair diagnostics and a single repair round
-- more ambitious canonicalization / duplicate merge logic
-
-These are valid future extensions, but they were excluded to keep the current system:
-
-- inspectable
-- bounded
-- fast enough to iterate
-- aligned to the current demo-ready scope
+- source-bucket breakdown on shortlisted sources
+- passage scoring/selection counts
+- candidate reranking counts:
+  - core candidates kept
+  - discovery candidates kept
+  - core candidates filtered
+  - discovery candidates filtered
 
 ---
 
-## 13. Summary
+## 14. Passive Evaluation and Logging
 
-The active system is a bounded deterministic pipeline where:
+The active pipeline also passively accumulates debugging and eval artifacts.
 
-- the Planner turns a raw query into entity type, schema, aspects, and intent-covering rewrites
-- the Searcher turns those rewrites into a bounded URL pool
-- Brave LLM Context provides shallow URL-linked evidence
-- ExtractorLight establishes entity anchors early and removes obvious non-entity strings
-- the Assessor adds heuristic source semantics and filters weak sources
-- the Evidence Store Builder converts URL evidence into an entity-centric store and computes entity scores
-- the Extractor performs the real top-10 gating and field extraction with provenance
-- the Finalizer prunes obvious row failures and returns only the user-facing rows
+### Jina chunk eval dataset
 
-That is the source of truth for the current implementation.
+The system writes deduped `(query, source, chunk)` rows for later LLM judging and offline retrieval evaluation.
+
+This dataset is intended for:
+
+- chunk relevance labeling
+- precision / recall / nDCG experiments
+- future retrieval-model comparisons
+
+### Source-bucket dataset
+
+The searcher also logs source-bucket decisions over Brave metadata for potential future classifier training.
+
+### Final debug summary
+
+The final logger emits a compact per-request debug summary including:
+
+- query bundle
+- selected sources
+- top candidates
+- ranked entity debug output
+- final entities
+
+This summary is intended for backend debugging, not user-facing diagnostics.

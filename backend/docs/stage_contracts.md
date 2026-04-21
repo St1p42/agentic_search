@@ -1,17 +1,20 @@
 # Stage Contracts
 
-This document records the active ownership and typed I/O boundaries for the current downscoped pipeline. The north-star design remains future-oriented reference only.
+This document records the active ownership and typed I/O boundaries for the current chunk-first pipeline. The north-star design remains future-oriented reference only.
 
 ## Active Pipeline Order
 
 1. Planner
 2. Searcher
-3. Brave LLM Context Helper
-4. ExtractorLight
-5. Assessor
-6. Evidence Store Builder
-7. Extractor
-8. Finalizer
+3. Source classification / diversified shortlist
+4. Retrieved source processing
+5. Chunk ranking
+6. ExtractorLight
+7. Assessor
+8. Evidence Store Builder
+9. Entity reranker
+10. Extractor
+11. Finalizer
 
 ---
 
@@ -62,44 +65,79 @@ Owns:
 - mechanical URL pruning
 - exact URL deduplication
 - multi-query merge
-- bounded shortlist construction
+- weighted source scoring
+- source-bucket classification over Brave metadata
+- diversified shortlist construction
 
 Important active behavior:
 - merge ordering is deterministic
-- best rank wins first
-- multi-query support acts as a tie-break
-- soft rewrite-slot reservation prevents collapse into only base-query results
-- a small per-domain cap improves shortlist variety
+- the active source score combines:
+  - Brave rank
+  - query-source coverage
+- shortlisted results now carry source-bucket metadata in provider metadata
+- bucket-local sorting, floors, caps, and backfill are part of active shortlist behavior
+- if source-bucket classification is unavailable, the searcher can still fall back to deterministic shortlist behavior
 
 Does not own:
 - semantic query generation
-- source semantics
-- deep-fetch decisions
+- deep fetch
+- chunk ranking
 - extraction
 
 ---
 
-## Brave LLM Context Helper
+## Retrieved Source Processing
 
 Input:
 - `SearcherOutput.shortlisted_results`
 
 Output:
-- `BraveContextOutput`
+- `RetrievedSourcesOutput`
 
 Owns:
-- shortlist-only Brave LLM Context retrieval
-- exact-URL passage filtering
-- snippet fallback when no exact-URL passage survives
-- deterministic passage cleanup
+- Jina fetch of shortlisted URLs in the default runtime path
+- converting fetched pages into `UrlSource`
+- hierarchical chunking into `RetrievedChunk`
 
 Important active behavior:
-- provides shallow URL-linked evidence only
-- does not do full-page retrieval
+- the retrieved-source layer is provider-neutral
+- downstream stages consume `UrlSource` and chunk references, not Brave-specific passage models
+- only shortlisted URLs are deep-fetched
 
 Does not own:
-- source assessment
+- semantic source assessment
 - candidate extraction
+- field extraction
+
+---
+
+## Chunk Ranker
+
+Input:
+- `PlannerOutput`
+- `RetrievedSourcesOutput`
+
+Output:
+- `ChunkRankingOutput`
+
+Owns:
+- request-local chunk scoring
+- ordered ranked chunk references
+- selected top-k chunk ids for downstream stages
+
+Important active behavior:
+- BM25 is the main relevance engine
+- the ranker also uses:
+  - base-query score
+  - best-rewrite score
+  - query-variant coverage
+  - max query span
+  - anchor coverage
+- `ChunkRankingOutput` is the main retrieval handoff to downstream stages
+
+Does not own:
+- candidate extraction
+- source semantics
 - field extraction
 
 ---
@@ -108,7 +146,7 @@ Does not own:
 
 Input:
 - `PlannerOutput`
-- `BraveContextOutput`
+- `ChunkRankingOutput`
 
 Output:
 - `ExtractorLightOutput`
@@ -124,8 +162,7 @@ Why it exists:
 
 Does not own:
 - field extraction
-- row ranking
-- eligibility filtering
+- final ranking
 - final response shaping
 
 ---
@@ -135,8 +172,8 @@ Does not own:
 Input:
 - `PlannerOutput`
 - `SearcherOutput`
-- `BraveContextOutput`
 - `ExtractorLightOutput`
+- `RetrievedSourcesOutput`
 - optional `EvidenceStore`
 
 Output:
@@ -144,30 +181,29 @@ Output:
 
 Owns:
 - heuristic source signals
-- one batched semantic source assessment
-- classification of:
-  - `source_role`
-  - `source_quality`
-  - `officiality`
-  - `estimated_aspect_coverage`
-  - `evidence_sufficiency`
+- source role
+- source quality
+- officiality
+- rough aspect coverage
+- evidence sufficiency
 
 Important active behavior:
 - this is source triage only
-- source semantics are decided here, not in the Searcher or Extractor
+- it operates over retrieved sources rather than Brave-context passages
+- it enriches source evidence; it does not own the main retrieval path anymore
 
-Does not own in the active flow:
-- verification-gap planning
-- verification-query generation
-- Jina selection
-- repair decisions
+Does not own:
+- semantic query generation
+- chunk ranking
+- candidate extraction
+- field extraction
 
 ---
 
 ## Evidence Store Builder
 
 Input:
-- `BraveContextOutput`
+- `ChunkRankingOutput`
 - `ExtractorLightOutput`
 - `AssessorOutput`
 - optional existing `EvidenceStore`
@@ -179,23 +215,61 @@ Owns:
 - entity-centric evidence-store construction
 - evidence merging
 - source/provenance carry-through on chunks
-- per-entity scoring for extraction-time filtering
+- evidence attachment from ranked selected chunks
 
 Important active behavior:
 - primary attribution uses `name_to_source_urls`
 - conservative string matching is fallback only
 - ambiguous chunks may stay attached to multiple entities
-- chunk construction uses anchored sentence windows
-
-Entity score policy:
-- distinct high-quality source URL => `+1.0`
-- distinct medium-quality source URL => `+0.5`
-- low-quality source URL => `+0.0`
-- score is based on distinct source URLs, not chunk count
+- evidence chunks now carry:
+  - `query_sources`
+  - `selected_chunk_rank`
 
 Does not own:
 - structured field extraction
+- final entity ranking
 - row selection
+
+---
+
+## Entity Reranker
+
+Input:
+- `PlannerOutput`
+- `ExtractorLightOutput`
+- `EvidenceStore`
+
+Output:
+- `EntityRankingResult`
+
+Owns:
+- entity reranking before extraction
+- low-score filtering before extractor top-10
+- support-score computation
+- query-alignment computation
+- MMR-style rewrite-diversity ordering
+
+Important active behavior:
+- support score uses:
+  - unique source count
+  - deduped unique chunk count
+  - query-variant coverage count
+  - best source quality score
+  - average selected chunk rank score
+  - anti-concentration score
+- query alignment uses:
+  - normalized-query BM25
+  - max query span
+  - anchor coverage
+- entities carry:
+  - `supporting_query_variants`
+  - `dominant_query_variant`
+- final selection penalizes entities that are too similar by rewrite provenance
+
+Does not own:
+- candidate extraction
+- structured field extraction
+- final row shaping
 
 ---
 
@@ -205,6 +279,7 @@ Input:
 - `PlannerOutput`
 - `ExtractorLightOutput`
 - `EvidenceStore`
+- optional `EntityRankingResult`
 
 Output:
 - `ExtractorOutput`
@@ -216,15 +291,9 @@ Owns:
 - null-default behavior for unsupported values
 
 Important active behavior:
-- entity extraction is anchored to `ExtractorLightOutput.candidate_names`
-- pre-extraction gating happens here
+- entity extraction is anchored to reranked candidate entities
 - only top 10 entities are extracted
-
-Active extraction ordering:
-1. higher `entity_score`
-2. more distinct supporting source URLs
-3. more total supporting chunk text length
-4. alphabetical entity name
+- extractor no longer owns the main candidate ranking logic
 
 Why this matters:
 - extractor latency is driven by per-entity LLM calls
@@ -258,51 +327,11 @@ Owns:
   - `source_urls`
 
 Important active behavior:
-- the Finalizer is intentionally thin
-- it does not emit diagnostics
-- it does not do repair suggestions
-- it does not do extra ranking beyond what Extractor already decided
+- the finalizer is intentionally thin
+- it should not become a substitute for retrieval, candidate generation, or reranking logic
 
 Does not own:
 - retrieval
 - source triage
-- evidence construction
-- additional ranking logic
-
----
-
-## Orchestrator
-
-Input:
-- `PipelineRequest`
-
-Output:
-- `PipelineResponse`
-
-Owns:
-- the fixed stage order
-- request-scoped state and budgets
-- evidence-store construction and merging
-- final response assembly
-- SSE lifecycle event emission when using the streaming shell
-
-Important active behavior:
-- the active flow is single-pass
-- there is no repair gating in current behavior
-- there is no diagnostics-dependent second retrieval pass
-
-Does not own:
-- stage-local semantic decisions that already belong to Planner, Assessor, or Extractor
-
----
-
-## Explicitly Out of Scope in Current Contracts
-
-- repair diagnostics
-- repair follow-up queries
-- verification-query sub-pass ownership
-- Jina selection/fetch ownership in the active flow
-- MMR/diversity selection in Finalizer
-- evaluator-style final ranking
-
-Those belong to the north-star design, not the current active contract set.
+- evidence-store construction
+- evaluator-style scoring
