@@ -157,6 +157,44 @@ class ClassifyingSourcesStageUiModel(BaseModel):
         )
 
 
+class EnrichingExtractedEntitiesStageUiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sparse_columns_targeted: int
+    enrichment_queries_run: int
+    extra_sources_fetched: int
+    passages_shortlisted: int
+    fields_filled: int
+
+    def to_ui_details(self) -> StageUiDetails:
+        return StageUiDetails(
+            summary="Searched for stronger evidence to fill missing fields",
+            metrics=[
+                StageMetric(
+                    key="sparseColumnsTargeted",
+                    label="Sparse columns targeted",
+                    value=self.sparse_columns_targeted,
+                ),
+                StageMetric(
+                    key="enrichmentQueriesRun",
+                    label="Enrichment queries run",
+                    value=self.enrichment_queries_run,
+                ),
+                StageMetric(
+                    key="extraSourcesFetched",
+                    label="Extra sources fetched",
+                    value=self.extra_sources_fetched,
+                ),
+                StageMetric(
+                    key="passagesShortlisted",
+                    label="Passages shortlisted",
+                    value=self.passages_shortlisted,
+                ),
+                StageMetric(key="fieldsFilled", label="Fields filled", value=self.fields_filled),
+            ],
+        )
+
+
 class IdentifyingCandidatesStageUiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

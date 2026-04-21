@@ -9,6 +9,7 @@ from threading import Thread
 from typing import Callable, TypeVar
 from uuid import uuid4
 
+from backend.app.config import BreadthV2RuntimeConfig
 from backend.app.contracts import (
     AssessingSourceQualityStageUiModel,
     AssessorPass,
@@ -18,6 +19,7 @@ from backend.app.contracts import (
     CanonicalizerVerifierEvaluatorOutput,
     ClassifyingSourcesStageUiModel,
     ChunkRankingOutput,
+    EnrichingExtractedEntitiesStageUiModel,
     ErrorCode,
     EventPayload,
     EvidenceStore,
@@ -53,17 +55,29 @@ from backend.app.stages.assessor import LlmSourceAssessorStage
 from backend.app.event_emitter import PipelineEventEmitter
 from backend.app.helpers import (
     BraveContextFetcher,
+    BreadthV2QueryBuilder,
+    BreadthV2Searcher,
     ChunkRanker,
+    ColumnAwareChunkRankingOutput,
+    ColumnFacetGenerator,
     DefaultChunkRanker,
+    DefaultColumnAwareChunkRanker,
+    DefaultColumnFacetGenerator,
+    DefaultBreadthV2QueryBuilder,
+    DefaultEntityGapFiller,
     DefaultEvidenceStoreBuilder,
     DefaultEntityReranker,
     DefaultFinalLogger,
+    DefaultSparseColumnDetector,
     EvidenceStoreBuilder,
+    EntityGapFiller,
     EntityReranker,
     FinalLogger,
+    GapFillMerger,
     JinaFetcher,
     PlaceholderBraveContextFetcher,
     PlaceholderJinaFetcher,
+    SparseColumnDetector,
 )
 from backend.app.stages import (
     CanonicalizerVerifierEvaluatorStage,
@@ -101,6 +115,7 @@ class PipelineState:
     entity_ranking_result: object | None = None
     extractor_output: ExtractorOutput | None = None
     finalizer_output: CanonicalizerVerifierEvaluatorOutput | None = None
+    breadth_v2_debug: dict[str, object] | None = None
     repair_used: bool = False
 
 
@@ -122,6 +137,14 @@ class PipelineOrchestrator:
         final_logger: FinalLogger | None = None,
         budget_factory: Callable[[], BudgetState] | None = None,
         event_emitter: PipelineEventEmitter | None = None,
+        breadth_v2_config: BreadthV2RuntimeConfig | None = None,
+        sparse_column_detector: SparseColumnDetector | None = None,
+        column_facet_generator: ColumnFacetGenerator | None = None,
+        breadth_v2_query_builder: BreadthV2QueryBuilder | None = None,
+        breadth_v2_searcher: BreadthV2Searcher | None = None,
+        column_aware_chunk_ranker: DefaultColumnAwareChunkRanker | None = None,
+        entity_gap_filler: EntityGapFiller | None = None,
+        gap_fill_merger: GapFillMerger | None = None,
     ) -> None:
         self.planner = planner or PlaceholderPlannerStage()
         self.searcher = searcher or PlaceholderSearcherStage()
@@ -138,6 +161,14 @@ class PipelineOrchestrator:
         self.final_logger = final_logger or DefaultFinalLogger()
         self.budget_factory = budget_factory or BudgetState
         self.event_emitter = event_emitter or PipelineEventEmitter()
+        self.breadth_v2_config = breadth_v2_config or BreadthV2RuntimeConfig()
+        self.sparse_column_detector = sparse_column_detector or DefaultSparseColumnDetector()
+        self.column_facet_generator = column_facet_generator or DefaultColumnFacetGenerator()
+        self.breadth_v2_query_builder = breadth_v2_query_builder or DefaultBreadthV2QueryBuilder()
+        self.breadth_v2_searcher = breadth_v2_searcher or BreadthV2Searcher()
+        self.column_aware_chunk_ranker = column_aware_chunk_ranker or DefaultColumnAwareChunkRanker()
+        self.entity_gap_filler = entity_gap_filler or DefaultEntityGapFiller()
+        self.gap_fill_merger = gap_fill_merger or GapFillMerger()
 
     def run(self, request: PipelineRequest) -> PipelineResponse:
         request_id = request.request_id or str(uuid4())
@@ -161,6 +192,8 @@ class PipelineOrchestrator:
         )
 
         self._run_retrieval_pass(state, followup_queries=None)
+        self._run_breadth_v2_enrichment(state)
+        self._run_finalizer(state)
         self.final_logger.log_summary(
             request_id=state.request_id,
             planner_output=state.planner_output,
@@ -169,6 +202,7 @@ class PipelineOrchestrator:
             entity_ranking_result=state.entity_ranking_result,
             extractor_output=state.extractor_output,
             finalizer_output=state.finalizer_output,
+            breadth_v2_debug=state.breadth_v2_debug,
         )
         return PipelineResponse(
             request_id=state.request_id,
@@ -454,6 +488,126 @@ class PipelineOrchestrator:
                 ).to_ui_details()
             ),
         )
+    def _run_breadth_v2_enrichment(self, state: PipelineState) -> None:
+        if not self.breadth_v2_config.enabled or state.extractor_output is None:
+            return
+        if not state.extractor_output.entities:
+            return
+
+        sparse_column_summary = self.sparse_column_detector.detect(
+            schema_columns=state.planner_output.schema_columns,
+            extractor_output=state.extractor_output,
+        )
+        sparse_columns = sparse_column_summary.sparse_columns[: self.breadth_v2_config.max_column_queries]
+        if not sparse_columns:
+            return
+
+        self.event_emitter.stage_started(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Enriching extracted entities",
+        )
+
+        facet_output = self.column_facet_generator.generate(
+            normalized_query=state.planner_output.normalized_query,
+            base_query=state.planner_output.base_query,
+            sparse_columns=sparse_columns,
+        )
+        query_bundle = self.breadth_v2_query_builder.build(
+            normalized_query=state.planner_output.normalized_query,
+            facet_output=facet_output,
+            max_queries=self.breadth_v2_config.max_column_queries,
+        )
+        if not query_bundle.column_queries:
+            self.event_emitter.stage_completed(
+                request_id=state.request_id,
+                stage_name=StageName.EXTRACTOR,
+                message="Enriching extracted entities completed",
+                data=_ui_event_data(
+                    EnrichingExtractedEntitiesStageUiModel(
+                        sparse_columns_targeted=len(sparse_columns),
+                        enrichment_queries_run=0,
+                        extra_sources_fetched=0,
+                        passages_shortlisted=0,
+                        fields_filled=0,
+                    ).to_ui_details()
+                ),
+            )
+            return
+
+        breadth_v2_searcher_output = self.breadth_v2_searcher.run(
+            planner_output=state.planner_output,
+            queries=[column_query.query for column_query in query_bundle.column_queries],
+        )
+        if not breadth_v2_searcher_output.shortlisted_results:
+            self.event_emitter.stage_completed(
+                request_id=state.request_id,
+                stage_name=StageName.EXTRACTOR,
+                message="Enriching extracted entities completed",
+                data=_ui_event_data(
+                    EnrichingExtractedEntitiesStageUiModel(
+                        sparse_columns_targeted=len(sparse_columns),
+                        enrichment_queries_run=len(query_bundle.column_queries),
+                        extra_sources_fetched=0,
+                        passages_shortlisted=0,
+                        fields_filled=0,
+                    ).to_ui_details()
+                ),
+            )
+            return
+
+        breadth_v2_sources_output = self.jina_fetcher.run(
+            searcher_output=breadth_v2_searcher_output,
+            fetch_budget=self.breadth_v2_config.shortlist_cap,
+            request_query=state.original_query,
+            planner_output=state.planner_output,
+        )
+        breadth_v2_chunk_ranking_output = self.column_aware_chunk_ranker.run(
+            normalized_query=state.planner_output.normalized_query,
+            extracted_entities=state.extractor_output.entities,
+            sparse_columns=sparse_columns,
+            facet_output=facet_output,
+            url_sources=breadth_v2_sources_output.url_sources,
+        )
+        gap_fill_result = self.entity_gap_filler.run(
+            planner_output=state.planner_output,
+            extractor_output=state.extractor_output,
+            ranking_output=breadth_v2_chunk_ranking_output,
+        )
+        state.extractor_output = self.gap_fill_merger.merge(
+            extractor_output=state.extractor_output,
+            gap_fill_result=gap_fill_result,
+        )
+        state.breadth_v2_debug = {
+            "sparse_columns": sparse_columns,
+            "facet_terms_by_column": {
+                facet.column: facet.facet_terms
+                for facet in facet_output.facets
+            },
+            "queries": [
+                {"column": column_query.column, "query": column_query.query}
+                for column_query in query_bundle.column_queries
+            ],
+            "top_shortlisted_chunks": _breadth_v2_shortlisted_chunks_payload(
+                breadth_v2_chunk_ranking_output
+            ),
+        }
+        self.event_emitter.stage_completed(
+            request_id=state.request_id,
+            stage_name=StageName.EXTRACTOR,
+            message="Enriching extracted entities completed",
+            data=_ui_event_data(
+                EnrichingExtractedEntitiesStageUiModel(
+                    sparse_columns_targeted=len(sparse_columns),
+                    enrichment_queries_run=len(query_bundle.column_queries),
+                    extra_sources_fetched=len(breadth_v2_sources_output.url_sources),
+                    passages_shortlisted=len(breadth_v2_chunk_ranking_output.ranked_chunks),
+                    fields_filled=gap_fill_result.fields_filled,
+                ).to_ui_details()
+            ),
+        )
+
+    def _run_finalizer(self, state: PipelineState) -> None:
         state.finalizer_output = self._run_stage(
             request_id=state.request_id,
             stage_name=StageName.FINALIZER,
@@ -616,3 +770,23 @@ def _schema_preview_from_planner_output(planner_output: PlannerOutput) -> Schema
             for column in planner_output.schema_columns
         ],
     )
+
+
+def _breadth_v2_shortlisted_chunks_payload(
+    ranking_output: ColumnAwareChunkRankingOutput,
+) -> list[dict[str, object]]:
+    source_by_id = {
+        source.source_id: source
+        for source in ranking_output.url_sources
+    }
+    return [
+        {
+            "entity_name": ranked_chunk.entity_name,
+            "column": ranked_chunk.column,
+            "rank": ranked_chunk.rank,
+            "score": round(ranked_chunk.score, 4),
+            "source_url": str(source_by_id[ranked_chunk.source_id].url) if ranked_chunk.source_id in source_by_id else "",
+            "source_title": source_by_id[ranked_chunk.source_id].title if ranked_chunk.source_id in source_by_id else "",
+        }
+        for ranked_chunk in ranking_output.ranked_chunks
+    ]

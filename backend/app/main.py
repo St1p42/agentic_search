@@ -12,6 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.app.config import (
     load_assessor_runtime_config,
+    load_breadth_v2_runtime_config,
     load_brave_context_runtime_config,
     load_extractor_runtime_config,
     load_extractor_light_runtime_config,
@@ -34,7 +35,20 @@ from backend.app.contracts import (
     SearcherOutput,
     CanonicalizerVerifierEvaluatorOutput,
 )
-from backend.app.helpers import DefaultChunkRanker, DefaultFinalLogger, build_brave_context_fetcher, build_jina_fetcher
+from backend.app.helpers import (
+    BreadthV2SearchConfig,
+    BreadthV2Searcher,
+    DefaultBreadthV2QueryBuilder,
+    DefaultChunkRanker,
+    DefaultColumnAwareChunkRanker,
+    DefaultColumnFacetGenerator,
+    DefaultEntityGapFiller,
+    DefaultFinalLogger,
+    DefaultSparseColumnDetector,
+    GapFillMerger,
+    build_brave_context_fetcher,
+    build_jina_fetcher,
+)
 from backend.app.helpers import build_evidence_store_builder
 from backend.app.orchestrator import PipelineOrchestrator
 from backend.app.stages import (
@@ -61,6 +75,7 @@ def get_orchestrator() -> PipelineOrchestrator:
     assessor_config = load_assessor_runtime_config()
     extractor_config = load_extractor_runtime_config()
     jina_fetcher_config = load_jina_fetcher_runtime_config()
+    breadth_v2_config = load_breadth_v2_runtime_config()
 
     return PipelineOrchestrator(
         planner=build_planner_stage(runtime_config=planner_config),
@@ -75,6 +90,20 @@ def get_orchestrator() -> PipelineOrchestrator:
         final_logger=DefaultFinalLogger(),
         extractor=build_extractor_stage(runtime_config=extractor_config),
         finalizer=ThinFinalizerStage(),
+        breadth_v2_config=breadth_v2_config,
+        sparse_column_detector=DefaultSparseColumnDetector(),
+        column_facet_generator=DefaultColumnFacetGenerator(openai_api_key=planner_config.openai_api_key),
+        breadth_v2_query_builder=DefaultBreadthV2QueryBuilder(),
+        breadth_v2_searcher=BreadthV2Searcher(
+            runtime_config=searcher_config,
+            search_config=BreadthV2SearchConfig(
+                sources_per_query=breadth_v2_config.sources_per_query,
+                shortlist_cap=breadth_v2_config.shortlist_cap,
+            ),
+        ),
+        column_aware_chunk_ranker=DefaultColumnAwareChunkRanker(),
+        entity_gap_filler=DefaultEntityGapFiller(openai_api_key=extractor_config.openai_api_key),
+        gap_fill_merger=GapFillMerger(),
     )
 
 

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from backend.app.contracts import ClassifyingSourcesStageUiModel, RankingCandidatesStageUiModel
+from backend.app.contracts import (
+    ClassifyingSourcesStageUiModel,
+    EnrichingExtractedEntitiesStageUiModel,
+    RankingCandidatesStageUiModel,
+)
 
 
 def test_ranking_candidates_stage_ui_model_exposes_expected_metrics() -> None:
@@ -36,4 +40,23 @@ def test_classifying_sources_stage_ui_model_exposes_expected_metrics() -> None:
         ("Roundup sources", 4),
         ("Editorial/reference sources", 3),
         ("Transactional sources", 1),
+    ]
+
+
+def test_enriching_extracted_entities_stage_ui_model_exposes_expected_metrics() -> None:
+    details = EnrichingExtractedEntitiesStageUiModel(
+        sparse_columns_targeted=2,
+        enrichment_queries_run=2,
+        extra_sources_fetched=6,
+        passages_shortlisted=9,
+        fields_filled=4,
+    ).to_ui_details()
+
+    assert details.summary == "Searched for stronger evidence to fill missing fields"
+    assert [(metric.label, metric.value) for metric in details.metrics] == [
+        ("Sparse columns targeted", 2),
+        ("Enrichment queries run", 2),
+        ("Extra sources fetched", 6),
+        ("Passages shortlisted", 9),
+        ("Fields filled", 4),
     ]

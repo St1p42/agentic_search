@@ -34,6 +34,7 @@ class FinalLogger(ABC):
         entity_ranking_result: "EntityRankingResult | None",
         extractor_output: ExtractorOutput | None,
         finalizer_output: CanonicalizerVerifierEvaluatorOutput | None,
+        breadth_v2_debug: dict[str, object] | None = None,
     ) -> None:
         """Log a compact per-request pipeline summary."""
 
@@ -49,6 +50,7 @@ class PlaceholderFinalLogger(FinalLogger):
         entity_ranking_result: "EntityRankingResult | None",
         extractor_output: ExtractorOutput | None,
         finalizer_output: CanonicalizerVerifierEvaluatorOutput | None,
+        breadth_v2_debug: dict[str, object] | None = None,
     ) -> None:
         _ = request_id
         _ = planner_output
@@ -57,6 +59,7 @@ class PlaceholderFinalLogger(FinalLogger):
         _ = entity_ranking_result
         _ = extractor_output
         _ = finalizer_output
+        _ = breadth_v2_debug
 
 
 class DefaultFinalLogger(FinalLogger):
@@ -70,6 +73,7 @@ class DefaultFinalLogger(FinalLogger):
         entity_ranking_result: "EntityRankingResult | None",
         extractor_output: ExtractorOutput | None,
         finalizer_output: CanonicalizerVerifierEvaluatorOutput | None,
+        breadth_v2_debug: dict[str, object] | None = None,
     ) -> None:
         payload = {
             "request_id": request_id,
@@ -83,6 +87,17 @@ class DefaultFinalLogger(FinalLogger):
             "final_entities": self._final_entities(finalizer_output),
         }
         logger.warning("pipeline_debug_summary %s", json.dumps(payload, ensure_ascii=True, sort_keys=True))
+        if breadth_v2_debug:
+            enrichment_payload = {
+                "request_id": request_id,
+                "normalized_query": planner_output.normalized_query,
+                "base_query": planner_output.base_query,
+                **breadth_v2_debug,
+            }
+            logger.warning(
+                "breadth_v2_debug_summary %s",
+                json.dumps(enrichment_payload, ensure_ascii=True, sort_keys=True),
+            )
 
     @staticmethod
     def _selected_sources(chunk_ranking_output: ChunkRankingOutput | None) -> list[str]:
