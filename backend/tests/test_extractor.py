@@ -117,6 +117,8 @@ class StubEntityReranker(EntityReranker):
                 RankedEntity(
                     entity_name=entity_name,
                     candidate_type="core",
+                    supporting_query_variants=["AI startups in healthcare"],
+                    dominant_query_variant="AI startups in healthcare",
                     support_score=1.0,
                     query_alignment_score=1.0,
                     final_score=1.0,

@@ -143,3 +143,63 @@ def test_entity_reranker_prefers_multi_source_multi_query_aligned_entities_and_f
     assert "Good To See You Beauty Salon" not in result.ranked_entity_names
     assert result.ranked_entities[0].features.unique_source_count == 2
     assert result.ranked_entities[0].features.query_variant_coverage_count == 2
+
+
+def test_entity_reranker_uses_mmr_to_diversify_across_dominant_query_variants() -> None:
+    reranker = DefaultEntityReranker(min_final_entity_score=0.0)
+    planner_output = make_planner_output(
+        entity_type="venue",
+        base_query="best entertainment places and things to do in Bucharest",
+        normalized_query="entertainment places and things to do in Bucharest",
+        initial_query_rewrites=[
+            "Bucharest nightlife venues (bars, clubs, live music)",
+            "Bucharest cultural attractions (museums, theaters, historic sites)",
+        ],
+    )
+
+    result = reranker.run(
+        planner_output=planner_output,
+        extractor_light_output=make_extractor_light_output(
+            candidate_names=["Control Club", "Expirat", "Romanian Athenaeum"],
+            name_to_source_urls={},
+            mention_counts={"Control Club": 4, "Expirat": 4, "Romanian Athenaeum": 3},
+        ),
+        evidence_store=make_evidence_store(
+            chunks_by_entity={
+                "Control Club": [
+                    make_evidence_chunk(
+                        text="Control Club is a Bucharest nightclub and live music venue with DJs and concerts.",
+                        source_url="https://example.com/control",
+                        source_quality="high",
+                        query_sources=["Bucharest nightlife venues (bars, clubs, live music)"],
+                        selected_chunk_rank=1,
+                    )
+                ],
+                "Expirat": [
+                    make_evidence_chunk(
+                        text="Expirat is a nightlife venue in Bucharest known for club nights and live music.",
+                        source_url="https://example.com/expirat",
+                        source_quality="high",
+                        query_sources=["Bucharest nightlife venues (bars, clubs, live music)"],
+                        selected_chunk_rank=2,
+                    )
+                ],
+                "Romanian Athenaeum": [
+                    make_evidence_chunk(
+                        text="Romanian Athenaeum is a concert hall in Bucharest hosting classical performances and cultural events.",
+                        source_url="https://example.com/athenaeum",
+                        source_quality="high",
+                        query_sources=["Bucharest cultural attractions (museums, theaters, historic sites)"],
+                        selected_chunk_rank=3,
+                    )
+                ],
+            },
+            entity_scores={},
+        ),
+    )
+
+    assert result.ranked_entity_names[0] == "Control Club"
+    assert result.ranked_entity_names[1] == "Romanian Athenaeum"
+    assert result.ranked_entity_names[2] == "Expirat"
+    assert result.ranked_entities[0].dominant_query_variant == "Bucharest nightlife venues (bars, clubs, live music)"
+    assert result.ranked_entities[1].dominant_query_variant == "Bucharest cultural attractions (museums, theaters, historic sites)"

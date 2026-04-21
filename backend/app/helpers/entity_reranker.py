@@ -14,6 +14,7 @@ from backend.app.helpers.chunk_retrieval_preprocessor import (
     ChunkRetrievalPreprocessor,
     DefaultChunkRetrievalPreprocessor,
 )
+from backend.app.helpers.ranking_utils import dense_normalized_scores
 
 
 UNIQUE_SOURCE_COUNT_WEIGHT = 0.30
@@ -29,6 +30,7 @@ QUERY_ALIGNMENT_ANCHOR_WEIGHT = 0.20
 
 ENTITY_QUERY_ALIGNMENT_BETA = 0.50
 MIN_FINAL_ENTITY_SCORE = 0.30
+ENTITY_SELECTION_MMR_LAMBDA = 0.75
 
 UNIQUE_SOURCE_COUNT_NORMALIZER = 3
 DEDUPED_CHUNK_COUNT_NORMALIZER = 4
@@ -60,6 +62,8 @@ class EntityRankingFeatures:
 class RankedEntity:
     entity_name: str
     candidate_type: Literal["core", "discovery"]
+    supporting_query_variants: list[str]
+    dominant_query_variant: str | None
     support_score: float
     query_alignment_score: float
     final_score: float
@@ -113,11 +117,16 @@ class DefaultEntityReranker:
             for candidate_name in candidate_names
         }
         total_query_variant_count = _total_query_variant_count(planner_output)
+        preferred_query_variants = _preferred_query_variants(planner_output)
         features_by_entity = {
             candidate_name: _entity_features(
                 chunks=deduped_chunks_by_entity[candidate_name],
                 total_query_variant_count=total_query_variant_count,
             )
+            for candidate_name in candidate_names
+        }
+        query_variant_counts_by_entity = {
+            candidate_name: _query_variant_counts(deduped_chunks_by_entity[candidate_name])
             for candidate_name in candidate_names
         }
         query_alignment_scores = _query_alignment_scores(
@@ -130,6 +139,14 @@ class DefaultEntityReranker:
             RankedEntity(
                 entity_name=candidate_name,
                 candidate_type=_candidate_type(query_alignment_scores.get(candidate_name, 0.0)),
+                supporting_query_variants=_supporting_query_variants(
+                    query_variant_counts_by_entity[candidate_name],
+                    preferred_query_variants=preferred_query_variants,
+                ),
+                dominant_query_variant=_dominant_query_variant(
+                    query_variant_counts_by_entity[candidate_name],
+                    preferred_query_variants=preferred_query_variants,
+                ),
                 support_score=_support_score(
                     features_by_entity[candidate_name],
                     total_query_variant_count=total_query_variant_count,
@@ -144,6 +161,8 @@ class DefaultEntityReranker:
             RankedEntity(
                 entity_name=entity.entity_name,
                 candidate_type=entity.candidate_type,
+                supporting_query_variants=entity.supporting_query_variants,
+                dominant_query_variant=entity.dominant_query_variant,
                 support_score=entity.support_score,
                 query_alignment_score=entity.query_alignment_score,
                 final_score=((1.0 - ENTITY_QUERY_ALIGNMENT_BETA) * entity.support_score)
@@ -156,18 +175,16 @@ class DefaultEntityReranker:
             key=lambda entity: (-entity.final_score, -entity.support_score, -entity.query_alignment_score, entity.entity_name.casefold())
         )
 
-        kept_entities = [
+        eligible_entities = [
             entity
             for entity in ranked_entities
             if entity.final_score >= self._min_final_entity_score
         ]
-        if not kept_entities:
+        if not eligible_entities:
             return EntityRankingResult(kept_entities=ranked_entities, filtered_entities=[])
-        filtered_entities = [
-            entity
-            for entity in ranked_entities
-            if entity.final_score < self._min_final_entity_score
-        ]
+        kept_entities = _select_diverse_entities(eligible_entities)
+        kept_entity_names = {entity.entity_name for entity in kept_entities}
+        filtered_entities = [entity for entity in ranked_entities if entity.entity_name not in kept_entity_names]
         return EntityRankingResult(kept_entities=kept_entities, filtered_entities=filtered_entities)
 
 
@@ -244,7 +261,7 @@ def _query_alignment_scores(
 
     normalized_query_tokens = preprocessor.preprocess_text(planner_output.normalized_query)
     results, scores = retriever.retrieve([normalized_query_tokens], k=len(entity_names), show_progress=False)
-    bm25_scores = _dense_normalized_scores(
+    bm25_scores = dense_normalized_scores(
         result_ids=results[0].tolist(),
         result_scores=scores[0].tolist(),
         corpus_size=len(entity_names),
@@ -263,6 +280,124 @@ def _query_alignment_scores(
 
 def _candidate_type(query_alignment_score: float) -> Literal["core", "discovery"]:
     return "core" if query_alignment_score >= 0.5 else "discovery"
+
+
+def _preferred_query_variants(planner_output: PlannerOutput) -> list[str]:
+    ordered_variants = [
+        planner_output.normalized_query,
+        planner_output.base_query,
+        *planner_output.initial_query_rewrites,
+    ]
+    seen: set[str] = set()
+    preferred: list[str] = []
+    for query_variant in ordered_variants:
+        normalized_variant = query_variant.strip()
+        if not normalized_variant or normalized_variant in seen:
+            continue
+        seen.add(normalized_variant)
+        preferred.append(normalized_variant)
+    return preferred
+
+
+def _query_variant_counts(chunks: list[EvidenceChunk]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for chunk in chunks:
+        for query_variant in chunk.query_sources:
+            normalized_variant = query_variant.strip()
+            if not normalized_variant:
+                continue
+            counts[normalized_variant] = counts.get(normalized_variant, 0) + 1
+    return counts
+
+
+def _supporting_query_variants(
+    query_variant_counts: dict[str, int],
+    *,
+    preferred_query_variants: list[str],
+) -> list[str]:
+    ordered_variants = [
+        query_variant
+        for query_variant in preferred_query_variants
+        if query_variant_counts.get(query_variant, 0) > 0
+    ]
+    remaining_variants = sorted(
+        (
+            query_variant
+            for query_variant in query_variant_counts
+            if query_variant not in ordered_variants
+        ),
+        key=lambda query_variant: query_variant.casefold(),
+    )
+    return [*ordered_variants, *remaining_variants]
+
+
+def _dominant_query_variant(
+    query_variant_counts: dict[str, int],
+    *,
+    preferred_query_variants: list[str],
+) -> str | None:
+    if not query_variant_counts:
+        return None
+
+    preferred_positions = {
+        query_variant: index
+        for index, query_variant in enumerate(preferred_query_variants)
+    }
+    return min(
+        query_variant_counts,
+        key=lambda query_variant: (
+            -query_variant_counts[query_variant],
+            preferred_positions.get(query_variant, len(preferred_positions)),
+            query_variant.casefold(),
+        ),
+    )
+
+
+def _select_diverse_entities(ranked_entities: list[RankedEntity]) -> list[RankedEntity]:
+    if len(ranked_entities) <= 1:
+        return ranked_entities
+
+    remaining_entities = list(ranked_entities)
+    selected_entities: list[RankedEntity] = []
+
+    while remaining_entities:
+        if not selected_entities:
+            selected_entities.append(remaining_entities.pop(0))
+            continue
+
+        next_entity = max(
+            remaining_entities,
+            key=lambda candidate: _mmr_score(candidate, selected_entities),
+        )
+        remaining_entities.remove(next_entity)
+        selected_entities.append(next_entity)
+
+    return selected_entities
+
+
+def _mmr_score(candidate: RankedEntity, selected_entities: list[RankedEntity]) -> float:
+    redundancy_penalty = max(
+        (_query_variant_similarity(candidate, selected_entity) for selected_entity in selected_entities),
+        default=0.0,
+    )
+    return (
+        ENTITY_SELECTION_MMR_LAMBDA * candidate.final_score
+        - (1.0 - ENTITY_SELECTION_MMR_LAMBDA) * redundancy_penalty
+    )
+
+
+def _query_variant_similarity(left: RankedEntity, right: RankedEntity) -> float:
+    if (
+        left.dominant_query_variant
+        and right.dominant_query_variant
+        and left.dominant_query_variant == right.dominant_query_variant
+    ):
+        return 1.0
+
+    if set(left.supporting_query_variants) & set(right.supporting_query_variants):
+        return 0.5
+
+    return 0.0
 
 
 def _deduped_chunks(
@@ -318,24 +453,6 @@ def _avg_selected_chunk_rank_score(chunks: list[EvidenceChunk]) -> float:
     if not rank_scores:
         return 0.0
     return sum(rank_scores) / len(rank_scores)
-
-
-def _dense_normalized_scores(
-    *,
-    result_ids: list[int],
-    result_scores: list[float],
-    corpus_size: int,
-) -> list[float]:
-    dense_scores = [0.0] * corpus_size
-    for doc_id, score in zip(result_ids, result_scores, strict=False):
-        if 0 <= doc_id < corpus_size:
-            dense_scores[doc_id] = score
-    max_score = max(dense_scores, default=0.0)
-    if max_score <= 0.0:
-        return dense_scores
-    return [max(0.0, score / max_score) for score in dense_scores]
-
-
 def _anchor_terms(
     planner_output: PlannerOutput,
     preprocessor: ChunkRetrievalPreprocessor,

@@ -20,6 +20,7 @@ from backend.app.helpers.chunk_retrieval_preprocessor import (
     ChunkRetrievalPreprocessor,
     DefaultChunkRetrievalPreprocessor,
 )
+from backend.app.helpers.ranking_utils import dense_normalized_scores
 
 
 BASE_QUERY_WEIGHT = 0.45
@@ -160,28 +161,12 @@ def _query_scores(
     for label, query_text in query_bundle.query_text_by_label.items():
         tokenized_query = [preprocessor.preprocess_text(query_text)]
         results, scores = retriever.retrieve(tokenized_query, k=corpus_size, show_progress=False)
-        scores_by_label[label] = _dense_normalized_scores(
+        scores_by_label[label] = dense_normalized_scores(
             result_ids=results[0].tolist(),
             result_scores=scores[0].tolist(),
             corpus_size=corpus_size,
         )
     return scores_by_label
-
-
-def _dense_normalized_scores(
-    *,
-    result_ids: list[int],
-    result_scores: list[float],
-    corpus_size: int,
-) -> list[float]:
-    dense_scores = [0.0] * corpus_size
-    for doc_id, score in zip(result_ids, result_scores, strict=False):
-        if 0 <= doc_id < corpus_size:
-            dense_scores[doc_id] = score
-    max_score = max(dense_scores, default=0.0)
-    if max_score <= 0.0:
-        return dense_scores
-    return [max(0.0, score / max_score) for score in dense_scores]
 
 
 def _ranked_chunk(
