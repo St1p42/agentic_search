@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from pydantic import HttpUrl
@@ -24,6 +25,20 @@ class FakeJinaReaderClient(JinaReaderClient):
         if isinstance(result, Exception):
             raise result
         return result
+
+
+class DelayedFakeJinaReaderClient(FakeJinaReaderClient):
+    def __init__(
+        self,
+        documents_by_url: dict[str, JinaReaderDocument | Exception],
+        delays_by_url: dict[str, float],
+    ) -> None:
+        super().__init__(documents_by_url)
+        self._delays_by_url = delays_by_url
+
+    def fetch_url(self, *, url: str) -> JinaReaderDocument:
+        time.sleep(self._delays_by_url.get(url, 0.0))
+        return super().fetch_url(url=url)
 
 
 def test_default_jina_fetcher_chunks_successful_docs_and_marks_failures() -> None:
@@ -178,3 +193,63 @@ def test_default_jina_fetcher_writes_deduped_eval_rows_when_query_bundle_is_prov
         "judge_model": None,
         "label_reason": None,
     }
+
+
+def test_default_jina_fetcher_preserves_shortlist_order_under_parallel_execution() -> None:
+    fake_client = DelayedFakeJinaReaderClient(
+        {
+            "https://first.example.com": JinaReaderDocument(
+                url="https://first.example.com",
+                title="First Source",
+                text="# First\nFirst source content.",
+            ),
+            "https://second.example.com": JinaReaderDocument(
+                url="https://second.example.com",
+                title="Second Source",
+                text="# Second\nSecond source content.",
+            ),
+        },
+        delays_by_url={
+            "https://first.example.com": 0.05,
+            "https://second.example.com": 0.0,
+        },
+    )
+    fetcher = DefaultJinaFetcher(
+        runtime_config=JinaFetcherRuntimeConfig(
+            mode="jina",
+            jina_api_key=None,
+            reader_base_url="https://r.jina.ai",
+            timeout_seconds=30.0,
+            max_chunks_per_doc=2,
+            max_chars_per_chunk=120,
+            min_chars_per_chunk=20,
+            max_concurrency=5,
+        ),
+        jina_reader_client=fake_client,
+    )
+
+    output = fetcher.run(
+        searcher_output=make_searcher_output(
+            raw_results=[
+                make_search_result(url="https://first.example.com", title="First Source", domain="first.example.com"),
+                make_search_result(url="https://second.example.com", title="Second Source", domain="second.example.com", rank=2),
+            ],
+            shortlisted_results=[
+                make_search_result(url="https://first.example.com", title="First Source", domain="first.example.com"),
+                make_search_result(url="https://second.example.com", title="Second Source", domain="second.example.com", rank=2),
+            ],
+        ),
+        fetch_budget=2,
+    )
+
+    assert [str(source.url) for source in output.url_sources] == [
+        "https://first.example.com/",
+        "https://second.example.com/",
+    ]
+    assert fake_client.calls == [
+        "https://second.example.com/",
+        "https://first.example.com/",
+    ] or fake_client.calls == [
+        "https://first.example.com/",
+        "https://second.example.com/",
+    ]

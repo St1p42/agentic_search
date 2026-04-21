@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Jina fetch helper owned by the orchestrator."""
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 
 from backend.app.api_clients import HttpJinaReaderClient, JinaReaderClient
@@ -59,39 +60,27 @@ class DefaultJinaFetcher:
         planner_output: PlannerOutput | None = None,
     ) -> RetrievedSourcesOutput:
         config = self._config()
-        chunker = HierarchicalTextChunker(
-            target_chunk_chars=config.max_chars_per_chunk,
-            min_chunk_chars=config.min_chars_per_chunk,
-            max_chunks=config.max_chunks_per_doc,
-        )
         selected_results = _selected_results(searcher_output, fetch_budget)
-        url_sources: list[UrlSource] = []
+        if not selected_results:
+            output = RetrievedSourcesOutput(url_sources=[])
+            if request_query and planner_output:
+                self._eval_dataset_writer.write(
+                    request_query=request_query,
+                    planner_output=planner_output,
+                    url_sources=output.url_sources,
+                )
+            return output
 
-        for result in selected_results:
-            source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(result.url))
-            try:
-                document = self._client().fetch_url(url=str(result.url))
-                chunks = chunker.chunk(text=document.text, source_id=source_id)
-                url_sources.append(
-                    UrlSource(
-                        source_id=source_id,
-                        url=result.url,
-                        title=document.title,
-                        origin=EvidenceOrigin.JINA,
-                        chunks=chunks,
-                    )
-                )
-            except Exception as exc:
-                url_sources.append(
-                    UrlSource(
-                        source_id=source_id,
-                        url=result.url,
-                        title=result.title,
-                        origin=EvidenceOrigin.JINA,
-                        metadata={"fetch_succeeded": False, "error_message": str(exc)},
-                        chunks=[],
-                    )
-                )
+        max_workers = max(1, min(config.max_concurrency, len(selected_results)))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(self._process_result, index=index, result=result, config=config)
+                for index, result in enumerate(selected_results)
+            ]
+            indexed_url_sources = [future.result() for future in futures]
+
+        indexed_url_sources.sort(key=lambda item: item[0])
+        url_sources = [url_source for _, url_source in indexed_url_sources]
 
         output = RetrievedSourcesOutput(url_sources=url_sources)
         if request_query and planner_output:
@@ -116,6 +105,45 @@ class DefaultJinaFetcher:
             timeout_seconds=config.timeout_seconds,
         )
         return self._jina_reader_client
+
+    def _process_result(
+        self,
+        *,
+        index: int,
+        result: SearchResultItem,
+        config: JinaFetcherRuntimeConfig,
+    ) -> tuple[int, UrlSource]:
+        source_id = _source_id(origin=EvidenceOrigin.JINA, source_url=str(result.url))
+        chunker = HierarchicalTextChunker(
+            target_chunk_chars=config.max_chars_per_chunk,
+            min_chunk_chars=config.min_chars_per_chunk,
+            max_chunks=config.max_chunks_per_doc,
+        )
+        try:
+            document = self._client().fetch_url(url=str(result.url))
+            chunks = chunker.chunk(text=document.text, source_id=source_id)
+            return (
+                index,
+                UrlSource(
+                    source_id=source_id,
+                    url=result.url,
+                    title=document.title,
+                    origin=EvidenceOrigin.JINA,
+                    chunks=chunks,
+                ),
+            )
+        except Exception as exc:
+            return (
+                index,
+                UrlSource(
+                    source_id=source_id,
+                    url=result.url,
+                    title=result.title,
+                    origin=EvidenceOrigin.JINA,
+                    metadata={"fetch_succeeded": False, "error_message": str(exc)},
+                    chunks=[],
+                ),
+            )
 
 
 def build_jina_fetcher(

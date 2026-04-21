@@ -24,7 +24,7 @@ from backend.app.helpers import (
 
 URL_FILE_EXTENSIONS = (".pdf", ".ppt", ".pptx", ".doc", ".docx")
 MAX_URLS_PER_DOMAIN = 3
-BUCKET_RELATIVE_SCORE_FLOOR = 0.70
+BUCKET_RELATIVE_SCORE_FLOOR = 0.60
 LARGE_BUCKET_SIZE = 4
 MIN_BUCKET_KEEP = 1
 LARGE_BUCKET_MIN_KEEP = 2
@@ -519,11 +519,15 @@ def _bucketed_results(
             filtered_results_by_bucket[bucket] = []
             continue
         guaranteed_count = LARGE_BUCKET_MIN_KEEP if len(results) >= LARGE_BUCKET_SIZE else MIN_BUCKET_KEEP
-        best_score = _source_shortlist_score(item=results[0], total_query_count=total_query_count)
+        floor_reference_index = min(guaranteed_count - 1, len(results) - 1)
+        floor_reference_score = _source_shortlist_score(
+            item=results[floor_reference_index],
+            total_query_count=total_query_count,
+        )
         eligible_results: list[SearchResultItem] = []
         for index, result in enumerate(results):
             result_score = _source_shortlist_score(item=result, total_query_count=total_query_count)
-            if index < guaranteed_count or result_score >= BUCKET_RELATIVE_SCORE_FLOOR * best_score:
+            if index < guaranteed_count or result_score >= BUCKET_RELATIVE_SCORE_FLOOR * floor_reference_score:
                 eligible_results.append(result)
         filtered_results_by_bucket[bucket] = eligible_results
     return filtered_results_by_bucket
